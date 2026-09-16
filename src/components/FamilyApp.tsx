@@ -1,7 +1,7 @@
 "use client";
-import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { FamilyAccess, type FamilyUser } from "./FamilyAccess";
+import { FamilyWelcome } from "./FamilyWelcome";
 import { ScorerApp } from "./ScorerApp";
 import { Modal } from "./Modal";
 import { GameWatchLink } from "./GameWatchLink";
@@ -120,76 +120,85 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
     });
   if (state.scoringElsewhere)
     return (
-      <main className="family-access family-connection">
-        <span className="eyebrow">Amberly Games</span>
-        <h1>Scoring moved to another tab</h1>
+      <FamilyWelcome title="Scoring moved to another tab">
         <p>
           Your saved letters and any unfinished save are available in the newer
           tab. You’re still signed in.
         </p>
-        <button className="button primary" onClick={() => location.reload()}>
+        <button className="btn primary" onClick={() => location.reload()}>
           Use this tab
         </button>
-      </main>
+      </FamilyWelcome>
     );
 
   if (state.status !== "ready")
     return (
-      <main className="family-access family-connection">
-        <span className="eyebrow">Amberly</span>
-        <h1>
-          {state.status === "loading"
-            ? "Opening shared history…"
-            : "Amberly access"}
-        </h1>
-        <p>{user.email}</p>
-        {state.error && <p role="alert">{state.error}</p>}
-        {error && <p role="alert">{error}</p>}
-        {state.status === "error" && (
-          <>
-            <p>
-              If a superadmin has added your email, accept your invitation to
-              join the family.
+      <FamilyWelcome
+        title={state.status === "loading" ? "Welcome back." : "Amberly access"}
+        loading={state.status === "loading"}
+      >
+        <div className="family-connection">
+          {state.status === "loading" && (
+            <p className="family-access-status" role="status">
+              Opening shared history…
             </p>
-            <button
-              className="button primary"
-              disabled={working}
-              onClick={() =>
-                void act(async () => {
-                  joinId.current ??= crypto.randomUUID();
-                  await familyRequest("/api/family/join", {
-                    requestId: joinId.current,
-                  });
-                  location.reload();
-                })
-              }
-            >
-              Accept family invitation
-            </button>
-            <button
-              className="button light"
-              disabled={working}
-              onClick={() => location.reload()}
-            >
-              Retry connection
-            </button>
-            <button
-              className="text-button"
-              onClick={() => store.exportWorkspace()}
-            >
-              Export retained entry
-            </button>
-          </>
-        )}
-        <Link href="/">Return to local preview</Link>
-        <button
-          className="text-button"
-          disabled={working}
-          onClick={() => void signOut()}
-        >
-          Sign out
-        </button>
-      </main>
+          )}
+          <p className="family-access-email">{user.email}</p>
+          {state.error && (
+            <p className="family-access-error" role="alert">
+              {state.error}
+            </p>
+          )}
+          {error && (
+            <p className="family-access-error" role="alert">
+              {error}
+            </p>
+          )}
+          {state.status === "error" && (
+            <>
+              <p>
+                If a superadmin has added your email, accept your invitation to
+                join the family.
+              </p>
+              <button
+                className="btn primary"
+                disabled={working}
+                onClick={() =>
+                  void act(async () => {
+                    joinId.current ??= crypto.randomUUID();
+                    await familyRequest("/api/family/join", {
+                      requestId: joinId.current,
+                    });
+                    location.reload();
+                  })
+                }
+              >
+                Accept family invitation
+              </button>
+              <button
+                className="btn"
+                disabled={working}
+                onClick={() => location.reload()}
+              >
+                Retry connection
+              </button>
+              <button
+                className="btn quiet"
+                onClick={() => store.exportWorkspace()}
+              >
+                Export retained entry
+              </button>
+            </>
+          )}
+          <button
+            className="btn quiet"
+            disabled={working}
+            onClick={() => void signOut()}
+          >
+            Sign out
+          </button>
+        </div>
+      </FamilyWelcome>
     );
   return (
     <>
