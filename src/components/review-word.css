@@ -16,8 +16,8 @@
   padding: 3px;
   list-style: none;
   overflow-x: auto;
-  background: #b4b6a8;
-  border: 2px solid #af8c57;
+  background: var(--board-brass);
+  border: 2px solid #633b29;
   border-radius: 4px;
   scrollbar-width: thin;
   scrollbar-color: #af8c57 #ede6d5;
@@ -31,24 +31,24 @@
   flex: 0 0 var(--review-space);
   width: var(--review-space);
   height: var(--review-space);
-  background: #f4f5f1;
+  background: var(--board-ivory);
   color: #244138;
 }
 .review-tile-space.tw {
-  background: #c17561;
-  color: #331c13;
+  background: var(--board-tw);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.dw {
-  background: #dfac94;
-  color: #331c13;
+  background: var(--board-dw);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.dl {
-  background: #b1cfd0;
-  color: #0e3033;
+  background: var(--board-dl);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.tl {
-  background: #659f9e;
-  color: #0e3033;
+  background: var(--board-tl);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.is-existing {
   background: #e9eae5;
@@ -61,7 +61,7 @@
   container-type: inline-size;
 }
 .review-tile-space.is-new .letter-tile {
-  outline: 2px solid #27654e;
+  outline: 2px solid #82c99d;
   outline-offset: -2px;
 }
 .review-tile-strip .letter-tile b {
@@ -69,7 +69,7 @@
   font-weight: 750;
   line-height: 1;
   transform: translate(-5%, -6%);
-  text-shadow: 0 1px 0 #fff0cb66;
+  text-shadow: 0 1px 1px #29170ecc;
 }
 .review-tile-strip .letter-tile small {
   font-size: 23cqi;

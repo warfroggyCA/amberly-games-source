@@ -1,5 +1,7 @@
 # Amberly tabletop fidelity update — September 15, 2026
 
+September 16 follow-up: the selected mahogany theme updates the board, tiles, bag and branding artwork. See [mahogany-theme.md](mahogany-theme.md) for current local assets and verification; the notes below retain the earlier release history.
+
 This local visual update follows the approved bottle-table concept. It replaces coffee, books and greenery with a simple warm table, one black LARQ bottle and two blue water bottles in a consistent near-overhead view. The reference's slight tilt informs prop artwork; the interactive grid stays square to preserve accurate touch targets and placement geometry.
 
 ## Live elements

@@ -52,13 +52,12 @@
   width: 62px;
   height: 62px;
   flex: 0 0 62px;
-  color: var(--forest);
-  background: #f1dfb5 url("/tabletop/tile.webp") center / 108% 108%;
-  border: 1px solid #b49663;
+  color: var(--tile-ink);
+  background: var(--tile-material);
+  border: 1px solid;
+  border-color: var(--tile-edge);
   border-radius: 6px;
-  box-shadow:
-    0 3px 0 #b49663,
-    0 5px 8px #5141271f;
+  box-shadow: var(--tile-shadow);
   transform: rotate(-6deg);
 }
 .watch-share-tile svg {

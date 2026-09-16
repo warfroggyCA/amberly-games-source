@@ -1,5 +1,7 @@
 # Shared-link previews
 
+September 16 follow-up: the selected mahogany theme updates the board, tiles, bag and branding artwork. See [mahogany-theme.md](mahogany-theme.md) for current local assets and verification; the notes below retain the earlier release history.
+
 Status: Published and verified at the usual Amberly Games preview domain on 2026-09-15.
 
 Amberly provides static Open Graph and large-image Twitter card metadata in the initial HTML head. The root and /family title is **Amberly Games**. The /watch title is **Watch the game live · Amberly Games**, with copy describing the board, scores and no-sign-in viewing.
