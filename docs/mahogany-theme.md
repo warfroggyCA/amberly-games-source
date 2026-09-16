@@ -30,3 +30,13 @@ Public link artwork contains branding only. Metadata does not look up game state
 - Rendered scorer and actual spectator component inspected at 390 × 844 and 1194 × 834. Inventory, turn review, draft/recorded tiles, blank tile and green bag inspected. A temporary local viewer fixture was removed before the production build.
 - No data, rules, API or database changes. Physical iPhone/iPad acceptance has not been performed.
 - Implemented locally; not deployed in this change.
+
+## Word-details and palette refinement — September 16
+
+The scorer's selected-word dialog, spectator detail card and history word meanings now share `PlayedWordDetails`. It reuses `ReviewWord` with the recorded turn's placements and score: the tile strip preserves blanks and distinguishes premium squares applied on that turn from those already used. Player, round and assisted attribution remain visible. The dictionary link is visually shorter but retains a word-specific accessible name. Definition loading, missing entries, failure/retry and request cancellation retain their existing behaviour.
+
+The dialog has a smaller heading, compact attribution, a separate score and a matching green entry button. In short landscape viewports the spectator card is constrained to the right side below the header, preserving a tappable section of the board. The first browser check exposed whole-board overlap there (23/24 passed); the layout was corrected before repeating validation.
+
+Multiplier colours were softened twice following owner feedback: TW `#956774`, DW `#cfa1a4`, TL `#5e7592`, DL `#aabbd0`. TW/TL retain ivory labels; DW/DL use darker labels. Calculated label contrast is 4.52:1, 5.93:1, 4.55:1 and 6.59:1 respectively. Board, setup, review/detail strips and the unreleased v2 app icon share those colours. Letter-tile materials remain unchanged.
+
+Desktop and phone word details, assigned blanks, score attribution, spectator clearing and the local board palette were visually inspected. Temporary visual fixtures were removed. The final production build and lint checks passed, and all 24 browser checks passed after the landscape correction. This remains a local update.

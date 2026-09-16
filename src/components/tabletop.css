@@ -22,11 +22,13 @@
     inset 0 -2px 1px #24130b9c, 0 1px 0 1px #2e1a167a, 0 3px 3px #24171066;
   --board-ivory: #f5f2e9;
   --board-brass: #a58c59;
-  --board-tw: #651e30;
-  --board-dw: #a63840;
-  --board-tl: #193963;
-  --board-dl: #4775a4;
+  --board-tw: #956774;
+  --board-dw: #cfa1a4;
+  --board-tl: #5e7592;
+  --board-dl: #aabbd0;
   --board-premium-ink: #fffaf0;
+  --board-dw-ink: #43272d;
+  --board-dl-ink: #1e334a;
   --board-frame-image: url("/tabletop/board-frame-mahogany-v1.webp");
 }
 body {
@@ -270,6 +272,12 @@ body {
 }
 .app-shell .board-workspace .square:is(.tw, .dw, .tl, .dl) .premium-label {
   color: var(--board-premium-ink);
+}
+.app-shell .board-workspace .square.dw .premium-label {
+  color: var(--board-dw-ink);
+}
+.app-shell .board-workspace .square.dl .premium-label {
+  color: var(--board-dl-ink);
 }
 .app-shell .board-workspace .square.selected {
   box-shadow: inset 0 0 0 3px #fff6df;

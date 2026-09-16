@@ -750,20 +750,6 @@
   outline: 2px solid white;
   outline-offset: -2px;
 }
-.recorded-word-detail + .recorded-word-detail {
-  border-top: 1px solid var(--line);
-  margin-top: 18px;
-  padding-top: 18px;
-}
-.recorded-word-detail h3 {
-  margin-bottom: 5px;
-}
-.recorded-word-detail h3 small {
-  font: 500 15px var(--font-body, sans-serif);
-}
-.recorded-word-detail > p {
-  margin-top: 0;
-}
 @media (prefers-reduced-motion: reduce) {
   .app-shell .board-workspace .square.fresh.tile-exhausted .letter-tile {
     animation: none;

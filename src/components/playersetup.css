@@ -245,7 +245,7 @@
 }
 .mini-square.dw {
   background: var(--board-dw);
-  color: var(--board-premium-ink);
+  color: var(--board-dw-ink);
 }
 .mini-square.tl {
   background: var(--board-tl);
@@ -253,7 +253,7 @@
 }
 .mini-square.dl {
   background: var(--board-dl);
-  color: var(--board-premium-ink);
+  color: var(--board-dl-ink);
 }
 .setup-picked-message {
   text-align: center;

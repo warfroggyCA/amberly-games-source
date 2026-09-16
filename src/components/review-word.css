@@ -40,11 +40,11 @@
 }
 .review-tile-space.dw {
   background: var(--board-dw);
-  color: var(--board-premium-ink);
+  color: var(--board-dw-ink);
 }
 .review-tile-space.dl {
   background: var(--board-dl);
-  color: var(--board-premium-ink);
+  color: var(--board-dl-ink);
 }
 .review-tile-space.tl {
   background: var(--board-tl);

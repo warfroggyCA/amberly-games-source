@@ -39,7 +39,7 @@ import { TileBagButton } from "./TileBagButton";
 import { ExtraTiles } from "./ExtraTiles";
 import { WinnerBanner } from "./WinnerBanner";
 import { WordReference } from "./WordReference";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { OfficialWordSearch } from "./OfficialWordSearch";
 import { PlayerProfileEditor } from "./PlayerProfileEditor";
 import {
@@ -1792,10 +1792,15 @@ export function ScorerApp({
               aria-label="Word meanings"
             >
               {selectedTurn.words.map((word) => (
-                <div key={`${word.row}-${word.col}-${word.direction}`}>
-                  <h3>{word.word}</h3>
-                  <WordDefinition word={word.word} />
-                </div>
+                <PlayedWordDetails
+                  key={`${word.row}-${word.col}-${word.direction}`}
+                  word={word}
+                  board={game.board}
+                  placements={selectedTurn.placements}
+                  playerName={nameOf(game, selectedTurn.playerId)}
+                  round={selectedTurn.round}
+                  source={selectedTurn.source}
+                />
               ))}
             </section>
           )}
