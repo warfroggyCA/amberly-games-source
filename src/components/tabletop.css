@@ -11,15 +11,13 @@
   --game-bottom-clearance: max(12px, env(safe-area-inset-bottom, 0px));
   --table-scene: url("/tabletop/table-bottles-v4.webp");
   /* One material palette for boards, menus, racks and body-portal animations. */
-  --tile: #75452f;
+  --tile: #633e2c;
   --tile-ink: #fff6df;
-  --tile-material:
-    linear-gradient(145deg, #24130b55, #24130b8c),
-    #75452f url("/tabletop/tile-mahogany-v1.webp") center / 108% 108%;
-  --tile-edge: #e6c58f #936239 #3b2116 #c69a62;
-  --tile-shadow:
-    inset 0 1px 0 #ffe1aebf, inset 1px 0 0 #f1ce9273,
-    inset 0 -2px 1px #24130b9c, 0 1px 0 1px #2e1a167a, 0 3px 3px #24171066;
+  /* Matte faces and quiet edges keep small ivory letters clear on phones. */
+  --tile-material: var(--tile);
+  --tile-edge: #805b45 #583522 #422719 #714a34;
+  --tile-shadow: inset 0 -1px 0 #24130b45, 0 1px 1px #24171055;
+  --tile-letter-size: 62cqi;
   --board-ivory: #f5f2e9;
   --board-brass: #a58c59;
   --board-tw: #956774;
@@ -221,7 +219,7 @@ body {
   color: inherit;
 }
 .app-shell .board-workspace .square .letter-tile b {
-  font-size: clamp(10px, 52cqi, 64px);
+  font-size: clamp(10px, var(--tile-letter-size), 64px);
   font-weight: 750;
 }
 .app-shell .board-workspace .square .letter-tile small {
@@ -231,13 +229,11 @@ body {
 }
 .app-shell .letter-tile.blank-tile,
 .app-shell .board-workspace .square.fresh .letter-tile.blank-tile {
-  background:
-    linear-gradient(#c0dfffd9, #c0dfffd9),
-    #dceeff url("/tabletop/tile.webp") center / 108% 108%;
+  background: #dceeff;
   color: #075096;
   border-color: #3d78af;
   border-bottom-color: #245c91;
-  box-shadow: inset 0 1px 0 #f5fbff;
+  box-shadow: var(--tile-shadow);
 }
 .app-shell .board-seat.is-current {
   background: #174e38;

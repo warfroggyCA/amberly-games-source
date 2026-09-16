@@ -43,10 +43,9 @@
 }
 .turn-tile-face b {
   font:
-    750 54cqi / 1 Arial,
+    750 var(--tile-letter-size) / 1 Arial,
     sans-serif;
   transform: translate(-5%, -6%);
-  text-shadow: 0 1px 1px #29170ecc;
 }
 .turn-tile-face small {
   position: absolute;

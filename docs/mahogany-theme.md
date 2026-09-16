@@ -40,3 +40,11 @@ The dialog has a smaller heading, compact attribution, a separate score and a ma
 Multiplier colours were softened twice following owner feedback: TW `#956774`, DW `#cfa1a4`, TL `#5e7592`, DL `#aabbd0`. TW/TL retain ivory labels; DW/DL use darker labels. Calculated label contrast is 4.52:1, 5.93:1, 4.55:1 and 6.59:1 respectively. Board, setup, review/detail strips and the unreleased v2 app icon share those colours. Letter-tile materials remain unchanged.
 
 Desktop and phone word details, assigned blanks, score attribution, spectator clearing and the local board palette were visually inspected. Temporary visual fixtures were removed. The final production build and lint checks passed, and all 24 browser checks passed after the landscape correction. This remains a local update.
+
+## Matte tiles and phone lettering — September 16
+
+After reviewing the published theme on an iPhone, the owner requested removal of tile highlights and slightly larger letters. The shared tile material now uses a matte mahogany face, subdued edges and a small contact shadow. The reflective raster face and bright inset bevels are no longer rendered on letter tiles; the existing art remains available. Assigned blanks keep their pale-blue face and zero value with the same quiet shadow.
+
+Board letters increase from 52% to 62% of the tile's inner width (about 19%), consistently for draft, recorded and spectator tiles. Review strips and flying tiles use the same shared letter-size token. Point values, multipliers, crown, score effects and board geometry remain unchanged.
+
+The local board was visually checked at 390 × 844 and 1194 × 834 without recording or clearing the user's draft. Formatting and the production build passed; all 24 existing desktop/iPhone/iPad browser checks passed, including spectator word selection. Physical-device acceptance has not been performed. This follow-up is implemented locally and has not been published.
