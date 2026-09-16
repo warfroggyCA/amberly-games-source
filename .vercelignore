@@ -15,3 +15,11 @@ docs/*
 data/lexicons/merriam-2026-09-14/pages/
 data/lexicons/comparisons/
 data/lexicons/family-2026-09-14/
+
+# Operator recovery files and temporary private CI inputs never belong in a deployment.
+backups/
+*.dump
+*.backup.enc
+*.backup.key
+.private-words/
+supabase/.temp/
