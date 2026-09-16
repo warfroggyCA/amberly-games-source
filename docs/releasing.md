@@ -9,7 +9,7 @@
 
 ## Source and private inputs
 
-The canonical source is `warfroggyCA/amberly-games-source`. Earlier private history and word inputs remain in `warfroggyCA/amberly-games`; never publish that repository. The new public repository is intended to require the `verify` status on pull requests before merging to `main`, prohibit force pushes/deletion, and apply those rules to administrators. Confirm the active rules in GitHub before each release; `release:check` independently checks the exact local commit.
+The canonical source is `warfroggyCA/amberly-games-source`. Earlier private history and word inputs remain in `warfroggyCA/amberly-games`; never publish that repository. The public repository requires the GitHub Actions `verify` status on pull requests before merging to `main`, prohibits force pushes/deletion, and applies those rules to administrators. These rules were read back from GitHub after configuration. Confirm the active rules in GitHub before each release; `release:check` independently checks the exact local commit.
 
 CI reads a pinned private word-input commit through a read-only deploy key stored as a GitHub secret. Fork pull requests do not receive this secret and cannot run the private-input verification automatically. Review outside contributions before creating a trusted branch. Do not move private files into the public repository, logs, caches or uploaded reports. Credential scanning supplements human review; it is not a complete confidentiality audit.
 
