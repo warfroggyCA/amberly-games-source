@@ -1,0 +1,95 @@
+/* Details are fetched on selection; the game surface keeps its existing size. */
+.word-definition {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.word-definition p {
+  margin: 0 0 8px;
+}
+.word-definition .text-button {
+  min-height: 44px;
+}
+.word-definition-source {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.word-definition-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--forest);
+  text-underline-offset: 3px;
+}
+.word-definition-references {
+  margin: 8px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+  font-size: 13px;
+}
+.word-definition-references > div + div {
+  margin-top: 6px;
+}
+.word-definition-references dt {
+  color: var(--forest);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+.word-definition-references dd {
+  margin: 0;
+}
+.turn-word-definitions {
+  display: grid;
+  gap: 16px;
+  margin: 20px 0;
+}
+.turn-word-definitions h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.spectator-word-detail {
+  position: absolute;
+  bottom: 62px;
+  left: 50%;
+  z-index: 15;
+  width: min(460px, calc(100% - 16px));
+  max-height: min(330px, 44dvh);
+  overflow: auto;
+  transform: translateX(-50%);
+  padding: 14px 16px;
+  background: #fcf9ef;
+  border: 1px solid #ad9568;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px #31261726;
+}
+.spectator-word-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.spectator-word-detail-heading h3 {
+  margin: 0;
+  font-size: 22px;
+  color: var(--forest);
+}
+.spectator-word-detail-heading .text-button {
+  min-height: 44px;
+  margin-top: -8px;
+}
+.spectator-word-detail-meta {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .spectator-word-detail {
+    bottom: 8px;
+    max-height: calc(100% - 16px);
+  }
+}

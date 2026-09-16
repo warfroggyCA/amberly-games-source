@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.git/
+.env*
+.vercel/
+.playwright-cli/
+output/
+outputs/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+docs/*
+!docs/OSPD5.txt
+data/lexicons/merriam-2026-09-14/pages/
+data/lexicons/comparisons/
+data/lexicons/family-2026-09-14/

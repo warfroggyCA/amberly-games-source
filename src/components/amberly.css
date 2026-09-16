@@ -1,0 +1,45 @@
+.home-intro.amberly-welcome {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.25fr);
+  gap: clamp(24px, 4vw, 64px);
+  min-height: 0;
+  padding: 12px 0 36px;
+}
+.home-intro.amberly-welcome h1 {
+  font-size: clamp(36px, 4vw, 62px);
+  line-height: 1.08;
+  margin: 0 0 20px;
+}
+.home-intro.amberly-welcome p {
+  max-width: 360px;
+  margin: 0;
+  line-height: 1.6;
+}
+.amberly-portrait {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+}
+.amberly-portrait img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: multiply;
+}
+@media (max-width: 650px) {
+  .home-intro.amberly-welcome {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 0 0 28px;
+  }
+  .amberly-portrait {
+    grid-row: 1;
+  }
+  .home-intro.amberly-welcome h1 {
+    font-size: clamp(34px, 8vw, 46px);
+    margin-bottom: 14px;
+  }
+  .home-intro.amberly-welcome .home-actions {
+    margin-top: 20px;
+  }
+}

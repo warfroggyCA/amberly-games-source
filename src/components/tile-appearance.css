@@ -1,0 +1,65 @@
+/* Cool, pale ordinary squares separate the board from the warm wooden tiles. */
+.board-workspace .square.plain {
+  background: #f5f6f4;
+}
+
+/* Scale every board tile from its own size, before and after recording. */
+.board-workspace .square .letter-tile {
+  container-type: inline-size;
+}
+
+/* Drafts keep their entry outline while sharing the same letter/value sizing. */
+.board-workspace .square.fresh .letter-tile {
+  background: #ead5a9;
+  border: 1px solid #ad8a52;
+  border-bottom: 2px solid #927043;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 #fff5d9,
+    inset 1px 0 0 #f7e5bf;
+  outline: 1.5px solid #27654e;
+  outline-offset: -1.5px;
+  color: #27271f;
+}
+.board-workspace .square .letter-tile b {
+  font-size: clamp(10px, 52cqi, 28px);
+  font-weight: 700;
+  line-height: 1;
+  transform: translate(-5%, -6%);
+}
+.board-workspace .square .letter-tile small {
+  display: block;
+  right: 1px;
+  bottom: 0;
+  font-size: clamp(7px, 23cqi, 12px);
+  line-height: 1;
+  font-weight: 700;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+}
+/* Assigned blanks stay visibly blue after recording, including in the picker. */
+.letter-tile.blank-tile,
+.board-workspace .square.fresh .letter-tile.blank-tile {
+  container-type: inline-size;
+  background: #dceeff;
+  color: #075096;
+  border-color: #3d78af;
+  border-bottom-color: #245c91;
+  outline: 1.5px solid #2467a7;
+  outline-offset: -1.5px;
+  box-shadow: inset 0 1px 0 #f5fbff;
+}
+.letter-tile.blank-tile b {
+  color: #075096;
+  font-weight: 750;
+}
+.letter-tile.blank-tile small,
+.board-workspace .square .letter-tile.blank-tile small {
+  display: block;
+  color: #074579;
+  font-weight: 800;
+  line-height: 1;
+  font-size: clamp(7px, 23cqi, 12px);
+  right: 1px;
+  bottom: 0;
+}

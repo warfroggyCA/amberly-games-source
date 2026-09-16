@@ -1,0 +1,51 @@
+.spectator-board .square.spectator-provisional .letter-tile {
+  outline: 2px dashed #966726;
+  outline-offset: -3px;
+  opacity: 0.82;
+}
+.spectator-live-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  color: #843923;
+}
+.spectator-live-score.is-valid {
+  color: #164c3a;
+}
+.spectator-live-score > span {
+  min-width: 0;
+}
+.spectator-live-score > span strong {
+  display: block;
+  font-size: 14px;
+}
+.spectator-live-score > span small {
+  display: block;
+  font-size: 12px;
+}
+.spectator-live-score > b {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 30px;
+  white-space: nowrap;
+}
+.spectator-live-score > b small {
+  font-size: 12px;
+}
+.live-preview-connection {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100% - 20px);
+  z-index: 110;
+  background: #fff2d6;
+  border: 1px solid #b3843d;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #6b4420;
+}

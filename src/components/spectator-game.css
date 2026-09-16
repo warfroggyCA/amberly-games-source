@@ -1,0 +1,759 @@
+/* Keep the tabletop and all four seats within the live viewer's window. */
+body:has(> .spectator-shell) {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body:has(> .spectator-shell) > .family-toolbar,
+body:has(> .spectator-shell) > .family-pending,
+body:has(> .spectator-shell) > .error-banner {
+  flex-shrink: 0;
+  max-height: 20dvh;
+  overflow: auto;
+}
+.app-shell.spectator-shell {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + var(--installed-top-clearance))
+    env(safe-area-inset-right) var(--game-bottom-clearance)
+    env(safe-area-inset-left);
+}
+.app-shell.spectator-shell > .site-header {
+  min-height: 56px;
+  padding: 4px 16px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.app-shell.spectator-shell > main {
+  padding: 0 12px 6px;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.spectator-shell > main > .error-banner {
+  flex-shrink: 0;
+  max-height: 20%;
+  overflow: auto;
+}
+.spectator-live-label {
+  color: var(--forest);
+  font-size: 12px;
+}
+.spectator-game {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
+}
+/* Archived games may embed the same viewer outside the viewport shell. */
+.app-shell:not(.spectator-shell) .spectator-game {
+  height: max(450px, calc(100svh - 160px));
+  flex: none;
+}
+.spectator-inline-tools {
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  min-height: 48px;
+}
+.spectator-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.app-shell.spectator-shell .spectator-view-actions .tile-bag-button {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+}
+.app-shell.spectator-shell .spectator-view-actions .tabletop-bag-count {
+  font-size: 16px;
+}
+.app-shell.spectator-shell .spectator-view-actions .spectator-scores-toggle {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  flex: 0 0 44px;
+  padding: 8px;
+}
+.spectator-game-status {
+  display: block;
+  color: var(--forest);
+  font-weight: 750;
+  line-height: 1.2;
+}
+.spectator-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+.spectator-table {
+  --spectator-seat-width: 112px;
+  --spectator-seat-height: 56px;
+  --spectator-seat-gap: 8px;
+  --spectator-board-size: max(
+    100px,
+    min(
+      calc(
+        100cqw - 2 * var(--spectator-seat-width) - 2 * var(--spectator-seat-gap)
+      ),
+      calc(
+        100cqh - 2 * var(--spectator-seat-height) - 2 *
+          var(--spectator-seat-gap)
+      )
+    )
+  );
+  display: grid;
+  grid-template-columns:
+    var(--spectator-seat-width) var(--spectator-board-size)
+    var(--spectator-seat-width);
+  grid-template-rows:
+    var(--spectator-seat-height) var(--spectator-board-size)
+    var(--spectator-seat-height);
+  align-items: center;
+  justify-items: center;
+  gap: var(--spectator-seat-gap);
+  width: max-content;
+  position: relative;
+}
+.spectator-game .spectator-board {
+  grid-area: 2 / 2;
+  padding: 0;
+  min-width: 0;
+  width: 100%;
+}
+.spectator-game .spectator-board .board-frame {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.spectator-seat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--forest);
+  padding: 5px 10px;
+  max-width: 100%;
+  min-height: 48px;
+  touch-action: manipulation;
+}
+.spectator-seat-0 {
+  grid-area: 1 / 2;
+}
+.spectator-seat-1 {
+  grid-area: 2 / 3;
+  justify-self: start;
+}
+.spectator-seat-2 {
+  grid-area: 3 / 2;
+}
+.spectator-seat-3 {
+  grid-area: 2 / 1;
+  justify-self: end;
+}
+.spectator-seat-0,
+.spectator-seat-2 {
+  padding-block: 3px;
+}
+.spectator-seat-0 .spectator-seat-name,
+.spectator-seat-2 .spectator-seat-name {
+  font-size: 16px;
+  line-height: 1.15;
+}
+.spectator-seat-0 .spectator-seat-score,
+.spectator-seat-2 .spectator-seat-score {
+  font-size: 24px;
+  line-height: 1.1;
+}
+/* The button's accessible name still announces whose turn it is. */
+.spectator-seat-0 .spectator-seat-turn,
+.spectator-seat-2 .spectator-seat-turn {
+  display: none;
+}
+.spectator-seat-1,
+.spectator-seat-3 {
+  flex-direction: column;
+  max-width: calc(100% - 12px);
+  padding: 10px 8px;
+}
+.spectator-seat-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.spectator-seat-name {
+  font-size: 18px;
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spectator-seat-score {
+  display: block;
+  font-size: 28px;
+  line-height: 1.05;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.spectator-seat-turn {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-top: 3px;
+  min-height: 8px;
+}
+.spectator-seat.is-current {
+  background: #174e38;
+  color: #fff9e8;
+  box-shadow:
+    0 0 0 2px #a0b67b,
+    0 0 18px #75956470;
+}
+.spectator-seat.is-current .spectator-seat-turn {
+  color: #f2d594;
+}
+.spectator-seat.is-selected {
+  outline: 2px solid #b88b34;
+  outline-offset: 3px;
+}
+.spectator-seat:focus-visible {
+  outline: 3px solid #a27120;
+  outline-offset: 4px;
+}
+.spectator-seat .spectator-player-initial {
+  color: #234838;
+  box-shadow:
+    inset 0 0 0 1px #59584224,
+    0 2px 2px #41351e18;
+}
+.spectator-seat .seat-colour-0 {
+  background: #c5d6bb;
+}
+.spectator-seat .seat-colour-1 {
+  background: #eed196;
+}
+.spectator-seat .seat-colour-2 {
+  background: #c0d7e2;
+}
+.spectator-seat .seat-colour-3 {
+  background: #e5a99c;
+}
+.spectator-game .board-grid {
+  position: relative;
+  aspect-ratio: 1;
+  grid-template-rows: repeat(15, minmax(0, 1fr));
+}
+.spectator-board .square {
+  min-height: 0;
+  container-type: inline-size;
+}
+.spectator-board .square .premium-label {
+  font-size: clamp(3px, 22cqi, 9px);
+  line-height: 1.1;
+}
+.spectator-board .square.dw .premium-label:only-child {
+  font-size: clamp(3px, 22cqi, 9px);
+}
+.spectator-tile {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.spectator-tile .letter-tile {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.spectator-tile:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.spectator-tile:focus-visible {
+  outline: 3px solid #095ab0;
+  outline-offset: -3px;
+  z-index: 4;
+}
+.spectator-dimmed .letter-tile {
+  opacity: 0.42;
+}
+.spectator-word-outlines {
+  position: absolute;
+  inset: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  pointer-events: none;
+  overflow: visible;
+}
+.spectator-word-outlines rect {
+  fill: none;
+  stroke: #146945;
+  stroke-width: 2.5px;
+}
+.spectator-word-outlines .assisted {
+  stroke-dasharray: 5 3;
+}
+.spectator-selection {
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  flex: 0 0 56px;
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.spectator-selection > span {
+  flex: 1;
+  min-width: 0;
+  max-height: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.spectator-selection strong {
+  color: var(--forest);
+}
+.spectator-selection small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.spectator-selection .text-button {
+  min-height: 44px;
+  flex-shrink: 0;
+}
+.spectator-last-turn {
+  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  min-height: 44px;
+  border: 0;
+  text-align: left;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.spectator-last-turn > span {
+  min-width: 0;
+  max-height: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.spectator-last-turn strong {
+  white-space: nowrap;
+  color: var(--forest);
+}
+.spectator-ranking {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.spectator-ranking li + li {
+  border-top: 1px solid var(--line);
+}
+.spectator-ranking button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 0;
+  border: 0;
+  background: none;
+  color: var(--forest);
+  text-align: left;
+}
+.spectator-ranking button > b {
+  margin-left: auto;
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.spectator-ranking small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.spectator-player-initial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e3eadf;
+  font:
+    700 21px Georgia,
+    serif;
+  flex-shrink: 0;
+}
+.spectator-player-initial svg {
+  position: absolute;
+  width: 20px;
+  height: 16px;
+  right: -4px;
+  top: -10px;
+  color: #a67522;
+}
+.spectator-word-choices {
+  display: grid;
+  gap: 8px;
+}
+.spectator-word-choices button {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--forest);
+  border-radius: 4px;
+}
+@media (max-width: 600px) {
+  .app-shell.spectator-shell > .site-header {
+    padding: 4px 10px;
+    min-height: 56px;
+    gap: 6px;
+  }
+  .app-shell.spectator-shell .brand {
+    font-size: clamp(16px, 4.4vw, 24px);
+  }
+  .app-shell.spectator-shell > main {
+    padding: 0 10px 6px;
+  }
+}
+@media (max-width: 760px) {
+  .spectator-table {
+    --spectator-seat-width: 60px;
+    --spectator-seat-height: 60px;
+  }
+  .spectator-seat {
+    gap: 5px;
+    padding: 4px 6px;
+    min-height: 48px;
+  }
+  .spectator-seat-1,
+  .spectator-seat-3 {
+    max-width: calc(100% - 6px);
+    padding: 8px 4px;
+  }
+  .spectator-seat-name {
+    font-size: 12px;
+  }
+  .spectator-seat-score {
+    font-size: 23px;
+  }
+  .spectator-seat-turn {
+    font-size: 6px;
+    letter-spacing: 0;
+  }
+  .spectator-seat .spectator-player-initial {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+  .spectator-selection {
+    font-size: 11px;
+    line-height: 1.4;
+    gap: 6px;
+  }
+}
+@media (max-height: 600px) {
+  .spectator-table {
+    --spectator-seat-height: 52px;
+  }
+  .spectator-seat-name {
+    font-size: 12px;
+  }
+  .spectator-seat-score {
+    font-size: 20px;
+  }
+  .spectator-seat .spectator-player-initial {
+    width: 26px;
+    height: 26px;
+    font-size: 17px;
+  }
+  .spectator-seat {
+    min-height: 44px;
+  }
+}
+
+/* Portrait phones keep a useful board size, with seats in clockwise pairs. */
+@media (max-width: 600px) and (min-height: 521px) {
+  .spectator-table {
+    --spectator-seat-height: 64px;
+    --spectator-board-size: max(
+      100px,
+      min(
+        100cqw,
+        calc(
+          100cqh - 2 * var(--spectator-seat-height) - 2 *
+            var(--spectator-seat-gap)
+        )
+      )
+    );
+    grid-template-columns: repeat(2, calc(var(--spectator-board-size) / 2));
+    column-gap: 0;
+  }
+  .spectator-game .spectator-board {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+  .spectator-seat {
+    flex-direction: row;
+    padding: 4px 8px;
+    gap: 7px;
+    max-width: calc(100% - 12px);
+    justify-self: center;
+  }
+  .spectator-seat-0 {
+    grid-area: 1 / 1;
+  }
+  .spectator-seat-1 {
+    grid-area: 1 / 2;
+  }
+  .spectator-seat-2 {
+    grid-area: 3 / 2;
+  }
+  .spectator-seat-3 {
+    grid-area: 3 / 1;
+  }
+  .spectator-seat .spectator-seat-name {
+    font-size: 14px;
+  }
+  .spectator-seat .spectator-seat-score {
+    font-size: 24px;
+  }
+  .spectator-seat-turn {
+    display: none;
+  }
+}
+
+/* In short landscape windows the board owns the height; its gutters hold
+   navigation, scores and the selected-word details without shifting the board. */
+@media (min-width: 521px) and (max-height: 520px) {
+  body .app-shell.spectator-shell {
+    position: relative;
+    container-type: size;
+    --viewer-side-size: calc(
+      (100cqw - min(calc(100cqh - 16px), calc(100cqw - 256px)) - 32px) / 2
+    );
+  }
+  body .app-shell.spectator-shell > header.site-header {
+    position: absolute;
+    z-index: 20;
+    top: calc(env(safe-area-inset-top) + var(--installed-top-clearance) + 4px);
+    left: 8px;
+    right: auto;
+    width: var(--viewer-side-size);
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    gap: 6px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+  }
+  body .app-shell.spectator-shell > header.site-header .brand {
+    font-size: 16px;
+    padding-top: 2px;
+  }
+  body .app-shell.spectator-shell > header.site-header .brand-wordmark {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.03em;
+    font-size: 16px;
+  }
+  body .app-shell.spectator-shell > header.site-header .tabletop-menu-button {
+    width: 40px;
+    min-width: 40px;
+    height: 44px;
+    flex-basis: 40px;
+    padding: 7px;
+  }
+  body
+    .app-shell.spectator-shell
+    > header.site-header
+    > .spectator-header-actions,
+  body
+    .app-shell.spectator-shell
+    > header.site-header
+    > .spectator-header-tools {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + var(--installed-top-clearance) + 4px);
+    right: calc(env(safe-area-inset-right) + 8px);
+    left: auto;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 2px;
+    max-width: var(--viewer-side-size);
+    margin: 0;
+  }
+  body .app-shell.spectator-shell > header.site-header .tile-bag-button {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+  body .app-shell.spectator-shell > main {
+    padding: 4px 8px;
+  }
+  .spectator-view-actions {
+    flex-wrap: nowrap;
+    gap: 2px;
+  }
+  .spectator-inline-tools {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 20;
+    min-height: 0;
+    max-width: var(--viewer-side-size);
+  }
+  .spectator-table {
+    --spectator-seat-width: 112px;
+    --spectator-board-size: max(
+      100px,
+      min(
+        calc(
+          100cqw - 2 * var(--spectator-seat-width) - 2 *
+            var(--spectator-seat-gap)
+        ),
+        calc(100cqh - 8px)
+      )
+    );
+    width: 100%;
+    height: 100%;
+    grid-template-columns:
+      minmax(112px, 1fr) var(--spectator-board-size)
+      minmax(112px, 1fr);
+    grid-template-rows: 24% 12% 23% 12% 29%;
+    row-gap: 0;
+  }
+  .spectator-game .spectator-board {
+    grid-area: 1 / 2 / 6 / 3;
+  }
+  .spectator-seat {
+    flex-direction: row;
+    min-height: 44px;
+    max-width: calc(100% - 8px);
+    gap: 6px;
+    padding: 4px 6px;
+  }
+  .spectator-seat-0 {
+    grid-area: 2 / 1;
+    justify-self: end;
+  }
+  .spectator-seat-1 {
+    grid-area: 2 / 3;
+    justify-self: start;
+  }
+  .spectator-seat-2 {
+    grid-area: 4 / 3;
+    justify-self: start;
+  }
+  .spectator-seat-3 {
+    grid-area: 4 / 1;
+    justify-self: end;
+  }
+  .spectator-seat .spectator-seat-name {
+    font-size: 13px;
+  }
+  .spectator-seat .spectator-seat-score {
+    font-size: 24px;
+  }
+  .spectator-seat-turn {
+    display: none;
+  }
+  .spectator-selection {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    width: var(--viewer-side-size);
+    height: auto;
+    min-height: 44px;
+    max-height: 92px;
+    flex-basis: auto;
+    padding: 4px;
+    border: 0;
+    align-items: flex-end;
+    font-size: 11px;
+  }
+  .spectator-selection > span {
+    max-height: 84px;
+  }
+  .spectator-selection small {
+    font-size: 10px;
+  }
+  .spectator-selection .text-button {
+    min-width: 44px;
+    padding-inline: 5px;
+  }
+  .spectator-last-turn {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    height: auto;
+    max-height: 84px;
+    gap: 3px;
+    padding: 0;
+    font-size: 11px;
+  }
+  .spectator-last-turn > span {
+    max-height: 62px;
+  }
+  .spectator-last-turn strong {
+    font-size: 14px;
+  }
+}
+
+/* Equal rim widths keep the outside of the viewer board exactly square. */
+body .app-shell.spectator-shell .spectator-game .spectator-board .board-frame {
+  border-width: clamp(6px, calc(var(--spectator-board-size) * 0.022), 16px);
+}

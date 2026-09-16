@@ -1,0 +1,687 @@
+/* The approved tabletop finish is shared by the scorer, private viewer, and menus.
+   Board sizing and interaction geometry remain owned by their existing styles. */
+:root {
+  --paper: #f0eadf;
+  --surface: #fffcf4;
+  --ink: #233f33;
+  --forest: #1b4e38;
+  --muted: #69705f;
+  --line: #c7c5ad;
+  --installed-top-clearance: 0px;
+  --game-bottom-clearance: max(12px, env(safe-area-inset-bottom, 0px));
+  --table-scene: url("/tabletop/table-bottles-v4.webp");
+}
+body {
+  min-height: 100dvh;
+  background: #f0eadf var(--table-scene) center / cover fixed;
+}
+.app-shell > .site-header {
+  min-height: 72px;
+  padding: 10px 24px;
+  gap: 14px;
+  border-bottom: 0;
+  /* Quiet backing keeps navigation legible over the richer edge props. */
+  background: linear-gradient(#fffcf4f5, #fffcf4db);
+}
+.app-shell.game-screen > .site-header {
+  min-height: 64px;
+  padding: 8px 20px;
+}
+.app-shell .site-header > .local-label {
+  margin-left: auto;
+}
+.app-shell .site-header > .game-actions {
+  margin-left: auto;
+  gap: 12px;
+}
+.app-shell .brand {
+  font-size: 27px;
+}
+.app-shell .brand .brand-tile {
+  background: #f1dfb5 url("/tabletop/tile.webp") center / 108% 108%;
+  border-color: #b49663;
+  box-shadow: 0 2px 2px #5141272b;
+}
+.app-shell:not(.game-screen):not(.spectator-shell) > main {
+  padding: 24px;
+  background: #fffcf4eb;
+  border-radius: 16px;
+}
+.app-shell > footer {
+  display: none;
+}
+.app-shell .home-intro.amberly-welcome {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  gap: 0;
+  padding: 22px 0 40px;
+}
+.app-shell .home-intro.amberly-welcome h1 {
+  font-size: clamp(38px, 4.5vw, 58px);
+  margin-bottom: 16px;
+}
+.app-shell .home-intro.amberly-welcome p {
+  max-width: 430px;
+}
+.app-shell .button.primary {
+  background: #1b4e38;
+  color: #fff9e8;
+  border: 1px solid #143827;
+  border-bottom: 3px solid #123624;
+  border-radius: 9px;
+  box-shadow: 0 3px 5px #42543a25;
+}
+.app-shell .button.light {
+  background: #fffcf4d9;
+  border-color: #c7c5ad;
+  border-radius: 8px;
+}
+.app-shell .button.primary:not(:disabled):active,
+.app-shell .tabletop-tool:not(:disabled):active {
+  transform: translateY(1px);
+}
+.app-shell .tabletop-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  flex: 0 0 46px;
+  padding: 9px;
+  border: 1px solid #b7ae9270;
+  border-bottom: 2px solid #b7ae92;
+  border-radius: 9px;
+  color: var(--forest);
+  background: #fffcf480;
+  box-shadow: 0 2px 3px #51412714;
+}
+.app-shell .tabletop-tool:not(:disabled):hover {
+  background: #fffcf4;
+}
+.app-shell .tabletop-menu-button {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.app-shell .tabletop-end-game {
+  color: #7f4634;
+}
+.app-shell .turn-actions {
+  align-items: center;
+  gap: 12px;
+}
+.app-shell.game-screen .turn-actions {
+  padding: 6px 8px 0;
+  gap: 10px;
+}
+.app-shell .turn-actions .save-state {
+  margin-left: auto;
+  font-size: 11px;
+}
+.app-shell .modal {
+  background: #fffcf4;
+  color: var(--ink);
+  border: 1px solid #bdba9e;
+  border-radius: 16px;
+  box-shadow: 0 18px 65px #293c3540;
+}
+.app-shell .modal::backdrop {
+  background: #19352c66;
+  backdrop-filter: blur(3px);
+}
+.app-shell .score-sheet-modal.modal {
+  border-radius: 16px 0 0 16px;
+}
+.tabletop-menu .game-menu-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.tabletop-menu .game-menu-nav .button {
+  justify-content: flex-start;
+}
+.tabletop-menu .game-menu-nav [aria-current="page"] {
+  border-color: #1b4e38;
+  background: #e5edda;
+}
+.tabletop-menu p {
+  font-size: 12px;
+}
+.app-shell .board-workspace.entry-focused,
+.app-shell .board-workspace:modal {
+  background: #f0eadf var(--table-scene) center / cover;
+}
+.app-shell .board-frame {
+  background: #a77136;
+  border-color: #b78245;
+  /* Nine-slice only uses the rails. The generated center is never painted. */
+  border-image: url("/tabletop/board-frame-v3.webp") 70 / 1 / 0 stretch;
+  border-radius: 8px;
+  box-shadow:
+    0 1px 1px #66401580,
+    0 4px 3px #51321c38,
+    0 9px 15px #57391f36;
+}
+.app-shell .board-grid {
+  background: #b4b6a8;
+  box-shadow:
+    0 0 0 1px #543815a6,
+    inset 0 1px 3px #39290d40;
+}
+.app-shell .board-workspace .square.plain {
+  background: linear-gradient(145deg, #ffffff70, #b8b7ab14), #f4f5f1;
+}
+.app-shell .board-workspace .square.tw {
+  background: linear-gradient(145deg, #ffbaa530, #b5514712), #ca7865;
+}
+.app-shell .board-workspace .square.dw {
+  background: linear-gradient(145deg, #ffe3d54a, #b7836c12), #e1ac9e;
+}
+.app-shell .board-workspace .square.dl {
+  background: linear-gradient(145deg, #d5f4f748, #459bba12), #a5ccd2;
+}
+.app-shell .board-workspace .square.tl {
+  background: linear-gradient(145deg, #b4e6e838, #26789112), #5a9fa7;
+}
+.app-shell .letter-tile,
+.app-shell .board-workspace .square.fresh .letter-tile {
+  background:
+    linear-gradient(140deg, #fff3cf26, #b17b391c),
+    #efd9ad url("/tabletop/tile.webp") center / 108% 108%;
+  border-color: #dcc18b #b18a52 #896033 #c6a36b;
+  border-radius: 9%;
+  box-shadow:
+    inset 0 1px 0 #fff6db,
+    inset 1px 0 0 #ffeac6a6,
+    inset 0 -1px 0 #9e754044,
+    inset -1px 0 0 #80552338,
+    0 2px 1px #68461e6b,
+    0 3px 4px #49301242;
+  color: #272416;
+}
+.app-shell .board-workspace .square .letter-tile b {
+  font-size: clamp(10px, 52cqi, 64px);
+  font-weight: 750;
+}
+.app-shell .board-workspace .square .letter-tile small {
+  right: 7%;
+  bottom: 6%;
+  font-size: clamp(7px, 21cqi, 24px);
+}
+.app-shell .letter-tile.blank-tile,
+.app-shell .board-workspace .square.fresh .letter-tile.blank-tile {
+  background:
+    linear-gradient(#c0dfffd9, #c0dfffd9),
+    #dceeff url("/tabletop/tile.webp") center / 108% 108%;
+  color: #075096;
+  border-color: #3d78af;
+  border-bottom-color: #245c91;
+  box-shadow: inset 0 1px 0 #f5fbff;
+}
+.app-shell .board-seat.is-current {
+  background: #174e38;
+  color: #fff9e8;
+  border-color: #a0b67b;
+  box-shadow:
+    0 0 0 2px #a0b67b55,
+    0 0 22px #75956470;
+}
+.app-shell .board-seat-score {
+  font-weight: 700;
+}
+.app-shell .board-seat .avatar {
+  box-shadow:
+    inset 0 0 0 1px #59584224,
+    0 2px 2px #41351e18;
+}
+
+/* These material and type treatments apply to both live views; their layout
+   styles keep ownership of widths, heights, and responsive seat positions. */
+.app-shell .board-workspace .square {
+  container-type: inline-size;
+}
+.app-shell .board-workspace .square .premium-label,
+.app-shell .board-workspace .square.dw .premium-label:only-child {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(6px, 35cqi, 14px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 #fff7e82b;
+}
+.app-shell .board-workspace .square:is(.tw, .dw) .premium-label {
+  color: #331c13;
+}
+.app-shell .board-workspace .square:is(.tl, .dl) .premium-label {
+  color: #0e3033;
+}
+.app-shell .board-workspace .square .letter-tile b {
+  text-shadow: 0 1px 0 #fff0cb66;
+}
+.app-shell :is(.board-seat-score, .spectator-seat-score) {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+}
+.app-shell :is(.board-seat strong, .spectator-seat-name) {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.app-shell :is(.board-seat .avatar, .spectator-seat .spectator-player-initial) {
+  color: #234838;
+  font-weight: 700;
+  background-image: linear-gradient(145deg, #fff7db38, #9267380d);
+  box-shadow:
+    inset 0 1px 0 #fff6ddba,
+    0 0 0 1px #90734542,
+    0 3px 3px #41351e26;
+}
+.app-shell .board-seat .colour-0,
+.app-shell .spectator-seat .seat-colour-0 {
+  background-color: #c5d6bb;
+}
+.app-shell .board-seat .colour-1,
+.app-shell .spectator-seat .seat-colour-1 {
+  background-color: #eed196;
+}
+.app-shell .board-seat .colour-2,
+.app-shell .spectator-seat .seat-colour-2 {
+  background-color: #c0d7e2;
+}
+.app-shell .board-seat .colour-3,
+.app-shell .spectator-seat .seat-colour-3 {
+  background-color: #e5a99c;
+}
+.app-shell :is(.board-seat, .spectator-seat).is-current {
+  background: linear-gradient(145deg, #336143, #10442e 46%, #0a3024);
+  color: #fff9e8;
+  border-color: #a0b67b;
+  box-shadow:
+    inset 0 1px 1px #edffd080,
+    inset 0 0 0 1px #d2e69030,
+    0 0 0 2px #b3c87699,
+    0 3px 5px #27482e40,
+    0 0 17px #88a64785;
+}
+/* A centered crown and gold rim distinguish the leader from the green turn cue. */
+.app-shell .board-seat-crown,
+.app-shell .spectator-seat .spectator-player-initial > svg {
+  width: 36px;
+  height: 29px;
+  top: -23px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  color: #efb933;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 0 #77501d) drop-shadow(0 2px 2px #9e611c70)
+    drop-shadow(0 0 5px #ffdc7980);
+}
+.app-shell .board-seat-crown svg,
+.app-shell .spectator-seat .spectator-player-initial > svg {
+  stroke: #81591e;
+  stroke-width: 1.5px;
+}
+.app-shell .board-seat-avatar:has(.board-seat-crown) .avatar,
+.app-shell .spectator-seat .spectator-player-initial:has(svg) {
+  box-shadow:
+    inset 0 1px 0 #fff6ddba,
+    0 0 0 2px #e5b13e,
+    0 0 0 4px #fff4ca,
+    0 3px 10px #bc852b70;
+}
+@media (min-width: 601px) and (min-height: 521px) {
+  /* Make room above a bottom-seat crown without resizing the board. */
+  .app-shell .board-seat-2 .board-seat-avatar:has(.board-seat-crown),
+  .app-shell .spectator-seat-2 .spectator-player-initial:has(svg) {
+    transform: translateY(8px);
+  }
+}
+.app-shell .spectator-ranking .spectator-player-initial svg {
+  color: #efb933;
+  filter: drop-shadow(0 1px 1px #68491b66);
+}
+
+.app-shell .score-panel {
+  background: #fffcf4ed;
+  border-color: #c7c5ad;
+  box-shadow: 0 3px 12px #51412710;
+}
+.app-shell .panel-chevron {
+  border-color: #bdba9e;
+  background: #fffcf4;
+  border-radius: 8px;
+}
+.app-shell .tile-bag-button {
+  position: relative;
+  background: transparent url("/tabletop/bag-resting-v2.webp") center / contain
+    no-repeat;
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+}
+.app-shell .tabletop-bag-count {
+  position: absolute;
+  top: 58%;
+  left: 51%;
+  transform: translate(-50%, -50%) rotate(10deg);
+  color: #234838;
+  font:
+    800 18px Arial,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .tile-bag-button:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+.app-shell .watch-link-button {
+  border-radius: 9px;
+  border-bottom: 3px solid #123624;
+  box-shadow: 0 3px 5px #42543a25;
+}
+body > .family-toolbar {
+  padding-block: 6px;
+  background: #f0eadfbf;
+  border-bottom-color: #c7c5ad;
+  font-size: 11px;
+}
+@media (max-width: 600px) {
+  .app-shell > .site-header,
+  .app-shell.game-screen > .site-header {
+    gap: 7px;
+    padding: 6px 10px;
+    min-height: 60px;
+  }
+  .app-shell .brand {
+    font-size: clamp(16px, 4.4vw, 24px);
+  }
+  .app-shell .brand-wordmark {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3em;
+    font-size: inherit;
+  }
+  .app-shell .site-header > .local-label {
+    max-width: 70px;
+    white-space: normal;
+    font-size: 10px;
+  }
+  .app-shell .site-header > .game-actions {
+    gap: 4px;
+  }
+  .app-shell .site-header .tabletop-tool {
+    width: 42px;
+    min-width: 42px;
+    height: 44px;
+    flex-basis: 42px;
+    padding: 8px;
+  }
+  .app-shell .tile-bag-button {
+    width: 48px;
+    height: 50px;
+    flex-basis: 48px;
+  }
+  .app-shell .tabletop-bag-count {
+    font-size: 16px;
+  }
+  .app-shell.game-screen .turn-actions {
+    gap: 8px;
+    justify-content: center;
+    padding: 6px 0 0;
+  }
+  .app-shell .turn-actions .save-state {
+    flex-basis: 100%;
+    margin: 0;
+    text-align: center;
+    padding-bottom: 4px;
+  }
+  .app-shell .home-intro.amberly-welcome {
+    padding-top: 8px;
+    padding-bottom: 28px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .button.primary:not(:disabled):active,
+  .app-shell .tabletop-tool:not(:disabled):active {
+    transform: none;
+  }
+}
+
+/* Let the board, rather than reserved seat whitespace, use a tablet-sized window. */
+@media (min-width: 601px) {
+  .app-shell.game-screen > .site-header {
+    min-height: 60px;
+    padding-block: 4px;
+  }
+  .app-shell.game-screen > .site-header .tile-bag-button {
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+  }
+}
+@media (min-width: 601px) and (min-height: 501px) {
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-table {
+    --seat-height: 56px;
+    --seat-gap: 8px;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat:is(.board-seat-0, .board-seat-2) {
+    position: relative;
+    padding: 3px 8px;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat:is(.board-seat-0, .board-seat-2)
+    .board-seat-summary {
+    gap: 0;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat:is(.board-seat-0, .board-seat-2)
+    strong {
+    font-size: 16px;
+    line-height: 1.15;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat:is(.board-seat-0, .board-seat-2)
+    .board-seat-score {
+    font-size: 24px;
+    line-height: 1.1;
+  }
+  /* The bright seat treatment already identifies the turn. Keep its text for
+     assistive technology without reserving another visible row above the board. */
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat:is(.board-seat-0, .board-seat-2)
+    .board-seat-turn {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Phone portraits keep clockwise seat order in pairs above and below the board.
+   Each turn's animation origin follows these rendered seats. */
+@media (max-width: 600px) and (min-height: 521px) {
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-table {
+    --seat-height: 64px;
+    --seat-gap: 6px;
+    --fitted-board: min(
+      calc(100cqw - 8px),
+      calc(100cqh - 2 * var(--seat-height) - 2 * var(--seat-gap) - 8px)
+    );
+    width: var(--fitted-board);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: var(--seat-height) var(--fitted-board) var(
+        --seat-height
+      );
+    gap: var(--seat-gap);
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-table
+    > .board-scroll {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat {
+    position: relative;
+    flex-direction: row;
+    gap: 6px;
+    padding: 5px 7px;
+    justify-self: center;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat-0 {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat-1 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat-2 {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat-3 {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat-summary {
+    gap: 1px;
+  }
+  .app-shell.game-screen
+    .board-workspace:not(.entry-focused)
+    .board-seat-score {
+    font-size: 22px;
+  }
+  .app-shell.game-screen .board-workspace:not(.entry-focused) .board-seat-turn {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Installed iPad apps can paint a soft system edge beyond the status bar.
+   Keep a quiet strip before interactive controls; browser tabs need none. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root {
+    --installed-top-clearance: 24px;
+    --game-bottom-clearance: max(34px, env(safe-area-inset-bottom, 0px));
+  }
+  body .app-shell:not(.game-screen):not(.spectator-shell) > .site-header {
+    padding-top: calc(
+      10px + env(safe-area-inset-top) + var(--installed-top-clearance)
+    );
+  }
+}
+@media (min-width: 740px) and (min-height: 650px) {
+  body
+    .app-shell:is(.game-screen, .spectator-shell)
+    > header.site-header
+    button.tile-bag-button {
+    position: fixed;
+    z-index: 25;
+    top: calc(env(safe-area-inset-top) + var(--installed-top-clearance) + 72px);
+    right: calc(env(safe-area-inset-right) + 16px);
+    width: clamp(88px, 9vw, 116px);
+    height: clamp(88px, 9vw, 116px);
+    flex-basis: auto;
+  }
+  body
+    .app-shell:is(.game-screen, .spectator-shell)
+    > .site-header
+    .tabletop-bag-count {
+    font-size: clamp(27px, 3vw, 36px);
+  }
+  /* An open score sheet owns the right gutter, so its bag returns to the header. */
+  body
+    .app-shell.game-screen:has(.panel-resizer)
+    > .site-header
+    .tile-bag-button {
+    position: relative;
+    inset: auto;
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+  }
+  body
+    .app-shell.game-screen:has(.panel-resizer)
+    > .site-header
+    .tabletop-bag-count {
+    font-size: 18px;
+  }
+}
+
+/* A portrait composition keeps the scene visible instead of cropping it to plain cloth. */
+@media (max-aspect-ratio: 3/4) {
+  :root {
+    --table-scene: url("/tabletop/table-bottles-phone-v4.webp");
+  }
+}
+@media (display-mode: standalone) and (orientation: landscape),
+  (display-mode: fullscreen) and (orientation: landscape) {
+  :root {
+    --game-bottom-clearance: max(21px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* The bottle scene has quiet header/footer bands, so controls can sit on the table. */
+.app-shell:is(.game-screen, .spectator-shell) > .site-header,
+.app-shell .persistent-entry-bar,
+.app-shell .spectator-last-turn {
+  background: transparent;
+  border-radius: 0;
+}
+.app-shell .entry-board-status {
+  padding-inline: 6px;
+}
+
+@media (min-width: 521px) and (max-height: 520px) {
+  .app-shell:is(.game-screen, .spectator-shell) > .site-header,
+  .app-shell .persistent-entry-bar {
+    background: transparent;
+  }
+  .app-shell:is(.game-screen, .spectator-shell) > .site-header > .brand,
+  .app-shell:is(.game-screen, .spectator-shell)
+    > .site-header
+    > .tabletop-menu-button {
+    background: #fffcf4eb;
+    border-radius: 6px;
+  }
+}
+
+/* The provisional badge retains its red/green validity cue and measured bounds. */
+.app-shell .tile-score-bubble:not(.needs-check) {
+  background: linear-gradient(145deg, #2a654a, #103e2d);
+  border-color: #f2de9a;
+  box-shadow:
+    inset 0 1px #fff5ce4d,
+    0 2px 5px #163d2e40,
+    0 0 9px #efcb7040;
+}
+
+@media (min-width: 521px) and (max-height: 520px) {
+  body {
+    background-position: center bottom;
+  }
+}

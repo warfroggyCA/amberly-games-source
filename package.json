@@ -1,0 +1,52 @@
+{
+  "name": "family-scrabble-scorer",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "lexicon:prepare": "node scripts/prepare-lexicons.mjs",
+    "predev": "npm run lexicon:prepare",
+    "prebuild": "npm run lexicon:prepare",
+    "pretest": "npm run lexicon:prepare",
+    "pretypecheck": "npm run lexicon:prepare",
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format:check": "prettier --check src tests scripts config .github *.ts *.mjs *.json",
+    "test:database": "node scripts/test-shared-database.mjs",
+    "test:browser": "playwright test",
+    "test:browser:install": "playwright install chromium webkit",
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:database && npm run build && npm run test:browser",
+    "release:check": "node scripts/release-check.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "next": "16.3.5",
+    "postgres": "3.4.9",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "sharp": "0.35.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "fake-indexeddb": "6.2.5",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "vitest": "5.0.0"
+  },
+  "type": "module"
+}

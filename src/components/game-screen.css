@@ -1,0 +1,404 @@
+/* A live game uses the available window, including any shared-account toolbar. */
+body:has(> .game-screen) {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body:has(> .game-screen) > .family-toolbar,
+body:has(> .game-screen) > .family-pending,
+body:has(> .game-screen) > .error-banner {
+  flex-shrink: 0;
+  max-height: 20dvh;
+  overflow: auto;
+}
+.app-shell.game-screen {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + var(--installed-top-clearance))
+    env(safe-area-inset-right) var(--game-bottom-clearance)
+    env(safe-area-inset-left);
+}
+.game-screen > .site-header {
+  flex-shrink: 0;
+  min-height: 64px;
+  padding: 8px 20px;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+.game-screen .brand {
+  font-size: 24px;
+  gap: 10px;
+}
+.game-screen .brand-tile {
+  width: 32px;
+  height: 34px;
+  font-size: 23px;
+}
+.game-screen .site-header > .game-actions {
+  margin-left: auto;
+}
+.game-screen .site-header > nav,
+.game-screen .site-header > .local-label,
+.game-screen > .preview-notice,
+.game-screen > footer,
+.game-screen .game-heading {
+  display: none;
+}
+.game-screen > main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 20px 10px;
+  overflow: hidden;
+}
+.game-screen .game-notices {
+  flex-shrink: 0;
+  max-height: 22%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.game-screen .game-notices:empty {
+  display: none;
+}
+.game-screen .game-notices > * {
+  margin: 0 0 6px;
+}
+.game-screen .game-notices .assistance-banner {
+  padding: 8px 12px;
+}
+.game-screen .game-notices p {
+  margin: 4px 0;
+}
+.game-screen > main > .inline-message,
+.game-screen > main > .error-banner {
+  flex-shrink: 0;
+  max-height: 20%;
+  overflow: auto;
+  margin: 0 0 6px;
+  padding: 8px 12px;
+}
+.game-screen .resizable-play.play-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+.game-screen .resizable-play .table-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 28px 0 0;
+}
+.game-screen .board-editor,
+.game-screen .board-workspace:not(.entry-focused) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.game-screen .board-editor {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.board-stage {
+  display: contents;
+}
+.game-screen .board-workspace:not(.entry-focused) > .board-stage {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+}
+.game-screen .board-workspace:not(.entry-focused) .board-table {
+  --seat-width: 104px;
+  --seat-height: 84px;
+  --seat-gap: 10px;
+  /* Reserve every seat before sizing the square from both available dimensions. */
+  --fitted-board: min(
+    calc(100cqw - 2 * var(--seat-width) - 2 * var(--seat-gap) - 8px),
+    calc(100cqh - 2 * var(--seat-height) - 2 * var(--seat-gap) - 8px)
+  );
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  grid-template-columns: var(--seat-width) var(--fitted-board) var(--seat-width);
+  grid-template-rows: var(--seat-height) var(--fitted-board) var(--seat-height);
+  gap: var(--seat-gap);
+  align-content: center;
+  justify-content: center;
+}
+.game-screen .board-workspace:not(.entry-focused) .board-frame {
+  width: 100%;
+  max-width: none;
+  /* Equal edges keep the outside of the board square, too. */
+  border-width: 5px;
+}
+.game-screen .board-workspace:not(.entry-focused) .board-grid {
+  aspect-ratio: 1;
+  grid-template-rows: repeat(15, minmax(0, 1fr));
+}
+.game-screen .board-workspace:not(.entry-focused) .square {
+  min-height: 0;
+  overflow: hidden;
+}
+.game-screen .board-workspace:not(.entry-focused) .board-scroll {
+  width: 100%;
+  overflow: hidden;
+}
+.game-screen .board-workspace:not(.entry-focused) .board-controls {
+  flex-shrink: 0;
+  margin: 0;
+  min-height: 38px;
+  padding: 0 8px;
+}
+.game-screen .board-controls .text-button {
+  min-height: 36px;
+  font-size: 12px;
+}
+.game-screen .board-workspace:not(.entry-focused) .entry-footer {
+  display: none;
+}
+.game-screen .board-seat {
+  padding: 7px 6px;
+}
+.game-screen .board-seat-summary {
+  flex-wrap: nowrap;
+}
+.game-screen .board-seat strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game-screen .board-seat-1 .board-seat-summary,
+.game-screen .board-seat-3 .board-seat-summary {
+  flex-wrap: wrap;
+}
+.game-screen .turn-actions {
+  flex-shrink: 0;
+  gap: 0 16px;
+  padding: 4px 8px 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.game-screen .turn-actions .text-button {
+  min-height: 44px;
+  font-size: 12px;
+}
+.game-screen .score-drawer {
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.game-screen .score-drawer .score-panel {
+  min-height: 100%;
+  width: 100%;
+  padding: 18px;
+}
+.game-screen .panel-chevron {
+  top: 8px;
+  width: 34px;
+  height: 44px;
+}
+.game-menu-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+/* Native modal gives the small-screen score sheet focus containment and Escape. */
+.score-sheet-modal.modal {
+  inset: 0 0 0 auto;
+  margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(100%, 420px);
+  max-width: 100%;
+  border-radius: 0;
+  padding: max(16px, env(safe-area-inset-top)) 16px
+    max(16px, env(safe-area-inset-bottom));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.score-sheet-modal .modal-heading {
+  position: sticky;
+  top: -16px;
+  background: var(--surface);
+  z-index: 1;
+  padding: 12px 0;
+}
+.score-sheet-modal .score-panel {
+  border: 0;
+}
+.score-sheet-modal .panel-heading h2 {
+  display: none;
+}
+.score-sheet-modal .panel-heading {
+  justify-content: flex-end;
+}
+@media (max-width: 900px) {
+  .game-screen > .site-header {
+    padding: 6px 12px;
+    min-height: 58px;
+  }
+  .game-screen > main {
+    padding: 4px 8px 6px;
+  }
+  .game-screen .resizable-play .table-area,
+  .game-screen .resizable-play.panel-hidden .table-area {
+    padding: 0;
+  }
+  .game-screen .board-workspace:not(.entry-focused) .board-controls {
+    padding-right: 46px;
+  }
+  .game-screen .panel-chevron,
+  .game-screen .panel-hidden .panel-chevron {
+    position: absolute;
+    right: 0;
+    top: 0;
+    margin: 0;
+    float: none;
+  }
+  .game-screen .score-drawer {
+    position: absolute;
+    width: 0;
+    height: 0;
+  }
+  .game-screen .score-drawer .score-sheet-modal .score-panel {
+    padding: 0;
+    min-height: 0;
+  }
+}
+@media (max-width: 600px) {
+  .game-screen .brand {
+    font-size: 21px;
+  }
+  .game-screen .brand-tile {
+    display: none;
+  }
+  .game-screen .site-header {
+    gap: 6px;
+  }
+  .game-screen .site-header .button {
+    padding: 8px;
+    font-size: 12px;
+    gap: 5px;
+  }
+  .game-screen .site-header .game-actions {
+    gap: 6px;
+  }
+  .game-screen .board-workspace:not(.entry-focused) .board-table {
+    --seat-width: 56px;
+    --seat-height: 76px;
+    --seat-gap: 4px;
+  }
+  .game-screen .board-seat {
+    padding: 6px 2px;
+  }
+  .game-screen .board-seat strong {
+    font-size: 14px;
+  }
+  .game-screen .board-seat-score {
+    font-size: 20px;
+  }
+  .game-screen .board-seat-summary {
+    gap: 3px 5px;
+  }
+  .game-screen .board-workspace:not(.entry-focused) .board-frame {
+    border-width: 3px;
+  }
+  .game-screen .board-workspace:not(.entry-focused) .board-controls > span {
+    display: none;
+  }
+  .game-screen .turn-actions {
+    justify-content: space-between;
+    gap: 0 6px;
+    padding: 0;
+  }
+  .game-screen .turn-actions .text-button {
+    font-size: 11px;
+  }
+  .game-screen .save-state {
+    flex-basis: 100%;
+    text-align: center;
+    padding-bottom: 4px;
+  }
+}
+@media (max-height: 500px) {
+  .game-screen .board-workspace:not(.entry-focused) .board-table {
+    --seat-height: 60px;
+    --seat-gap: 4px;
+  }
+  .game-screen .board-seat-0,
+  .game-screen .board-seat-2 {
+    padding: 2px 6px;
+  }
+  .game-screen .board-seat-details {
+    gap: 2px;
+  }
+  .game-screen .board-seat-summary {
+    gap: 1px;
+  }
+  .game-screen .board-seat strong {
+    font-size: 14px;
+  }
+  .game-screen .board-seat-score {
+    font-size: 18px;
+  }
+  .game-screen .site-header {
+    min-height: 52px;
+    padding-block: 4px;
+  }
+}
+
+/* On a short landscape screen, seat pairs flank the board so it keeps its height. */
+@media (min-width: 601px) and (max-height: 500px) {
+  .game-screen .board-workspace:not(.entry-focused) .board-table {
+    --seat-width: 124px;
+    --fitted-board: min(
+      calc(100cqw - 2 * var(--seat-width) - 2 * var(--seat-gap) - 8px),
+      calc(100cqh - 8px)
+    );
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .game-screen
+    .board-workspace:not(.entry-focused)
+    .board-table
+    > .board-scroll {
+    grid-row: 1 / 3;
+  }
+  .game-screen .board-seat {
+    flex-direction: row;
+    gap: 6px;
+    padding: 2px 6px;
+  }
+  .game-screen .board-seat-0,
+  .game-screen .board-seat-3 {
+    grid-column: 1;
+    justify-self: end;
+  }
+  .game-screen .board-seat-1,
+  .game-screen .board-seat-2 {
+    grid-column: 3;
+    justify-self: start;
+  }
+  .game-screen .board-seat-0,
+  .game-screen .board-seat-1 {
+    grid-row: 1;
+  }
+  .game-screen .board-seat-2,
+  .game-screen .board-seat-3 {
+    grid-row: 2;
+  }
+}

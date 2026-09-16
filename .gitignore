@@ -1,0 +1,28 @@
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+.env*
+!.env.example
+*.tsbuildinfo
+data/lexicons/
+docs/OSPD5.txt
+src/lib/generated/
+.DS_Store
+
+.playwright-cli/
+output/
+.vercel
+
+# Private operator backups and local tooling
+backups/
+*.dump
+*.backup.enc
+*.backup.key
+supabase/.temp/
+
+# Personal/operator archives and private CI build inputs
+.private-words/
+public/amberly-family.jpg

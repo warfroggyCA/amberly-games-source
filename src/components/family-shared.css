@@ -1,0 +1,167 @@
+.family-toolbar {
+  padding: 12px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: #e7ede6;
+  border-bottom: 1px solid #bacbbd;
+  font-size: 13px;
+}
+.family-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.family-toolbar a,
+.family-connection a {
+  color: #184d3c;
+}
+.family-toolbar span {
+  overflow-wrap: anywhere;
+}
+.family-pending {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 16px 24px;
+  background: #fff1d5;
+}
+
+.family-members {
+  list-style: none;
+  padding: 0;
+}
+.family-members li {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #c8d4c9;
+  padding: 10px 0;
+}
+
+.family-invite {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+  margin: 20px 0;
+}
+.family-invite .field {
+  flex: 1;
+  min-width: 180px;
+}
+.family-members li div {
+  display: grid;
+  gap: 6px;
+}
+.family-members strong,
+.family-invitation span {
+  overflow-wrap: anywhere;
+}
+.family-members span {
+  font-size: 13px;
+}
+.family-invitation {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+.family-member-editor {
+  display: grid;
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 2px solid #184d3c;
+}
+.family-connection {
+  display: grid;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .family-toolbar {
+    padding: 12px;
+  }
+}
+.spectator-history {
+  padding: 16px 0;
+}
+.spectator-history summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.spectator-history li {
+  margin: 12px 0;
+}
+.table-overflow {
+  overflow-x: auto;
+}
+
+.family-game-status {
+  margin: 8px 0 16px;
+}
+.game-concerns > .text-button {
+  font-size: 13px;
+}
+.game-concern-banner {
+  padding: 12px 16px;
+  border-left: 3px solid #94632d;
+  background: #fff0d8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.game-concern-history {
+  margin-block: 12px;
+}
+.game-concern-history summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.game-concern-history ol {
+  list-style: none;
+  padding: 0;
+}
+.game-concern-history li {
+  border-bottom: 1px solid #d1d5ca;
+  padding: 12px 0;
+  font-size: 14px;
+}
+.concern-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.concern-decision {
+  border-left: 2px solid #a9bbae;
+  padding: 8px 14px;
+}
+.concern-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.concern-form {
+  display: grid;
+  gap: 14px;
+}
+.concern-form p {
+  margin: 0;
+}
+.concern-form textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid #a9bbae;
+  font: inherit;
+  background: #fffdf8;
+}
+.game-list .game-review-label {
+  color: #805019;
+  font-weight: 700;
+}

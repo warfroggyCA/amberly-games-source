@@ -1,0 +1,21 @@
+.watch-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  min-height: 46px;
+  flex-shrink: 0;
+  padding: 9px;
+  color: #fffdf7;
+  background: #184d3c;
+  border: 1px solid #113b2e;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.watch-link-button:hover {
+  background: #25634d;
+}
+.watch-link-button:focus-visible {
+  outline: 3px solid #ac7c2e;
+  outline-offset: 3px;
+}

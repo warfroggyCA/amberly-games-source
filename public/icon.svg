@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Amberly Games — A and G letter tiles on a board</title>
+  <defs>
+    <linearGradient id="tile" x2="0" y2="1">
+      <stop stop-color="#fff2d2"/><stop offset="1" stop-color="#ecd4a0"/>
+    </linearGradient>
+  </defs>
+  <path fill="#184d3c" d="M0 0h512v512H0z"/>
+  <rect x="48" y="54" width="416" height="416" rx="10" fill="#10392c"/>
+  <rect x="48" y="44" width="416" height="416" rx="10" fill="#b79a68"/>
+  <path d="M58 450V54h396" fill="none" stroke="#dec79d" stroke-width="4"/>
+  <path d="M454 54v396H58" fill="none" stroke="#8e764f" stroke-width="4"/>
+  <rect x="65" y="61" width="382" height="382" fill="#c1c2b4"/>
+  <rect x="67" y="63" width="52" height="52" fill="#bc7164"/>
+  <rect x="121" y="63" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="175" y="63" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="229" y="63" width="52" height="52" fill="#bc7164"/>
+  <rect x="283" y="63" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="337" y="63" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="391" y="63" width="52" height="52" fill="#bc7164"/>
+  <rect x="67" y="117" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="121" y="117" width="52" height="52" fill="#dcab9b"/>
+  <rect x="175" y="117" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="229" y="117" width="52" height="52" fill="#59969a"/>
+  <rect x="283" y="117" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="337" y="117" width="52" height="52" fill="#dcab9b"/>
+  <rect x="391" y="117" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="67" y="171" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="121" y="171" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="175" y="171" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="229" y="171" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="283" y="171" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="337" y="171" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="391" y="171" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="67" y="225" width="52" height="52" fill="#bc7164"/>
+  <rect x="121" y="225" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="175" y="225" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="229" y="225" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="283" y="225" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="337" y="225" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="391" y="225" width="52" height="52" fill="#bc7164"/>
+  <rect x="67" y="279" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="121" y="279" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="175" y="279" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="229" y="279" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="283" y="279" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="337" y="279" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="391" y="279" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="67" y="333" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="121" y="333" width="52" height="52" fill="#dcab9b"/>
+  <rect x="175" y="333" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="229" y="333" width="52" height="52" fill="#59969a"/>
+  <rect x="283" y="333" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="337" y="333" width="52" height="52" fill="#dcab9b"/>
+  <rect x="391" y="333" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="67" y="387" width="52" height="52" fill="#bc7164"/>
+  <rect x="121" y="387" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="175" y="387" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="229" y="387" width="52" height="52" fill="#bc7164"/>
+  <rect x="283" y="387" width="52" height="52" fill="#b8d2d0"/>
+  <rect x="337" y="387" width="52" height="52" fill="#f3f5f2"/>
+  <rect x="391" y="387" width="52" height="52" fill="#bc7164"/>
+  <g transform="rotate(-6 174 252)">
+    <rect x="92" y="176" width="160" height="172" rx="11" fill="#233d2f" opacity=".22"/>
+    <rect x="92" y="168" width="160" height="172" rx="11" fill="#aa8750"/>
+    <rect x="95" y="167" width="154" height="163" rx="9" fill="url(#tile)" stroke="#c6a66c" stroke-width="3"/>
+    <path d="M104 318V178h136" fill="none" stroke="#fff7e3" stroke-width="3"/>
+    <path fill="#184d3c" fill-rule="evenodd" d="M126 292l32-94h27l33 94h-24l-6-21h-34l-6 21zm34-41h22l-11-36z"/>
+    <path d="M219 304l7-5v20m-7 0h14" fill="none" stroke="#184d3c" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+  <g transform="rotate(5 337 252)">
+    <rect x="260" y="176" width="160" height="172" rx="11" fill="#233d2f" opacity=".22"/>
+    <rect x="260" y="168" width="160" height="172" rx="11" fill="#aa8750"/>
+    <rect x="263" y="167" width="154" height="163" rx="9" fill="url(#tile)" stroke="#c6a66c" stroke-width="3"/>
+    <path d="M272 318V178h136" fill="none" stroke="#fff7e3" stroke-width="3"/>
+    <path fill="#184d3c" d="M383 212l-17 15c-7-7-15-10-24-10-18 0-29 12-29 29s11 29 29 29c8 0 15-2 21-6v-12h-24v-19h46v42c-11 10-25 15-44 15-30 0-51-20-51-49s21-49 52-49c17 0 31 5 41 15z"/>
+    <path d="M387 304c0-7 14-7 14 0 0 5-14 8-14 15h15" fill="none" stroke="#184d3c" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+</svg>

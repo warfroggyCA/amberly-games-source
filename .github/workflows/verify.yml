@@ -1,0 +1,62 @@
+name: Verify
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Require reviewed access to private inputs
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "External contributions require maintainer review before private-input verification."
+          exit 1
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - name: Read pinned private word inputs
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: warfroggyCA/amberly-games
+          ref: c1fb9965de2edb0640069b06fdb37e151b1093c6
+          path: .private-words
+          ssh-key: ${{ secrets.AMBERLY_WORD_ASSET_KEY }}
+          persist-credentials: false
+      - name: Restore pinned private word sources
+        run: |
+          node scripts/lexicon-artifact.mjs restore .private-words/amberly-lexicons-v1.json.gz
+          rm -rf .private-words
+      - run: node scripts/check-secrets.mjs
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Database transactions, authorization and restore rehearsal
+        run: |
+          export SCRABBLE_PG_BIN="$(pg_config --bindir)"
+          npm run test:database
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

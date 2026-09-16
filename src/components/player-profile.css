@@ -1,0 +1,67 @@
+.player-profile-form {
+  display: grid;
+  gap: 16px;
+}
+.player-profile-form > p {
+  margin: 0;
+}
+.profile-photo-editor {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+}
+.profile-photo-editor > div {
+  min-width: 0;
+  flex: 1;
+}
+.profile-photo-editor input[type="file"] {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+}
+.profile-photo-editor small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.profile-photo-preview,
+.profile-photo-placeholder {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+.profile-photo-placeholder {
+  display: grid;
+  place-items: center;
+  background: #ead7ac;
+  color: #29493e;
+  font-size: 38px;
+  font-family: Georgia, serif;
+}
+.player-profile-form textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 88px;
+  font: inherit;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+  color: var(--ink);
+}
+@media (max-width: 420px) {
+  .profile-photo-editor {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .profile-photo-preview,
+  .profile-photo-placeholder {
+    width: 72px;
+    height: 72px;
+    flex-basis: 72px;
+  }
+}

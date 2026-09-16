@@ -1,0 +1,75 @@
+.tile-bag-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--forest);
+  cursor: pointer;
+}
+.tile-bag-button:hover svg {
+  filter: brightness(1.06);
+}
+.tile-bag-button:focus-visible {
+  outline: 3px solid var(--forest);
+  outline-offset: 3px;
+}
+
+/* An informational panel leaves its bag opener and the board available. */
+.tile-bag-panel {
+  position: fixed;
+  z-index: 1000;
+  top: calc(
+    env(safe-area-inset-top) + var(--installed-top-clearance, 0px) + 70px
+  );
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(
+    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) -
+      var(--installed-top-clearance, 0px) - 94px
+  );
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  border: 1px solid #b9a27a;
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow:
+    0 14px 45px #172f2a38,
+    inset 0 1px 0 #fff;
+}
+.tile-bag-panel:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+.tile-bag-panel .tile-inventory {
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 22px 12px;
+}
+.tile-bag-count-check {
+  margin-top: 20px;
+}
+@media (min-width: 740px) and (min-height: 650px) {
+  /* Keep the larger bag in the right gutter exposed for a second tap. */
+  .tile-bag-panel {
+    width: min(760px, calc(100vw - 240px));
+  }
+}
+@media (max-width: 600px) {
+  .tile-bag-panel {
+    padding: 18px;
+  }
+  .tile-bag-panel .modal-heading h2 {
+    font-size: 24px;
+  }
+  .tile-bag-panel .tile-inventory {
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 18px 10px;
+  }
+}

@@ -1,0 +1,112 @@
+.family-access {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 36px 24px 80px;
+}
+.family-access-back {
+  display: inline-block;
+  margin-bottom: 32px;
+  color: var(--forest);
+  text-underline-offset: 4px;
+}
+.family-access-card {
+  border-top: 4px solid var(--forest);
+  padding: 28px 0;
+}
+.family-access .family-access-brand {
+  margin-bottom: 28px;
+  font-size: clamp(22px, 5vw, 27px);
+}
+.family-access form {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+.family-access label {
+  font-weight: 700;
+}
+.family-access input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 18px;
+}
+.family-access #family-code {
+  font-size: 26px;
+  letter-spacing: 0.25em;
+  font-variant-numeric: tabular-nums;
+}
+.family-access .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--forest);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+}
+.family-access .btn.primary {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: var(--paper);
+}
+.family-access .btn.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+.family-access .btn:not(:disabled):hover {
+  border-color: var(--forest);
+  background: #edf3ee;
+}
+.family-access .btn.primary:not(:disabled):hover {
+  background: #123e2f;
+}
+.family-access .btn:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+.family-access .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.family-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.family-access .family-access-email {
+  margin-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+.family-access .family-access-error {
+  padding: 12px 16px;
+  border-left: 3px solid #9e382f;
+  background: #fff1ec;
+  color: #82291f;
+  margin: 8px 0 0;
+}
+.family-access .family-access-notice {
+  padding: 12px 16px;
+  border-left: 3px solid var(--forest);
+  background: #edf3ee;
+  color: var(--forest);
+  margin: 8px 0 0;
+}
+@media (max-width: 480px) {
+  .family-access {
+    padding: 24px 18px 56px;
+  }
+  .family-access-actions .btn {
+    flex-grow: 1;
+  }
+}

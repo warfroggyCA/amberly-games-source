@@ -1,0 +1,156 @@
+.animated-board-editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.game-screen .animated-board-editor {
+  flex: 1;
+}
+.turn-animation-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5000;
+  visibility: hidden;
+}
+.turn-flying-tile {
+  position: absolute;
+  visibility: hidden;
+  transform-style: preserve-3d;
+  container-type: inline-size;
+}
+.turn-tile-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid #a9854f;
+  border-bottom: 2px solid #916e3a;
+  border-radius: 10%;
+  color: #27271f;
+  background: #ead5a9 url("/tabletop/tile.webp") center / 110% 110%;
+  box-shadow:
+    0 2px 3px #42280840,
+    inset 0 1px #fff3d4;
+}
+.turn-tile-front {
+  transform: translateZ(1px);
+}
+.turn-tile-back {
+  transform: rotateY(180deg) translateZ(1px);
+}
+.turn-tile-face b {
+  font:
+    750 54cqi / 1 Arial,
+    sans-serif;
+  transform: translate(-5%, -6%);
+}
+.turn-tile-face small {
+  position: absolute;
+  right: 6%;
+  bottom: 3%;
+  font:
+    700 23cqi / 1 Arial,
+    sans-serif;
+}
+.turn-tile-front.is-blank {
+  background-color: #dceeff;
+  background-image: none;
+  color: #075096;
+  border-color: #3d78af;
+}
+.turn-points {
+  position: absolute;
+  visibility: hidden;
+  width: 152px;
+  min-height: 94px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  color: #123e2e;
+  background: radial-gradient(
+    ellipse,
+    #fff6ceef 8%,
+    #ffe7a969 43%,
+    #ffde7900 72%
+  );
+  text-align: center;
+  font-family: Arial, sans-serif;
+  isolation: isolate;
+}
+.turn-points::before,
+.turn-points::after {
+  content: "✦";
+  position: absolute;
+  color: #fff9d4;
+  text-shadow:
+    0 0 3px #fff,
+    0 0 7px #ffc94f,
+    0 0 15px #edb63c;
+  font-size: 25px;
+  line-height: 1;
+  z-index: -1;
+}
+.turn-points::before {
+  left: 6px;
+  top: 5px;
+  transform: rotate(12deg);
+}
+.turn-points::after {
+  right: 6px;
+  top: 28px;
+  font-size: 18px;
+}
+.turn-points strong {
+  flex-basis: 100%;
+  font-size: 48px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 1px #ffffed,
+    0 0 3px #fff9dd,
+    0 0 12px #ffd164;
+}
+.turn-points span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 4px #fff8de,
+    0 0 4px #fff8de;
+}
+.turn-points small {
+  flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  max-height: 28px;
+  overflow: hidden;
+  margin-top: 3px;
+  text-shadow:
+    0 0 4px #fff8de,
+    0 0 4px #fff8de;
+}
+
+.turn-sparkles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-sparkles {
+    display: none;
+  }
+}

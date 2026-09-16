@@ -1,0 +1,179 @@
+.tile-set-settings h3 {
+  margin: 0 0 0.5rem;
+}
+.tile-set-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.tile-set-total {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0 1rem;
+}
+.tile-set-total strong {
+  font-size: 2rem;
+  color: var(--green, #174f3f);
+}
+.tile-set-total span {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+.tile-set-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem 0.75rem;
+}
+.tile-set-letter {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #d5d1bf;
+}
+.tile-set-letter > small {
+  color: #596251;
+  font-size: 0.75rem;
+}
+.equipment-tile.letter-tile {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b79352;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #f6e7bd, #e4c487);
+  box-shadow:
+    inset 1px 1px 0 #fff6d7,
+    0 2px 0 #ac8650;
+  color: #292b23;
+}
+.equipment-tile > b {
+  font:
+    700 30px/1 Arial,
+    sans-serif;
+}
+.equipment-tile > small {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  font:
+    700 10px/1 Arial,
+    sans-serif;
+}
+.equipment-blank > span {
+  font-size: 0.7rem;
+}
+.tile-quantity-controls {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+.tile-quantity-controls button {
+  flex: 0 0 36px;
+  height: 44px;
+  border: 1px solid #c9c5b4;
+  background: #fffdf4;
+  color: #174f3f;
+  font-size: 1.35rem;
+  border-radius: 5px;
+}
+.tile-quantity-controls input {
+  min-width: 0;
+  width: 3rem;
+  height: 44px;
+  padding: 0.2rem;
+  text-align: center;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  font-size: 1rem;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.tile-quantity-controls input::-webkit-inner-spin-button,
+.tile-quantity-controls input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.tile-set-checks {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.tile-set-checks label {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  min-height: 44px;
+}
+.tile-set-checks input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+}
+.tile-set-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+.tile-set-list li {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #d5d1bf;
+}
+.tile-set-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+  overflow-wrap: anywhere;
+}
+.tile-set-list li span {
+  font-size: 0.85rem;
+  color: #596251;
+}
+.tile-set-list li > button {
+  flex-shrink: 0;
+}
+.setup-equipment {
+  margin: 0.75rem 0;
+  color: #405348;
+}
+.setup-equipment summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  padding: 0.6rem 0;
+}
+.setup-equipment .field {
+  margin: 0.25rem 0;
+}
+@media (max-width: 580px) {
+  .tile-set-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem 0.25rem;
+  }
+  .tile-quantity-controls button {
+    flex-basis: 30px;
+  }
+  .tile-quantity-controls input {
+    width: 2rem;
+  }
+}
+@media (max-width: 380px) {
+  .tile-set-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tile-set-total span {
+    margin-left: 0;
+  }
+}
