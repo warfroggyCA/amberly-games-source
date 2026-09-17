@@ -86,6 +86,77 @@ afterEach(async () => {
 });
 describe("Crokinole retained workspace", () => {
   it.each([false, true])(
+    "saving a round waits for draft sync and retains failed writes (failed=%s)",
+    async (failed) => {
+      const active = store();
+      await active.load("game");
+      active.setDraft("game", {
+        values: { a: "65", b: "0" },
+        editingRoundId: null,
+      });
+      await settled();
+      let release!: () => void;
+      let started!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const began = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      request.mockImplementation(
+        async (_path: string, body: CrokinoleMutation) => {
+          if (body.operation.type === "save-draft") {
+            started();
+            await gate;
+            if (failed) throw new Error("Draft connection lost");
+            return {
+              draft: {
+                revision: 1,
+                baseRevision: 0,
+                generation: 1,
+                values: { a: "65", b: "0" },
+                editingRoundId: null,
+              },
+            };
+          }
+          throw new Error("Round reached server");
+        },
+      );
+      const syncing = active.syncDraft("game");
+      const syncResult = failed
+        ? expect(syncing).rejects.toThrow("Draft connection lost")
+        : expect(syncing).resolves.toBeUndefined();
+      await began;
+      const saving = active.command("game", {
+        id: "save-round",
+        type: "record_round",
+        expectedRevision: 0,
+        roundId: "round-1",
+        entries: [
+          { participantId: "a", rawScore: 65 },
+          { participantId: "b", rawScore: 0 },
+        ],
+      });
+      const saveResult = expect(saving).rejects.toThrow(
+        failed ? "Retry the interrupted action" : "Round reached server",
+      );
+      expect(
+        request.mock.calls.filter(
+          (call) => call[1]?.operation.type === "command",
+        ),
+      ).toHaveLength(0);
+      release();
+      await syncResult;
+      await saveResult;
+      const sent = request.mock.calls.filter(
+        (call) => call[1]?.operation.type === "command",
+      );
+      expect(sent).toHaveLength(failed ? 0 : 1);
+      if (!failed) expect(sent[0][1].operation.expectedDraftRevision).toBe(1);
+      expect(active.getSnapshot().drafts.game.values.a).toBe("65");
+    },
+  );
+  it.each([false, true])(
     "waits for a background read before a mutation and rechecks access (revoked=%s)",
     async (revoked) => {
       const active = store();

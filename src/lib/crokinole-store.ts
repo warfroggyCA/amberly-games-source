@@ -301,6 +301,7 @@ export function createCrokinoleStore(
   let working = false;
   let network = false;
   let refreshDone: Promise<void> | null = null;
+  let draftDone: Promise<void> | null = null;
   let revoked = false;
   const pausedSync = new Set<string>();
   let refreshAfterFailure: string | null = null;
@@ -764,6 +765,11 @@ export function createCrokinoleStore(
     if (state.storageError)
       throw new Error("Restore draft storage before saving another round.");
     working = true;
+    let finishDraft: (() => void) | undefined;
+    if (operation.type === "save-draft")
+      draftDone = new Promise<void>((resolve) => {
+        finishDraft = resolve;
+      });
     clearTimeout(timer);
     publish({ busy: operation.type !== "save-draft", error: null });
     try {
@@ -778,6 +784,10 @@ export function createCrokinoleStore(
       return undefined;
     } finally {
       working = false;
+      if (finishDraft) {
+        draftDone = null;
+        finishDraft();
+      }
       publish({ busy: false });
       if (refreshAfterFailure) {
         const id = refreshAfterFailure;
@@ -821,7 +831,9 @@ export function createCrokinoleStore(
     command: Extract<CrokinoleOperation, { type: "command" }>["command"],
   ) {
     clearTimeout(timer);
+    if (draftDone) await draftDone;
     if (refreshDone) await refreshDone;
+    clearTimeout(timer);
     if (working || network)
       throw new Error(
         "Your entry is still synchronizing. Please try again in a moment.",
