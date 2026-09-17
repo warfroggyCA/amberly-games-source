@@ -275,6 +275,7 @@ test("Crokinole earlier winning correction confirms excluded rounds before chang
   await confirmation
     .getByRole("button", { name: "Cancel", exact: true })
     .click();
+  await expect(confirmation).toHaveCount(0);
   expect(fixture.game().rounds).toHaveLength(3);
   await page
     .getByRole("button", { name: "Save correction", exact: true })
