@@ -1,4 +1,7 @@
 "use client";
+import { hasPermission } from "../lib/member-permissions";
+import { MemberPermissions } from "./MemberPermissions";
+import { DeletePracticeGame } from "./DeletePracticeGame";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { FamilyAccess, type FamilyUser } from "./FamilyAccess";
 import { FamilyWelcome } from "./FamilyWelcome";
@@ -62,16 +65,11 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
     let refreshing = false;
     const refresh = () => {
       const current = store.getSnapshot();
-      const active = current.data.activeGameId;
-      const activeGame = current.data.games.find((game) => game.id === active);
       if (
         document.visibilityState !== "visible" ||
         current.pending ||
         current.unresolved ||
-        refreshing ||
-        (active &&
-          store.canScore?.(active) &&
-          activeGame?.status !== "finalized")
+        refreshing
       )
         return;
       refreshing = true;
@@ -257,7 +255,8 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
                     Refresh shared history
                   </button>
                 )}
-              {state.shared!.member.role === "superadmin" && (
+              {(state.shared!.member.role === "superadmin" ||
+                hasPermission(state.shared!.member, "inviteMembers")) && (
                 <button className="text-button" onClick={() => setAdmin(true)}>
                   Family access
                 </button>
@@ -275,6 +274,9 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
         }
         shareControl={
           state.data.activeGameId &&
+          state.shared!.gameAccess[state.data.activeGameId]?.mode !==
+            "practice" &&
+          hasPermission(state.shared!.member, "shareGames") &&
           (state.shared!.gameAccess[state.data.activeGameId]?.scorerUserId ===
             user.id ||
             state.shared!.member.role === "superadmin") && (
@@ -286,6 +288,13 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
             />
           )
         }
+        renderGameActions={(game) => (
+          <DeletePracticeGame
+            game={game}
+            store={store}
+            disabled={!!state.pending || !!state.unresolved}
+          />
+        )}
         renderGameStatus={(game) => (
           <GameStatus
             key={game.id}
@@ -295,7 +304,15 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
           />
         )}
       />
-      {admin && <FamilyAdmin store={store} onClose={() => setAdmin(false)} />}
+      {admin &&
+        (state.shared!.member.role === "superadmin" ||
+          hasPermission(state.shared!.member, "inviteMembers")) && (
+          <FamilyAdmin
+            key={state.shared!.member.role}
+            store={store}
+            onClose={() => setAdmin(false)}
+          />
+        )}
     </>
   );
 }
@@ -320,7 +337,8 @@ function GameStatus({
   const canMove =
     game.status !== "finalized" &&
     access.scorerUserId !== state.member.userId &&
-    state.member.role === "superadmin";
+    hasPermission(state.member, "takeOverScoring") &&
+    hasPermission(state.member, "scoreGames");
   const transfer = canMove && (
     <details className="family-transfer">
       <summary>Scoring ownership</summary>
@@ -385,17 +403,29 @@ function GameStatus({
       {game.status !== "finalized" && (
         <p className="muted">
           {access.scorerUserId === state.member.userId
-            ? "You are the scorer. Sign in with this account on any device to continue."
+            ? hasPermission(state.member, "scoreGames")
+              ? "You are the scorer. Sign in with this account on any device to continue."
+              : "Viewing only. Scoring is turned off for your account. Your unfinished entry is saved on this device."
             : "Viewing only. Another member is the designated scorer."}
         </p>
       )}
       {access.mode === "practice" && (
         <p className="muted">
-          Practice game · retained in history, excluded from family records.
+          Private test · visible only to superadmins. It never counts toward
+          records.
         </p>
       )}
       <GameConcerns game={game} store={store} />
       {transfer}
+      <DeletePracticeGame
+        game={game}
+        store={store}
+        disabled={
+          working ||
+          !!store.getSnapshot().pending ||
+          !!store.getSnapshot().unresolved
+        }
+      />
     </section>
   );
 }
@@ -418,18 +448,22 @@ function FamilyAdmin({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<FamilyMember | null>(null);
-  const run = async (operation: SharedOperation) => {
+  const run = async (operation?: SharedOperation) => {
     if (ref.current) return;
     ref.current = true;
     setWorking(true);
     setError(null);
     setNotice(null);
     try {
-      await store.administer(operation);
+      if (operation) await store.administer(operation);
+      else {
+        await store.retry!();
+        await store.refresh!();
+      }
       setNotice(
         "Family access updated. The original change remains in the audit history.",
       );
-      if (operation.type === "invite-member") setEmail("");
+      if (operation?.type === "invite-member") setEmail("");
       setEditing(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The access change failed.");
@@ -439,172 +473,125 @@ function FamilyAdmin({
     }
   };
   return (
-    <Modal title="Amberly access" onClose={onClose} wide>
-      <p>
-        Add an email before that person joins. Share the app address with them
-        yourself; adding access here does not send an email.
-      </p>
-      <form
-        className="family-invite"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run({ type: "invite-member", email: email.trim() });
-        }}
-      >
-        <label className="field">
-          Family member’s email
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            required
-            maxLength={254}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        <button className="button primary" disabled={working}>
-          Allow this person to join
-        </button>
-      </form>
-      {error && (
+    <Modal
+      title={editing ? "Member permissions" : "Amberly access"}
+      className={editing ? "member-permissions-dialog" : ""}
+      onClose={() => {
+        if (!working) onClose();
+      }}
+      wide
+    >
+      {state.unresolved && (
+        <p role="status">
+          A saved change needs confirmation.{" "}
+          <button
+            className="button light"
+            disabled={working}
+            onClick={() => void run()}
+          >
+            Retry saved change
+          </button>
+        </p>
+      )}
+      {editing && error && (
         <p role="alert" className="error-banner">
           {error}
         </p>
       )}
-      {notice && <p role="status">{notice}</p>}
-      <ul className="family-members">
-        {state.shared!.members.map((member) => (
-          <li key={member.userId}>
-            <div>
-              <strong>{member.email}</strong>
-              <span>
-                {member.role === "superadmin" ? "Superadmin" : "Member"} ·{" "}
-                {member.active ? "Active" : "Access revoked"}
-              </span>
-            </div>
-            <button
-              className="text-button"
-              disabled={working}
-              onClick={() => setEditing(member)}
-            >
-              Manage access
-            </button>
-          </li>
-        ))}
-      </ul>
-      {state
-        .shared!.invitations.filter((i) => i.active)
-        .map((invite) => (
-          <div className="family-invitation" key={invite.email}>
-            <span>{invite.email} · Invitation available</span>
-            <button
-              className="text-button"
-              disabled={working}
-              onClick={() =>
-                void run({ type: "revoke-invitation", email: invite.email })
-              }
-            >
-              Revoke invitation
-            </button>
-          </div>
-        ))}
-      {editing && (
-        <MemberEditor
+      {editing ? (
+        <MemberPermissions
           key={editing.userId}
           member={editing}
-          store={store}
-          working={working}
+          players={state.data.players}
+          working={working || !!state.pending || !!state.unresolved}
+          stale={
+            state.shared!.members.find((m) => m.userId === editing.userId)
+              ?.revision !== editing.revision
+          }
           onSave={run}
           onCancel={() => setEditing(null)}
         />
+      ) : (
+        <>
+          <p>
+            Add an email before that person joins. Share the app address with
+            them yourself; adding access here does not send an email.
+          </p>
+          <form
+            className="family-invite"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run({ type: "invite-member", email: email.trim() });
+            }}
+          >
+            <label className="field">
+              Family member’s email
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                required
+                maxLength={254}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <button className="button primary" disabled={working}>
+              Allow this person to join
+            </button>
+          </form>
+          {error && (
+            <p role="alert" className="error-banner">
+              {error}
+            </p>
+          )}
+          {notice && <p role="status">{notice}</p>}
+          {state.shared!.member.role === "superadmin" && (
+            <ul className="family-members">
+              {state.shared!.members.map((member) => (
+                <li key={member.userId}>
+                  <div>
+                    <strong>{member.email}</strong>
+                    <span>
+                      {member.role === "superadmin" ? "Superadmin" : "Member"} ·{" "}
+                      {member.active ? "Active" : "Access revoked"}
+                    </span>
+                  </div>
+                  <button
+                    className="text-button"
+                    disabled={working}
+                    onClick={() => setEditing(member)}
+                  >
+                    Permissions
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {state
+            .shared!.invitations.filter((i) => i.active)
+            .map((invite) => (
+              <div className="family-invitation" key={invite.email}>
+                <span>{invite.email} · Invitation available</span>
+                <button
+                  className="text-button"
+                  disabled={working}
+                  onClick={() =>
+                    void run({ type: "revoke-invitation", email: invite.email })
+                  }
+                >
+                  Revoke invitation
+                </button>
+              </div>
+            ))}
+
+          <p className="muted">
+            New invitations receive standard member permissions. Once they join,
+            a superadmin can customize their switches. Only superadmins can
+            change access levels or create, view and delete practice games. The
+            last active superadmin cannot be removed.
+          </p>
+        </>
       )}
-      <p className="muted">
-        Superadmins manage membership and profile links. They cannot erase game
-        history. They review game concerns and retain their decisions. The last
-        active superadmin cannot be removed.
-      </p>
     </Modal>
-  );
-}
-function MemberEditor({
-  member,
-  store,
-  working,
-  onSave,
-  onCancel,
-}: {
-  member: FamilyMember;
-  store: SharedScorerStore;
-  working: boolean;
-  onSave: (op: SharedOperation) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [role, setRole] = useState(member.role);
-  const [active, setActive] = useState(member.active);
-  const [playerId, setPlayerId] = useState(member.playerId ?? "");
-  const [reason, setReason] = useState("");
-  return (
-    <form
-      className="family-member-editor"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void onSave({
-          type: "update-member",
-          userId: member.userId,
-          role,
-          active,
-          playerId: playerId || null,
-          reason: reason.trim(),
-        });
-      }}
-    >
-      <h3>{member.email}</h3>
-      <label className="field">
-        Role
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as "member" | "superadmin")}
-        >
-          <option value="member">Member</option>
-          <option value="superadmin">Superadmin</option>
-        </select>
-      </label>
-      <label className="field">
-        Player profile
-        <select value={playerId} onChange={(e) => setPlayerId(e.target.value)}>
-          <option value="">No linked player</option>
-          {store.getSnapshot().data.players.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-        />{" "}
-        Active family access
-      </label>
-      <label className="field">
-        Reason for change
-        <input
-          value={reason}
-          required
-          maxLength={240}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
-      <div className="dialog-actions">
-        <button type="button" className="button light" onClick={onCancel}>
-          Cancel change
-        </button>
-        <button className="button primary" disabled={working || !reason.trim()}>
-          Save access change
-        </button>
-      </div>
-    </form>
   );
 }

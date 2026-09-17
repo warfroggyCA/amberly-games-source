@@ -479,7 +479,7 @@ select:disabled {
   margin-bottom: 25px;
   border-top: 1px solid var(--line);
 }
-.game-list > button {
+.game-list .game-list-item > button {
   display: flex;
   align-items: center;
   gap: 22px;
@@ -490,7 +490,7 @@ select:disabled {
   width: 100%;
   text-align: left;
 }
-.game-list > button:hover {
+.game-list .game-list-item > button:hover {
   background: #eeeede;
 }
 .game-date {
@@ -511,7 +511,7 @@ select:disabled {
     serif;
   white-space: nowrap;
 }
-.game-list > button > span:last-child {
+.game-list .game-list-item > button > span:last-child {
   font-size: 24px;
   color: var(--forest);
 }
@@ -1618,7 +1618,7 @@ footer {
   .game-list-score {
     font-size: 17px;
   }
-  .game-list > button {
+  .game-list .game-list-item > button {
     gap: 15px;
   }
 }
@@ -1709,7 +1709,7 @@ footer {
   .players-list {
     grid-template-columns: 1fr;
   }
-  .game-list > button {
+  .game-list .game-list-item > button {
     flex-wrap: wrap;
     gap: 10px;
   }
@@ -1717,7 +1717,7 @@ footer {
     min-width: 43px;
     font-size: 10px;
   }
-  .game-list > button > span:nth-child(2) {
+  .game-list .game-list-item > button > span:nth-child(2) {
     flex: 1;
   }
   .game-list strong {
@@ -1729,7 +1729,7 @@ footer {
   .game-list-score {
     font-size: 14px;
   }
-  .game-list > button > span:last-child {
+  .game-list .game-list-item > button > span:last-child {
     font-size: 19px;
   }
   .game-heading h1 {

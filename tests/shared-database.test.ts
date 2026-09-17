@@ -1,3 +1,7 @@
+import {
+  MEMBER_PERMISSIONS,
+  type MemberPermissions,
+} from "../src/lib/member-permissions";
 import type { Equipment } from "../src/domain/equipment";
 import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
@@ -82,7 +86,7 @@ async function fixture(shared = repository) {
     reason: "Link family player",
   });
   async function create(
-    mode: "confirmed" | "practice" = "practice",
+    mode: "confirmed" | "practice" = "confirmed",
     id: string = randomUUID(),
   ) {
     return mutate({
@@ -99,6 +103,24 @@ async function fixture(shared = repository) {
     });
   }
   return { familyId, admin, guest, mutate, create };
+}
+async function setPermissions(
+  f: Awaited<ReturnType<typeof fixture>>,
+  permissions: MemberPermissions,
+) {
+  const member = (await repository.readState(f.admin, f.familyId)).members.find(
+    (m) => m.userId === f.guest.userId,
+  )!;
+  return f.mutate({
+    type: "update-member",
+    userId: member.userId,
+    role: member.role,
+    active: member.active,
+    playerId: member.playerId,
+    reason: "Permission test",
+    permissions,
+    expectedRevision: member.revision!,
+  });
 }
 const pass = (gameId: string, expectedRevision = 0) => ({
   type: "game-commands" as const,
@@ -131,6 +153,509 @@ suite("isolated real PostgreSQL shared family repository", () => {
     await owner`create role scrabble_test_login login nosuperuser nocreatedb nocreaterole nobypassrls`;
     await owner`grant scrabble_runtime to scrabble_test_login`;
   }, 20000);
+  it("validates permission keys, defaults and every delegated switch against real membership rows", async () => {
+    const f = await fixture();
+    const baseline = (await repository.readState(f.guest, f.familyId)).member;
+    expect(baseline.permissions).toEqual({});
+    expect(baseline.revision).toBe(1);
+    for (const permissions of [
+      { scoreGames: "yes" },
+      { deleteHistory: true },
+      [],
+      null,
+    ]) {
+      await code(
+        f.mutate({
+          type: "update-member",
+          userId: f.guest.userId,
+          role: "member",
+          active: true,
+          playerId: "ben",
+          reason: "invalid",
+          permissions,
+          expectedRevision: 1,
+        } as unknown as SharedOperation),
+        "INVALID_MEMBER",
+      );
+    }
+    await code(
+      setPermissions(
+        { ...f, mutate: (op: SharedOperation) => f.mutate(op, f.guest) },
+        { inviteMembers: true },
+      ),
+      "FORBIDDEN",
+    );
+    const allOff = Object.fromEntries(
+      MEMBER_PERMISSIONS.map((p) => [p.key, false]),
+    );
+    await setPermissions(f, allOff);
+    const saved = (await repository.readState(f.guest, f.familyId)).member;
+    expect(saved.permissions).toEqual(allOff);
+    const sqlPermissions = await runtime.begin(async (tx) => {
+      await tx`set local role scrabble_runtime`;
+      await tx`select set_config('scrabble.actor_id',${f.guest.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+      return tx`select p, scrabble.has_permission(${f.familyId}::uuid,p) allowed from unnest(${MEMBER_PERMISSIONS.map((p) => p.key)}::text[]) p`;
+    });
+    expect(sqlPermissions.every((p) => !p.allowed)).toBe(true);
+    await code(
+      f.mutate(
+        { type: "create-player", id: "newbie", profile: { name: "New" } },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      f.mutate(
+        {
+          type: "update-player",
+          id: "ben",
+          expectedRevision: 0,
+          profile: { name: "Ben changed" },
+        },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      f.mutate(
+        { type: "invite-member", email: "friend@example.test" },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      repository.exportHistory(f.guest, f.familyId),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      f.mutate(
+        {
+          type: "save-equipment",
+          expectedRevision: 0,
+          equipment: { revision: 1, defaultSetId: null, sets: [] },
+        },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    const shared = (await f.create()).game!;
+    await f.mutate(
+      {
+        type: "report-protest",
+        gameId: shared.id,
+        reason: "Always allowed to report",
+        reportedFor: null,
+      },
+      f.guest,
+    );
+    // No member can bypass the role editor using SQL access.
+    const result = await runtime.begin(async (tx) => {
+      await tx`set local role scrabble_runtime`;
+      await tx`select set_config('scrabble.actor_id',${f.guest.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+      return tx`update scrabble.memberships set permissions='{"inviteMembers":true}'::jsonb where family_id=${f.familyId}::uuid and user_id=${f.guest.userId}::uuid returning user_id`;
+    });
+    expect(result).toHaveLength(0);
+  });
+
+  it("grants extra trust without granting membership management or bypassing designated scoring", async () => {
+    const f = await fixture();
+    await setPermissions(f, {
+      editAllProfiles: true,
+      inviteMembers: true,
+      resolveConcerns: true,
+      exportHistory: true,
+      takeOverScoring: true,
+    });
+    const game = (await f.create()).game!;
+    await code(f.mutate(pass(game.id), f.guest), "SCORER_CONFLICT");
+    await f.mutate(
+      {
+        type: "update-player",
+        id: "ada",
+        expectedRevision: 0,
+        profile: { name: "Ada renamed" },
+      },
+      f.guest,
+    );
+    await f.mutate(
+      { type: "invite-member", email: "newfriend@example.test" },
+      f.guest,
+    );
+    const invited = actor("invited");
+    invited.email = "newfriend@example.test";
+    await repository.admit(invited, f.familyId, randomUUID());
+    expect(
+      (await repository.readState(invited, f.familyId)).member,
+    ).toMatchObject({ role: "member", permissions: {} });
+    await code(
+      f.mutate(
+        {
+          type: "update-member",
+          userId: invited.userId,
+          role: "superadmin",
+          active: true,
+          playerId: null,
+          reason: "Must fail",
+        },
+        f.guest,
+      ),
+      "FORBIDDEN",
+    );
+    const report = await f.mutate(
+      {
+        type: "report-protest",
+        gameId: game.id,
+        reason: "Review me",
+        reportedFor: null,
+      },
+      f.guest,
+    );
+    await f.mutate(
+      {
+        type: "resolve-protest",
+        gameId: game.id,
+        protestId: report.gameAccess!.protests[0].id,
+        outcome: "dismissed",
+        reason: "Reviewed",
+      },
+      f.guest,
+    );
+    const takeover = await f.mutate(
+      {
+        type: "take-over-scoring",
+        gameId: game.id,
+        deviceId: "guest-device",
+        expectedGeneration: 1,
+        reason: "Scorer left",
+      },
+      f.guest,
+    );
+    expect(takeover.gameAccess).toMatchObject({
+      scorerUserId: f.guest.userId,
+      generation: 2,
+      canScore: true,
+    });
+    await f.mutate({ ...pass(game.id), generation: 2 }, f.guest);
+    await code(
+      f.mutate({ ...pass(game.id, 1), generation: 2 }),
+      "SCORER_CONFLICT",
+    );
+    const exported = (await repository.exportHistory(f.guest, f.familyId)) as {
+      definitions: unknown[];
+      audit: unknown[];
+    };
+    expect(exported.definitions).toHaveLength(1);
+    expect(exported.audit).toHaveLength(0);
+  });
+
+  it("fences live entries and new writes after scoring permission revocation but acknowledges already committed retries", async () => {
+    const f = await fixture();
+    const createOp: SharedOperation = {
+      type: "create-game",
+      id: "member-game",
+      mode: "confirmed",
+      players: [{ id: "ben", seat: 0 }],
+      firstPlayerId: "ben",
+      direction: "clockwise",
+      deviceId: "guest-device",
+    };
+    const game = (await f.mutate(createOp, f.guest)).game!;
+    const op = pass(game.id),
+      requestId = randomUUID();
+    await f.mutate(op, f.guest, requestId);
+    const token = randomBytes(32).toString("hex");
+    await f.mutate(
+      { type: "create-watch-link", gameId: game.id, token },
+      f.guest,
+    );
+    const draft: LiveDraftInput = {
+      gameId: game.id,
+      revision: 1,
+      generation: 1,
+      streamId: randomUUID(),
+      sequence: 1,
+      kind: "edit",
+      placements: [{ row: 7, col: 7, tile: { letter: "A", blank: false } }],
+    };
+    await repository.writeLiveDraft(f.guest, f.familyId, draft);
+    await setPermissions(f, { scoreGames: false, shareGames: false });
+    const replay = await f.mutate(op, f.guest, requestId);
+    expect(replay).toMatchObject({
+      replayed: true,
+      gameAccess: { canScore: false },
+      game: { revision: 1 },
+    });
+    await code(f.mutate(pass(game.id, 1), f.guest), "PERMISSION_DENIED");
+    await code(
+      f.mutate({ ...createOp, id: "blocked-new" }, f.guest),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      f.mutate(
+        {
+          type: "verify-words",
+          gameId: game.id,
+          words: ["ZZTEST"],
+          expectedRevision: 1,
+          generation: 1,
+          deviceId: "guest-device",
+        },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    await code(
+      repository.writeLiveDraft(f.guest, f.familyId, { ...draft, sequence: 2 }),
+      "PERMISSION_DENIED",
+    );
+    expect(
+      await repository.readLiveDraft(f.admin, f.familyId, game.id),
+    ).toBeNull();
+    expect((await repository.readWatchDraft(token)).draft).toBeNull();
+    expect((await repository.readWatch(token)).liveDraft).toBeNull();
+    await code(
+      f.mutate(
+        {
+          type: "create-watch-link",
+          gameId: game.id,
+          token: randomBytes(32).toString("hex"),
+        },
+        f.guest,
+      ),
+      "PERMISSION_DENIED",
+    );
+    await setPermissions(f, {});
+    await f.mutate(pass(game.id, 1), f.guest);
+    await setPermissions(f, { startGames: false });
+    await code(
+      f.mutate({ ...createOp, id: "no-new-games" }, f.guest),
+      "PERMISSION_DENIED",
+    );
+  });
+
+  it("rejects stale permission forms, serializes concurrent edits and makes permission retries idempotent", async () => {
+    const f = await fixture();
+    const member = (
+      await repository.readState(f.admin, f.familyId)
+    ).members.find((m) => m.userId === f.guest.userId)!;
+    const op: SharedOperation = {
+      type: "update-member",
+      userId: f.guest.userId,
+      role: "member",
+      active: true,
+      playerId: "ben",
+      reason: "Restricted equipment",
+      expectedRevision: member.revision!,
+      permissions: { manageEquipment: false },
+    };
+    const id = randomUUID();
+    const outcomes = await Promise.allSettled([
+      f.mutate(op, f.admin, id),
+      f.mutate({ ...op, permissions: { addPlayers: false } }),
+    ]);
+    expect(outcomes.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.find((r) => r.status === "rejected")).toMatchObject({
+      reason: { code: "MEMBER_CHANGED" },
+    });
+    if (outcomes[0].status === "fulfilled")
+      expect((await f.mutate(op, f.admin, id)).replayed).toBe(true);
+    const rows =
+      await owner`select * from scrabble.audit where family_id=${f.familyId}::uuid and action='member.updated' and after_value->>'reason'='Restricted equipment'`;
+    expect(rows).toHaveLength(1);
+  });
+
+  it("keeps private tests invisible to members through lists, direct IDs, drafts, exports and old viewing links", async () => {
+    const f = await fixture();
+    const game = (await f.create("practice")).game!;
+    const publicGame = (await f.create("confirmed")).game!;
+    const token = randomBytes(32).toString("hex");
+    await owner`insert into scrabble.watch_links(family_id,game_id,token_hash,created_by,expires_at) values(${f.familyId}::uuid,${game.id},${createHash("sha256").update(token).digest("hex")},${f.admin.userId}::uuid,now()+interval '1 day')`;
+    await code(
+      f.mutate({ type: "create-watch-link", gameId: game.id, token }),
+      "PRIVATE_PRACTICE",
+    );
+    await code(repository.readWatch(token), "WATCH_LINK_UNAVAILABLE");
+    await code(repository.readWatchDraft(token), "WATCH_LINK_UNAVAILABLE");
+    const memberState = await repository.readState(f.guest, f.familyId);
+    expect(memberState.games.map((g) => g.id)).toEqual([publicGame.id]);
+    expect(memberState.gameAccess[game.id]).toBeUndefined();
+    await code(
+      repository.readState(f.guest, f.familyId, { gameId: game.id }),
+      "GAME_NOT_FOUND",
+    );
+    expect(
+      await repository.readLiveDraft(f.guest, f.familyId, game.id),
+    ).toBeNull();
+    await code(
+      f.mutate(
+        {
+          type: "create-game",
+          id: "forged-practice",
+          mode: "practice",
+          players: [{ id: "ben", seat: 0 }],
+          firstPlayerId: "ben",
+          direction: "clockwise",
+          deviceId: "member-device",
+        },
+        f.guest,
+      ),
+      "FORBIDDEN",
+    );
+    await code(f.mutate(pass(game.id), f.guest), "GAME_NOT_FOUND");
+    await code(
+      f.mutate(
+        {
+          type: "report-protest",
+          gameId: game.id,
+          reason: "Guessed ID",
+          reportedFor: null,
+        },
+        f.guest,
+      ),
+      "GAME_NOT_FOUND",
+    );
+    await setPermissions(
+      f,
+      Object.fromEntries(MEMBER_PERMISSIONS.map((p) => [p.key, true])),
+    );
+    const archive = (await repository.exportHistory(f.guest, f.familyId)) as {
+      definitions: { game_id: string }[];
+      audit: unknown[];
+      removedPracticeGames: unknown[];
+    };
+    expect(archive.definitions.map((d) => d.game_id)).toEqual([publicGame.id]);
+    expect(archive.audit).toEqual([]);
+    expect(archive.removedPracticeGames).toEqual([]);
+    // SQL visibility is restricted too, rather than relying on hidden buttons.
+    const heads = await runtime.begin(async (tx) => {
+      await tx`set local role scrabble_runtime`;
+      await tx`select set_config('scrabble.actor_id',${f.guest.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+      return tx`select game_id from scrabble.game_heads where family_id=${f.familyId}::uuid`;
+    });
+    expect(heads.map((h) => h.game_id)).toEqual([publicGame.id]);
+  });
+
+  it("removes only practice games, closes legacy links, preserves original evidence and cannot resurrect games on retries", async () => {
+    const f = await fixture();
+    const game = (await f.create("practice")).game!;
+    const command = pass(game.id),
+      commandId = randomUUID();
+    await f.mutate(command, f.admin, commandId);
+    const sharedGame = (await f.create()).game!;
+    const op: SharedOperation = {
+      type: "delete-practice-game",
+      gameId: game.id,
+      expectedRevision: 1,
+      reason: "Finished dev testing",
+    };
+    await code(f.mutate(op, f.guest), "FORBIDDEN");
+    await code(
+      f.mutate({ ...op, gameId: sharedGame.id, expectedRevision: 0 }),
+      "PROTECTED_GAME",
+    );
+    await code(f.mutate({ ...op, expectedRevision: 0 }), "REVISION_CONFLICT");
+    const token = randomBytes(32).toString("hex");
+    await owner`insert into scrabble.watch_links(family_id,game_id,token_hash,created_by,expires_at) values(${f.familyId}::uuid,${game.id},${createHash("sha256").update(token).digest("hex")},${f.admin.userId}::uuid,now()+interval '1 day')`;
+    const id = randomUUID();
+    const results = await Promise.all([
+      f.mutate(op, f.admin, id),
+      f.mutate(op, f.admin, id),
+    ]);
+    expect(results.every((r) => r.removedGameId === game.id)).toBe(true);
+    expect(results.filter((r) => r.replayed)).toHaveLength(1);
+    const state = await repository.readState(f.admin, f.familyId);
+    expect(state.games.map((g) => g.id)).toEqual([sharedGame.id]);
+    expect(state.removedGameIds).toEqual([game.id]);
+    await code(
+      repository.readState(f.admin, f.familyId, { gameId: game.id }),
+      "GAME_NOT_FOUND",
+    );
+    await code(f.mutate(pass(game.id, 1)), "GAME_NOT_FOUND");
+    expect(await f.mutate(command, f.admin, commandId)).toEqual({
+      replayed: true,
+      removedGameId: game.id,
+    });
+    const [original] =
+      await owner`select state from scrabble.game_heads where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+    expect(original.state.revision).toBe(1);
+    const [link] =
+      await owner`select active from scrabble.watch_links where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+    expect(link.active).toBe(false);
+    const archive = (await repository.exportHistory(f.admin, f.familyId)) as {
+      removedPracticeGames: { game_id: string; reason: string }[];
+    };
+    expect(archive.removedPracticeGames).toMatchObject([
+      { game_id: game.id, reason: op.reason },
+    ]);
+    await expect(
+      owner`delete from scrabble.game_removals where family_id=${f.familyId}::uuid`,
+    ).rejects.toThrow();
+  });
+
+  it("rolls back a failed practice deletion and keeps finalized results intact after a successful retry", async () => {
+    const f = await fixture();
+    const game = (await f.create("practice")).game!;
+    const final = await f.mutate({
+      type: "game-commands",
+      gameId: game.id,
+      deviceId: "device-a",
+      generation: 1,
+      commands: [
+        {
+          type: "finalize",
+          id: randomUUID(),
+          expectedRevision: 0,
+          reason: "early",
+          racks: {
+            ada: ["A", "A", "A", "A", "A", "A", "A"],
+            ben: ["E", "E", "E", "E", "E", "E", "E"],
+          },
+        },
+      ],
+    });
+    expect(final.game!.status).toBe("finalized");
+    const before =
+      await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+    const requestId = randomUUID();
+    const op: SharedOperation = {
+      type: "delete-practice-game",
+      gameId: game.id,
+      expectedRevision: 1,
+      reason: "Finished final-result testing",
+    };
+    await owner.unsafe(
+      `create function scrabble.test_fail_removal_audit() returns trigger language plpgsql as $$ begin raise exception 'Injected audit failure'; end $$`,
+    );
+    await owner.unsafe(
+      `create trigger test_removal_audit_failure before insert on scrabble.audit for each row when(new.action='game.practice-deleted' and new.subject='${game.id}') execute function scrabble.test_fail_removal_audit()`,
+    );
+    try {
+      await expect(f.mutate(op, f.admin, requestId)).rejects.toMatchObject({
+        code: "P0001",
+      });
+      expect(
+        (await repository.readState(f.admin, f.familyId)).games,
+      ).toHaveLength(1);
+      expect(
+        await owner`select 1 from scrabble.game_removals where family_id=${f.familyId}::uuid`,
+      ).toHaveLength(0);
+      expect(
+        await owner`select 1 from scrabble.requests where family_id=${f.familyId}::uuid and request_id=${requestId}`,
+      ).toHaveLength(0);
+    } finally {
+      await owner`drop trigger test_removal_audit_failure on scrabble.audit`;
+      await owner`drop function scrabble.test_fail_removal_audit()`;
+    }
+    await f.mutate(op, f.admin, requestId);
+    expect(
+      (await repository.readState(f.admin, f.familyId)).games,
+    ).toHaveLength(0);
+    expect(
+      await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`,
+    ).toEqual(before);
+    expect((await f.mutate(op, f.admin, requestId)).replayed).toBe(true);
+  });
+
   it("saves shared equipment with retries, concurrent edits, immutable game snapshots and spectator supply", async () => {
     const f = await fixture();
     const equipment: Equipment = {
@@ -165,7 +690,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
       firstPlayerId: "ada",
       direction: "clockwise" as const,
       deviceId: "device-a",
-      mode: "practice" as const,
+      mode: "confirmed" as const,
       tileSet: { id: "home", revision: 1 },
     };
     const first = (await f.mutate(newGame)).game!;
@@ -657,7 +1182,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
         },
         f.guest,
       ),
-      "FORBIDDEN",
+      "PERMISSION_DENIED",
     );
     await f.mutate(
       {
@@ -1297,7 +1822,10 @@ suite("isolated real PostgreSQL shared family repository", () => {
         await repository.readState(f.admin, f.familyId, { gameId: "game-00" })
       ).games.some((g) => g.id === "game-00"),
     ).toBe(true);
-    await code(repository.exportHistory(f.guest, f.familyId), "FORBIDDEN");
+    await code(
+      repository.exportHistory(f.guest, f.familyId),
+      "PERMISSION_DENIED",
+    );
     const archive = (await repository.exportHistory(f.admin, f.familyId)) as {
       definitions: unknown[];
       audit: unknown[];
@@ -1677,7 +2205,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
         },
         f.guest,
       ),
-      "FORBIDDEN",
+      "PERMISSION_DENIED",
     );
     const resolutionId = randomUUID();
     const dismissal = {
