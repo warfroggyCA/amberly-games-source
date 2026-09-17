@@ -289,9 +289,11 @@ small {
 .display-tile {
   width: 80px;
   height: 83px;
-  background: var(--tile);
-  border: 1px solid #bc9b65;
-  border-bottom: 5px solid #b49768;
+  background: var(--tile-material);
+  color: var(--tile-ink);
+  border: 1px solid;
+  border-bottom-width: 5px;
+  border-color: var(--tile-edge);
   border-radius: 5px;
   display: grid;
   place-items: center;
@@ -477,7 +479,7 @@ select:disabled {
   margin-bottom: 25px;
   border-top: 1px solid var(--line);
 }
-.game-list > button {
+.game-list .game-list-item > button {
   display: flex;
   align-items: center;
   gap: 22px;
@@ -488,7 +490,7 @@ select:disabled {
   width: 100%;
   text-align: left;
 }
-.game-list > button:hover {
+.game-list .game-list-item > button:hover {
   background: #eeeede;
 }
 .game-date {
@@ -509,7 +511,7 @@ select:disabled {
     serif;
   white-space: nowrap;
 }
-.game-list > button > span:last-child {
+.game-list .game-list-item > button > span:last-child {
   font-size: 24px;
   color: var(--forest);
 }
@@ -739,20 +741,20 @@ select:disabled {
   border-radius: 0;
 }
 .square.tw {
-  background: #c27063;
-  color: #572e27;
+  background: var(--board-tw);
+  color: var(--board-premium-ink);
 }
 .square.dw {
-  background: #dcaca0;
-  color: #643e35;
+  background: var(--board-dw);
+  color: var(--board-dw-ink);
 }
 .square.tl {
-  background: #57969b;
-  color: #103e45;
+  background: var(--board-tl);
+  color: var(--board-premium-ink);
 }
 .square.dl {
-  background: #b8d2d0;
-  color: #325f60;
+  background: var(--board-dl);
+  color: var(--board-dl-ink);
 }
 .square.occupied {
   background: #d8cdb4;
@@ -776,9 +778,10 @@ select:disabled {
   outline-offset: -2px;
 }
 .letter-tile {
-  background: var(--tile);
-  border: 1px solid #c2a777;
-  border-bottom: 2px solid #b69a6e;
+  background: var(--tile-material);
+  border: 1px solid;
+  border-bottom-width: 2px;
+  border-color: var(--tile-edge);
   border-radius: 2px;
   position: relative;
   width: 100%;
@@ -786,7 +789,7 @@ select:disabled {
   display: grid;
   place-items: center;
   font-family: Arial, sans-serif;
-  color: #2e3028;
+  color: var(--tile-ink);
 }
 .letter-tile b {
   font-size: clamp(10px, 1.45vw, 23px);
@@ -1615,7 +1618,7 @@ footer {
   .game-list-score {
     font-size: 17px;
   }
-  .game-list > button {
+  .game-list .game-list-item > button {
     gap: 15px;
   }
 }
@@ -1706,7 +1709,7 @@ footer {
   .players-list {
     grid-template-columns: 1fr;
   }
-  .game-list > button {
+  .game-list .game-list-item > button {
     flex-wrap: wrap;
     gap: 10px;
   }
@@ -1714,7 +1717,7 @@ footer {
     min-width: 43px;
     font-size: 10px;
   }
-  .game-list > button > span:nth-child(2) {
+  .game-list .game-list-item > button > span:nth-child(2) {
     flex: 1;
   }
   .game-list strong {
@@ -1726,7 +1729,7 @@ footer {
   .game-list-score {
     font-size: 14px;
   }
-  .game-list > button > span:last-child {
+  .game-list .game-list-item > button > span:last-child {
     font-size: 19px;
   }
   .game-heading h1 {

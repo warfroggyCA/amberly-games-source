@@ -44,11 +44,13 @@
   flex-shrink: 0;
   width: 53px;
   height: 57px;
-  background: var(--tile);
-  border: 1px solid #c1a371;
-  border-bottom: 4px solid #b99a67;
+  background: var(--tile-material);
+  color: var(--tile-ink);
+  border: 1px solid;
+  border-bottom-width: 4px;
+  border-color: var(--tile-edge);
   border-radius: 5px;
-  box-shadow: 0 2px 2px #8776531f;
+  box-shadow: var(--tile-shadow);
 }
 .tile-inventory .letter-tile b {
   font:
@@ -63,7 +65,7 @@
 }
 .blank-label {
   font-size: 10px;
-  color: var(--muted);
+  color: inherit;
 }
 .inventory-quantity {
   display: grid;

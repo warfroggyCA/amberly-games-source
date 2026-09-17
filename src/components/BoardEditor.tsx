@@ -16,7 +16,7 @@ import {
 } from "../lib/board-entry";
 import { draftInventory } from "../lib/draft-inventory";
 import { spectatorWords } from "../lib/spectator-plays";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { ReviewWord } from "./ReviewWord";
 import { Modal } from "./Modal";
 import { TabletopIcon } from "./TabletopIcon";
@@ -1333,25 +1333,32 @@ export function BoardEditor({
         </Modal>
       )}
       {inspectCell && (
-        <Modal title="Played words" onClose={() => setInspectCell(null)}>
+        <Modal
+          title="Word details"
+          className="played-words-modal"
+          onClose={() => setInspectCell(null)}
+        >
           {inspectedWords.map((word) => (
-            <section className="recorded-word-detail" key={word.id}>
-              <h3>
-                {word.word} <small>· {word.score} points</small>
-              </h3>
-              <p>
-                {game.players.find((p) => p.id === word.playerId)?.name ??
-                  "Player"}{" "}
-                · Round {word.round}
-                {word.source === "assisted" ? " · Assisted play" : ""}
-              </p>
-              <WordDefinition word={word.word} />
-            </section>
+            <PlayedWordDetails
+              key={word.id}
+              word={word}
+              board={game.board}
+              placements={
+                game.turns.find((turn) => turn.id === word.turnId)
+                  ?.placements ?? []
+              }
+              playerName={
+                game.players.find((p) => p.id === word.playerId)?.name ??
+                "Player"
+              }
+              round={word.round}
+              source={word.source}
+            />
           ))}
           {!disabled && (
             <div className="dialog-actions">
               <button
-                className="button light"
+                className="button primary"
                 onClick={() => {
                   const cell = inspectCell;
                   setInspectCell(null);

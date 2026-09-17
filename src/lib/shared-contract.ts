@@ -5,6 +5,8 @@ import type { SavedPlayer } from "./preview-store";
 import type { PlayerProfileFields } from "./player-profile";
 import type { VerifiedWord } from "../domain/verified-words";
 
+import type { MemberPermissions } from "./member-permissions";
+
 export type FamilyRole = "member" | "superadmin";
 export type VerifiedActor = {
   userId: string;
@@ -18,6 +20,8 @@ export type FamilyMember = {
   role: FamilyRole;
   active: boolean;
   playerId: string | null;
+  permissions?: MemberPermissions;
+  revision?: number;
 };
 export type PlayerAccess = { revision: number; userId: string | null };
 export type GameProtest = {
@@ -53,6 +57,7 @@ export type GameAccess = {
 export type FamilyInvitation = { email: string; active: boolean };
 export type SharedState = {
   equipment?: Equipment;
+  removedGameIds?: string[];
   family: { id: string; name: string };
   member: FamilyMember;
   members: FamilyMember[];
@@ -65,6 +70,12 @@ export type SharedState = {
   nextCursor: string | null;
 };
 export type SharedOperation =
+  | {
+      type: "delete-practice-game";
+      gameId: string;
+      expectedRevision: number;
+      reason: string;
+    }
   | { type: "save-equipment"; equipment: Equipment; expectedRevision: number }
   | { type: "create-player"; id: string; profile: PlayerProfileFields }
   | {
@@ -130,6 +141,8 @@ export type SharedOperation =
   | { type: "revoke-invitation"; email: string }
   | {
       type: "update-member";
+      permissions?: MemberPermissions;
+      expectedRevision?: number;
       userId: string;
       role: FamilyRole;
       active: boolean;
@@ -138,6 +151,7 @@ export type SharedOperation =
     };
 export type SharedMutation = { requestId: string; operation: SharedOperation };
 export type SharedMutationResult = {
+  removedGameId?: string;
   equipment?: Equipment;
   replayed?: boolean;
   game?: GameState;

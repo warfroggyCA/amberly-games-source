@@ -8,7 +8,7 @@ import { LETTER_VALUES, premiumAt } from "../domain/board";
 import { buildRoundRows } from "../lib/round-scores";
 import { spectatorWords, type SpectatorWord } from "../lib/spectator-plays";
 import { Modal } from "./Modal";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { CrownIcon } from "./CrownIcon";
 import { liveLeader, LEADER_LABELS } from "../lib/live-leader";
 import { TileBagButton } from "./TileBagButton";
@@ -338,17 +338,27 @@ export function SpectatorGame({
           aria-label={`${chosenWord.word} word details`}
         >
           <div className="spectator-word-detail-heading">
-            <h3>{chosenWord.word}</h3>
-            <button className="text-button" onClick={() => setSelection(null)}>
-              Clear
+            <h3>Word details</h3>
+            <button
+              className="icon-button"
+              aria-label="Clear word selection"
+              onClick={() => setSelection(null)}
+            >
+              ×
             </button>
           </div>
-          <p className="spectator-word-detail-meta">
-            {nameOf(chosenWord.playerId)} · {chosenWord.score} points · Round{" "}
-            {chosenWord.round}
-            {chosenWord.source === "assisted" ? " · Assisted play" : ""}
-          </p>
-          <WordDefinition key={chosenWord.id} word={chosenWord.word} />
+          <PlayedWordDetails
+            key={chosenWord.id}
+            word={chosenWord}
+            board={game.board}
+            placements={
+              game.turns.find((turn) => turn.id === chosenWord.turnId)
+                ?.placements ?? []
+            }
+            playerName={nameOf(chosenWord.playerId)}
+            round={chosenWord.round}
+            source={chosenWord.source}
+          />
         </aside>
       )}
       <div className="spectator-selection" aria-live="polite">

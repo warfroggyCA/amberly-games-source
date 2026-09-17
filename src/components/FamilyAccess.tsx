@@ -8,8 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { BrandWordmark } from "./BrandWordmark";
-import "./family-access.css";
+import { FamilyWelcome } from "./FamilyWelcome";
 
 export type FamilyUser = { id: string; email: string };
 type Session = {
@@ -286,205 +285,196 @@ export function FamilyAccess({
   if (session?.user) return children(session.user);
 
   return (
-    <main className="family-access">
-      <Link href="/" className="family-access-back">
-        ← Back to this device’s games
-      </Link>
-      <section
-        className="family-access-card"
-        aria-labelledby="family-access-title"
-      >
-        <div className="brand family-access-brand">
-          <BrandWordmark />
-        </div>
-        <h1 id="family-access-title">
-          {session?.configured === false
-            ? "Shared games aren’t connected yet"
-            : "Pull up a chair"}
-        </h1>
-        {session?.configured === false ? (
-          <>
-            <p>
-              Amberly sign-in and shared storage are prepared, but this app has
-              not been connected to its private family service yet.
+    <FamilyWelcome
+      title={
+        session?.configured === false ? "Your table is ready." : "Let’s play."
+      }
+      loading={session === null && busy}
+    >
+      {session?.configured === false ? (
+        <>
+          <p>
+            Shared games aren’t connected here yet. You can still score a game
+            on this device.
+          </p>
+          <p>Your existing games and profiles are safely saved here.</p>
+          <Link href="/" className="btn primary">
+            Continue on this device
+          </Link>
+        </>
+      ) : session === null ? (
+        <>
+          <p className="family-access-status" role="status">
+            {busy
+              ? "Checking Amberly sign-in…"
+              : "We could not check your sign-in."}
+          </p>
+          {error && (
+            <p className="family-access-error" role="alert">
+              {error}
             </p>
-            <p>
-              You can keep scoring on this device. Your existing games and
-              profiles are still saved here.
-            </p>
-            <Link href="/" className="btn primary">
-              Continue on this device
-            </Link>
-          </>
-        ) : session === null ? (
-          <>
-            <p role="status">
-              {busy
-                ? "Checking Amberly sign-in…"
-                : "We could not check your sign-in."}
-            </p>
+          )}
+          {!busy && (
+            <button className="btn primary" onClick={recheckSession}>
+              Try again
+            </button>
+          )}
+        </>
+      ) : session.signInMethod === "google" ? (
+        <>
+          <p>
+            Sign in to score games, relive the best words, and see who’s on a
+            winning streak.
+          </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void signInWithGoogle();
+            }}
+            aria-busy={busy}
+          >
+            <button className="btn primary" type="submit" disabled={busy}>
+              {busy ? "Opening Google…" : "Continue with Google"}
+            </button>
+            {notice && (
+              <p className="family-access-notice" role="status">
+                {notice}
+              </p>
+            )}
             {error && (
               <p className="family-access-error" role="alert">
                 {error}
               </p>
             )}
-            {!busy && (
-              <button className="btn primary" onClick={recheckSession}>
-                Try again
-              </button>
-            )}
-          </>
-        ) : session.signInMethod === "google" ? (
-          <>
-            <p>
-              Sign in to score games, manage your profile, and see shared
-              records. Your account also needs an Amberly invitation.
-            </p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void signInWithGoogle();
-              }}
-              aria-busy={busy}
-            >
-              <button className="btn primary" type="submit" disabled={busy}>
-                {busy ? "Opening Google…" : "Continue with Google"}
-              </button>
-              {notice && (
-                <p className="family-access-notice" role="status">
-                  {notice}
+          </form>
+          <p className="family-access-hint">
+            Use the Google account invited to Amberly.
+          </p>
+          <p className="family-access-watch">
+            <strong>Just watching?</strong> Open a game’s viewing link.
+            <br />
+            No sign-in needed.
+          </p>
+        </>
+      ) : (
+        <>
+          <p>
+            Sign in with the email invited to Amberly. We’ll send you a code to
+            open your shared games and records.
+          </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit(codeEmail ? "verify" : "code");
+            }}
+            aria-busy={busy}
+          >
+            {codeEmail ? (
+              <>
+                <p className="family-access-email">
+                  Enter the code for <strong>{codeEmail}</strong>
                 </p>
-              )}
-              {error && (
-                <p className="family-access-error" role="alert">
-                  {error}
-                </p>
-              )}
-            </form>
-            <p>
-              Just watching? Open the game’s viewing link. No sign-in needed.
-            </p>
-          </>
-        ) : (
-          <>
-            <p>
-              Sign in with a code sent to your email. Your family’s games and
-              records are available to approved family members.
-            </p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit(codeEmail ? "verify" : "code");
-              }}
-              aria-busy={busy}
-            >
-              {codeEmail ? (
-                <>
-                  <p className="family-access-email">
-                    Enter the code for <strong>{codeEmail}</strong>
-                  </p>
-                  <label htmlFor="family-code">Email code</label>
-                  <input
-                    id="family-code"
-                    name="token"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="[0-9]{6,10}"
-                    maxLength={10}
-                    value={token}
-                    onChange={(event) =>
-                      setToken(event.target.value.replace(/\s/g, ""))
-                    }
-                    required
-                    disabled={busy}
-                    autoFocus
-                  />
+                <label htmlFor="family-code">Email code</label>
+                <input
+                  id="family-code"
+                  name="token"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6,10}"
+                  maxLength={10}
+                  value={token}
+                  onChange={(event) =>
+                    setToken(event.target.value.replace(/\s/g, ""))
+                  }
+                  required
+                  disabled={busy}
+                  autoFocus
+                />
+                <button
+                  className="btn primary"
+                  type="submit"
+                  disabled={busy || !/^\d{6,10}$/.test(token)}
+                >
+                  {busy ? "Checking code…" : "Sign in"}
+                </button>
+                <div className="family-access-actions">
                   <button
-                    className="btn primary"
-                    type="submit"
-                    disabled={busy || !/^\d{6,10}$/.test(token)}
+                    type="button"
+                    className="btn"
+                    disabled={busy || secondsLeft > 0}
+                    onClick={() => void submit("code")}
                   >
-                    {busy ? "Checking code…" : "Sign in"}
+                    {secondsLeft > 0
+                      ? `Resend in ${secondsLeft}s`
+                      : "Send another code"}
                   </button>
-                  <div className="family-access-actions">
-                    <button
-                      type="button"
-                      className="btn"
-                      disabled={busy || secondsLeft > 0}
-                      onClick={() => void submit("code")}
-                    >
-                      {secondsLeft > 0
-                        ? `Resend in ${secondsLeft}s`
-                        : "Send another code"}
-                    </button>
+                  <button
+                    type="button"
+                    className="btn quiet"
+                    disabled={busy}
+                    onClick={() => {
+                      setCodeEmail(null);
+                      setToken("");
+                      setError(null);
+                      setNotice(null);
+                    }}
+                  >
+                    Use another email
+                  </button>
+                  {error && (
                     <button
                       type="button"
                       className="btn quiet"
                       disabled={busy}
-                      onClick={() => {
-                        setCodeEmail(null);
-                        setToken("");
-                        setError(null);
-                        setNotice(null);
-                      }}
+                      onClick={recheckSession}
                     >
-                      Use another email
+                      Check sign-in
                     </button>
-                    {error && (
-                      <button
-                        type="button"
-                        className="btn quiet"
-                        disabled={busy}
-                        onClick={recheckSession}
-                      >
-                        Check sign-in
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <label htmlFor="family-email">Your email</label>
-                  <input
-                    id="family-email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    maxLength={254}
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    required
-                    disabled={busy}
-                  />
-                  <button
-                    className="btn primary"
-                    type="submit"
-                    disabled={busy || secondsLeft > 0}
-                  >
-                    {busy
-                      ? "Requesting code…"
-                      : secondsLeft > 0
-                        ? `Try again in ${secondsLeft}s`
-                        : "Email me a code"}
-                  </button>
-                </>
-              )}
-              {notice && (
-                <p className="family-access-notice" role="status">
-                  {notice}
-                </p>
-              )}
-              {error && (
-                <p className="family-access-error" role="alert">
-                  {error}
-                </p>
-              )}
-            </form>
-          </>
-        )}
-      </section>
-    </main>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <label htmlFor="family-email">Your email</label>
+                <input
+                  id="family-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  maxLength={254}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  disabled={busy}
+                />
+                <button
+                  className="btn primary"
+                  type="submit"
+                  disabled={busy || secondsLeft > 0}
+                >
+                  {busy
+                    ? "Requesting code…"
+                    : secondsLeft > 0
+                      ? `Try again in ${secondsLeft}s`
+                      : "Email me a code"}
+                </button>
+              </>
+            )}
+            {notice && (
+              <p className="family-access-notice" role="status">
+                {notice}
+              </p>
+            )}
+            {error && (
+              <p className="family-access-error" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </>
+      )}
+    </FamilyWelcome>
   );
 }

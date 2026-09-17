@@ -19,18 +19,18 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/icons/amberly-board-v1-32.png",
+        url: "/icons/amberly-board-v2-32.png",
         sizes: "32x32",
         type: "image/png",
       },
       {
-        url: "/icon.svg?v=amberly-board-1",
+        url: "/icon.svg?v=amberly-board-2",
         sizes: "any",
         type: "image/svg+xml",
       },
     ],
     apple: {
-      url: "/icons/amberly-board-v1-180.png",
+      url: "/icons/amberly-board-v2-180.png",
       sizes: "180x180",
       type: "image/png",
     },

@@ -1,0 +1,63 @@
+.swipe-game {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #9a352a;
+}
+.swipe-game-front {
+  position: relative;
+  padding-right: 44px;
+  background: var(--paper, #fffdf5);
+  touch-action: pan-y pinch-zoom;
+  transition: transform 180ms ease-out;
+}
+.swipe-game-front.is-dragging {
+  transition: none;
+}
+.swipe-game-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--green, #194d3c);
+  font-size: 1.6rem;
+  cursor: pointer;
+}
+.swipe-game-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: #9a352a;
+  color: #fffdf5;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.swipe-game-delete:disabled {
+  visibility: hidden;
+}
+.swipe-game button:focus-visible {
+  outline-offset: -4px;
+}
+.swipe-game-front .game-list-item > button {
+  min-height: 76px;
+}
+.access-removal-confirm strong {
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .swipe-game-front {
+    transition: none;
+  }
+}

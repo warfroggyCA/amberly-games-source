@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 const image = {
-  url: "/social/amberly-games-v1.jpg",
+  url: "/social/amberly-games-v2.jpg",
   width: 1200,
   height: 630,
   type: "image/jpeg",

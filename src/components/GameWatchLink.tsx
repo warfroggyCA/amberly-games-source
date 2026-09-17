@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { Modal } from "./Modal";
+import { TabletopIcon } from "./TabletopIcon";
 import "./game-watch-link.css";
 import type { SharedScorerStore } from "../lib/shared-store";
 
@@ -29,7 +30,7 @@ export function GameWatchLink({
       if (revoke) {
         await store.administer({ type: "revoke-watch-link", gameId });
         setLink(null);
-        setMessage("The viewing link is closed.");
+        setMessage("Sharing stopped. Previous viewing links no longer work.");
       } else {
         const token = Array.from(
           crypto.getRandomValues(new Uint8Array(32)),
@@ -40,7 +41,7 @@ export function GameWatchLink({
         await store.administer({ type: "create-watch-link", gameId, token });
         setLink(`${location.origin}/watch#${token}`);
         setMessage(
-          "Ready to share. Anyone with this link can watch for seven days.",
+          "Your link is ready. Copy it and send it to your spectators.",
         );
       }
     } catch (e) {
@@ -80,18 +81,28 @@ export function GameWatchLink({
         </svg>
       </button>
       {open && (
-        <Modal title="Let the family watch" onClose={() => setOpen(false)}>
-          <p>
-            Share a live board and scoreboard. Guests need no account or
-            sign-in, and cannot enter or change scores.
-          </p>
-          <p>
-            A link lasts seven days. Creating a replacement closes the previous
-            link for this game.
-          </p>
+        <Modal
+          title="Share this game"
+          className="watch-share-modal"
+          onClose={() => setOpen(false)}
+        >
+          <div className="watch-share-intro">
+            <span className="watch-share-tile" aria-hidden="true">
+              <TabletopIcon name="board" />
+            </span>
+            <div>
+              <span className="watch-share-eyebrow">A seat at the game</span>
+              <p>Send a link to follow every word and score, live.</p>
+            </div>
+          </div>
+          <ul className="watch-share-details" aria-label="Viewing access">
+            <li>No sign-in</li>
+            <li>View only</li>
+            <li>Valid for 7 days</li>
+          </ul>
           {link && (
-            <label className="field">
-              Viewing link
+            <label className="field watch-share-field">
+              Your viewing link
               <input
                 readOnly
                 value={link}
@@ -101,21 +112,26 @@ export function GameWatchLink({
               />
             </label>
           )}
-          {message && <p role="status">{message}</p>}
+          {message && (
+            <p className="watch-share-status" role="status">
+              {message}
+            </p>
+          )}
           {error && (
             <p className="error-banner" role="alert">
               {error}
             </p>
           )}
-          <div className="dialog-actions">
-            {link && (
+          <div className="watch-share-actions">
+            {link ? (
               <button
-                className="button primary"
+                type="button"
+                className="button primary watch-share-primary"
                 disabled={working || disabled}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(link);
-                    setMessage("Link copied. You can send it to the family.");
+                    setMessage("Link copied. It’s ready to send.");
                     setError(null);
                   } catch {
                     setError(
@@ -124,27 +140,56 @@ export function GameWatchLink({
                   }
                 }}
               >
-                Copy link
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="8" y="8" width="12" height="13" rx="2" />
+                  <path d="M15 8V3H3v13h5" />
+                </svg>
+                Copy viewing link
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button primary watch-share-primary"
+                disabled={working || disabled}
+                onClick={() => void change(false)}
+              >
+                {working ? "Updating…" : "Create viewing link"}
+                <span aria-hidden="true">↗</span>
               </button>
             )}
-            <button
-              className="button light"
-              disabled={working || disabled}
-              onClick={() => void change(false)}
-            >
-              {working
-                ? "Updating…"
-                : link
-                  ? "Replace link"
-                  : "Create or replace link"}
-            </button>
-            <button
-              className="text-button"
-              disabled={working || disabled}
-              onClick={() => void change(true)}
-            >
-              Close viewing link
-            </button>
+            <p className="watch-share-note">
+              A new link replaces any previous link for this game.
+            </p>
+            <div className="watch-share-manage">
+              {link && (
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={working || disabled}
+                  onClick={() => void change(false)}
+                >
+                  {working ? "Updating…" : "Replace link"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="text-button watch-share-stop"
+                disabled={working || disabled}
+                onClick={() => void change(true)}
+              >
+                Stop sharing
+              </button>
+            </div>
           </div>
         </Modal>
       )}

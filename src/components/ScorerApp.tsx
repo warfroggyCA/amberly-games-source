@@ -1,6 +1,11 @@
 "use client";
+import {
+  hasPermission,
+  type MemberPermission,
+} from "../lib/member-permissions";
 import "./live-draft.css";
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -39,7 +44,7 @@ import { TileBagButton } from "./TileBagButton";
 import { ExtraTiles } from "./ExtraTiles";
 import { WinnerBanner } from "./WinnerBanner";
 import { WordReference } from "./WordReference";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { OfficialWordSearch } from "./OfficialWordSearch";
 import { PlayerProfileEditor } from "./PlayerProfileEditor";
 import {
@@ -79,6 +84,7 @@ const errorText = (error: unknown) =>
 export function ScorerApp({
   store = localScorerStore,
   renderGameStatus,
+  renderGameItem,
   accountControls,
   shareControl,
   liveContext,
@@ -88,6 +94,7 @@ export function ScorerApp({
   accountControls?: ReactNode;
   shareControl?: ReactNode;
   renderGameStatus?: (game: GameState) => ReactNode;
+  renderGameItem?: (game: GameState, content: ReactNode) => ReactNode;
 } = {}) {
   const {
     subscribe,
@@ -99,6 +106,9 @@ export function ScorerApp({
   } = store;
   const shared = store.mode === "shared";
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const allowed = (key: MemberPermission) =>
+    !shared || hasPermission(state.shared?.member, key);
+  const canStart = allowed("startGames") && allowed("scoreGames");
   const [creationMode, setCreationMode] = useState<"confirmed" | "practice">(
     "confirmed",
   );
@@ -297,7 +307,9 @@ export function ScorerApp({
     tileSetId: string | null,
     equipmentRevision: number,
   ) {
-    store.setCreationMode?.(creationMode);
+    store.setCreationMode?.(
+      state.shared?.member.role === "superadmin" ? creationMode : "confirmed",
+    );
     const success = await mutate((data) => {
       const players = seats.flatMap((playerId, seat) => {
         const p = data.players.find((p) => p.id === playerId);
@@ -587,7 +599,12 @@ export function ScorerApp({
       <TileSetSettings
         store={store}
         equipment={state.data.equipment}
-        disabled={busy || !!state.pending || !!state.unresolved}
+        disabled={
+          busy ||
+          !!state.pending ||
+          !!state.unresolved ||
+          !allowed("manageEquipment")
+        }
         onClose={() => setModal("game-menu")}
       />
     ) : (
@@ -626,6 +643,7 @@ export function ScorerApp({
             ))}
             <button
               className="button light"
+              disabled={!allowed("manageEquipment")}
               onClick={() => setModal("settings")}
             >
               <TabletopIcon name="settings" />
@@ -854,6 +872,7 @@ export function ScorerApp({
                     <div className="home-actions">
                       <button
                         className="button primary"
+                        disabled={!canStart}
                         onClick={() => setModal("setup")}
                       >
                         {shared ? "New game" : "New preview game"}{" "}
@@ -936,6 +955,7 @@ export function ScorerApp({
                   gameAccess={state.shared?.gameAccess}
                   games={state.data.games.slice(-3).reverse()}
                   onOpen={openGame}
+                  renderItem={renderGameItem}
                 />
               </>
             )}
@@ -950,7 +970,13 @@ export function ScorerApp({
                       : "These preview profiles stay on this device."}
                   </p>
                 </div>
-                <AddPlayer onAdd={addPlayer} busy={busy} />
+                {allowed("addPlayers") ? (
+                  <AddPlayer onAdd={addPlayer} busy={busy} />
+                ) : (
+                  <p className="muted">
+                    Adding players is disabled for your account.
+                  </p>
+                )}
                 <div className="players-list">
                   {state.data.players.map((p, i) => (
                     <div key={p.id}>
@@ -1001,6 +1027,7 @@ export function ScorerApp({
                   </p>
                 </div>
                 <GameList
+                  renderItem={renderGameItem}
                   gameAccess={state.shared?.gameAccess}
                   games={[...state.data.games].reverse()}
                   onOpen={openGame}
@@ -1017,7 +1044,7 @@ export function ScorerApp({
                     Load earlier games
                   </button>
                 )}
-                {(!shared || state.shared?.member.role === "superadmin") && (
+                {allowed("exportHistory") && (
                   <button
                     className="button light"
                     onClick={() =>
@@ -1057,6 +1084,7 @@ export function ScorerApp({
                   </p>
                   <button
                     className="button primary"
+                    disabled={!canStart}
                     onClick={() => setModal("setup")}
                   >
                     {shared ? "New game" : "New preview game"}
@@ -1552,10 +1580,18 @@ export function ScorerApp({
       {modal === "setup" && (
         <PlayerSetup
           equipment={state.data.equipment ?? EMPTY_EQUIPMENT}
-          sharedMode={shared ? creationMode : undefined}
+          sharedMode={
+            shared
+              ? state.shared?.member.role === "superadmin"
+                ? creationMode
+                : "confirmed"
+              : undefined
+          }
           onSharedModeChange={setCreationMode}
           players={state.data.players}
-          busy={busy}
+          busy={busy || !canStart}
+          canAddPlayers={allowed("addPlayers")}
+          allowPractice={!shared || state.shared?.member.role === "superadmin"}
           onAdd={addPlayer}
           onStart={startGame}
           onClose={() => setModal(null)}
@@ -1792,10 +1828,15 @@ export function ScorerApp({
               aria-label="Word meanings"
             >
               {selectedTurn.words.map((word) => (
-                <div key={`${word.row}-${word.col}-${word.direction}`}>
-                  <h3>{word.word}</h3>
-                  <WordDefinition word={word.word} />
-                </div>
+                <PlayedWordDetails
+                  key={`${word.row}-${word.col}-${word.direction}`}
+                  word={word}
+                  board={game.board}
+                  placements={selectedTurn.placements}
+                  playerName={nameOf(game, selectedTurn.playerId)}
+                  round={selectedTurn.round}
+                  source={selectedTurn.source}
+                />
               ))}
             </section>
           )}
@@ -1846,54 +1887,71 @@ function GameList({
   games,
   gameAccess,
   onOpen,
+  renderItem,
 }: {
+  renderItem?: (game: GameState, content: ReactNode) => ReactNode;
   games: GameState[];
   gameAccess?: Record<string, GameAccess>;
   onOpen: (id: string) => Promise<void>;
 }) {
   return games.length ? (
     <div className="game-list">
-      {games.map((g) => (
-        <button key={g.id} onClick={() => void onOpen(g.id)}>
-          <span className="game-date">
-            {new Date(g.definition.createdAt).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-          <span>
-            <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
-            <small>
-              {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
-              {g.status === "finalized"
-                ? g.result?.reason === "early"
-                  ? "Ended early"
-                  : "Finalized"
-                : g.status === "paused"
-                  ? "Paused"
-                  : "In progress"}{" "}
-              · {lexiconDetails(g.lexicon).historyLabel}
-            </small>
-            {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
-              <small className="game-review-label">
-                Concern awaiting review
-              </small>
-            ) : gameAccess?.[g.id]?.protests.some(
-                (p) => p.resolution?.outcome === "upheld",
-              ) ? (
-              <small className="game-review-label">
-                Concern upheld · excluded from records
-              </small>
-            ) : null}
-          </span>
-          <span className="game-list-score">
-            {g.players
-              .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
-              .join(" / ")}
-          </span>
-          <span aria-hidden="true">→</span>
-        </button>
-      ))}
+      {games.map((g) => {
+        const content = (
+          <div className="game-list-item">
+            <button onClick={() => void onOpen(g.id)}>
+              <span className="game-date">
+                {new Date(g.definition.createdAt).toLocaleDateString(
+                  undefined,
+                  {
+                    month: "short",
+                    day: "numeric",
+                  },
+                )}
+              </span>
+              <span>
+                <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
+                <small>
+                  {gameAccess?.[g.id]?.mode === "practice"
+                    ? "Private test · "
+                    : ""}
+                  {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
+                  {g.status === "finalized"
+                    ? g.result?.reason === "early"
+                      ? "Ended early"
+                      : "Finalized"
+                    : g.status === "paused"
+                      ? "Paused"
+                      : "In progress"}{" "}
+                  · {lexiconDetails(g.lexicon).historyLabel}
+                </small>
+                {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
+                  <small className="game-review-label">
+                    Concern awaiting review
+                  </small>
+                ) : gameAccess?.[g.id]?.protests.some(
+                    (p) => p.resolution?.outcome === "upheld",
+                  ) ? (
+                  <small className="game-review-label">
+                    Concern upheld · excluded from records
+                  </small>
+                ) : null}
+              </span>
+              <span className="game-list-score">
+                {g.players
+                  .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
+                  .join(" / ")}
+              </span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        );
+        return (
+          <Fragment key={g.id}>
+            {renderItem ? renderItem(g, content) : content}
+          </Fragment>
+        );
+      })}
     </div>
   ) : (
     <div className="empty-inline">

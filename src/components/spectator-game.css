@@ -755,5 +755,5 @@ body:has(> .spectator-shell) > .error-banner {
 
 /* Equal rim widths keep the outside of the viewer board exactly square. */
 body .app-shell.spectator-shell .spectator-game .spectator-board .board-frame {
-  border-width: clamp(6px, calc(var(--spectator-board-size) * 0.022), 16px);
+  border-width: clamp(5px, calc(var(--spectator-board-size) * 0.013), 10px);
 }

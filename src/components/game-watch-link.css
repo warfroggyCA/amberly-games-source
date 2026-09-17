@@ -19,3 +19,168 @@
   outline: 3px solid #ac7c2e;
   outline-offset: 3px;
 }
+
+/* A compact invitation, using the same wood and forest finish as the board. */
+.app-shell .watch-share-modal {
+  width: min(460px, calc(100vw - 28px));
+  padding: 26px;
+  border-top: 3px solid #b88937;
+}
+.watch-share-modal .modal-heading {
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.watch-share-modal .modal-heading h2 {
+  font-size: clamp(27px, 5vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+.watch-share-modal .modal-heading .icon-button {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  flex-shrink: 0;
+}
+.watch-share-intro {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.watch-share-tile {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
+  color: var(--tile-ink);
+  background: var(--tile-material);
+  border: 1px solid;
+  border-color: var(--tile-edge);
+  border-radius: 6px;
+  box-shadow: var(--tile-shadow);
+  transform: rotate(-6deg);
+}
+.watch-share-tile svg {
+  width: 34px;
+  height: 34px;
+}
+.watch-share-eyebrow {
+  color: var(--forest);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.watch-share-intro p {
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+}
+.watch-share-details {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 0;
+  margin: 24px 0 20px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+  color: #58634f;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.watch-share-details li + li {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.watch-share-field {
+  margin: 0 0 16px;
+}
+.watch-share-field input {
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}
+.watch-share-modal .watch-share-status {
+  margin: 0 0 16px;
+  color: var(--forest);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.watch-share-modal .error-banner {
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.watch-share-primary {
+  width: 100%;
+  min-height: 48px;
+  font-size: 15px;
+}
+.watch-share-primary > span {
+  font-size: 21px;
+  line-height: 1;
+}
+.watch-share-note {
+  max-width: 32ch;
+  margin: 12px auto 0;
+  text-align: center;
+  color: #69705f;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.watch-share-manage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 6px;
+}
+.watch-share-manage .text-button {
+  min-height: 44px;
+  padding: 10px 4px;
+  font-size: 13px;
+}
+.watch-share-manage .watch-share-stop {
+  color: #8b4635;
+}
+@media (max-width: 480px) {
+  .app-shell .watch-share-modal {
+    padding: 22px 20px 14px;
+  }
+  .watch-share-intro {
+    gap: 14px;
+  }
+  .watch-share-details {
+    font-size: 11px;
+  }
+  .watch-share-details li + li {
+    padding-left: 8px;
+  }
+}
+
+@media (max-width: 360px) {
+  .watch-share-modal .modal-heading h2 {
+    font-size: 24px;
+  }
+  .watch-share-modal .modal-heading {
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .watch-share-tile {
+    width: 50px;
+    height: 50px;
+    flex-basis: 50px;
+  }
+  .watch-share-tile svg {
+    width: 28px;
+    height: 28px;
+  }
+  .watch-share-intro p {
+    font-size: 14px;
+  }
+}

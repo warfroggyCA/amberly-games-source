@@ -1,4 +1,5 @@
 "use client";
+import { hasPermission } from "../lib/member-permissions";
 import { useRef, useState, useSyncExternalStore } from "react";
 import type { GameState } from "../domain/game";
 import type { SharedScorerStore } from "../lib/shared-store";
@@ -31,7 +32,7 @@ export function GameConcerns({
   const pending = protests.filter((p) => !p.resolution);
   const upheld = protests.some((p) => p.resolution?.outcome === "upheld");
   const current = protests.find((p) => p.id === selected);
-  const admin = state.shared?.member.role === "superadmin";
+  const admin = hasPermission(state.shared?.member, "resolveConcerns");
   const disabled = working || !!state.pending || !!state.unresolved;
   const timestamp = (value: string) =>
     new Date(value).toLocaleString(undefined, {
@@ -86,8 +87,8 @@ export function GameConcerns({
             {pending.length > 0 ? "Under review" : "Excluded from records"}
           </strong>
           {pending.length > 0
-            ? " A concern is awaiting superadmin review. This game stays in history and is held out of records."
-            : " A superadmin upheld a concern. The game and its original scores remain in history."}
+            ? " A concern is awaiting review. This game stays in history and is held out of records."
+            : " A reviewer upheld a concern. The game and its original scores remain in history."}
         </p>
       )}
       {protests.length > 0 && (
@@ -119,7 +120,7 @@ export function GameConcerns({
                   </div>
                 ) : (
                   <div className="concern-actions">
-                    <span>Awaiting superadmin review</span>
+                    <span>Awaiting review</span>
                     {admin && (
                       <button
                         className="button light"
@@ -171,8 +172,9 @@ export function GameConcerns({
             {dialog === "report" ? (
               <>
                 <p>
-                  The game will remain in history, with records held until a
-                  superadmin reviews the concern. Scoring can continue.
+                  The game will remain in history, with records held until an
+                  authorized reviewer resolves the concern. Scoring can
+                  continue.
                 </p>
                 <label className="field">
                   Reporting for someone else? (optional)
