@@ -1,4 +1,5 @@
 "use client";
+import { ResultBadge } from "../ResultBadge";
 import { useEffect, useRef, useState } from "react";
 import {
   CROKINOLE_HIGH_SCORE,
@@ -385,6 +386,26 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
               ? `First to ${match.definition.endCondition.target}`
               : `${match.definition.endCondition.rounds} rounds`}
           </p>
+          <ResultBadge
+            result={
+              match.status === "completed" && match.result
+                ? {
+                    gameId: match.definition.id,
+                    game: "Crokinole",
+                    winners: participants
+                      .filter((p) => match.result!.winnerIds.includes(p.id))
+                      .map((p) => ({
+                        name: p.name,
+                        score: match.result!.totals[p.id],
+                      })),
+                    note:
+                      match.definition.mode === "practice"
+                        ? "Practice game"
+                        : `${match.rounds.length} ${match.rounds.length === 1 ? "round" : "rounds"} played`,
+                  }
+                : null
+            }
+          />
           {match.status !== "active" && (
             <section className="crokinole-result">
               <span className="eyebrow">

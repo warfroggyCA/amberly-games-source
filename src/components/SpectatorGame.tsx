@@ -1,4 +1,5 @@
 "use client";
+import { ResultBadge } from "./ResultBadge";
 import { PlayerName } from "./PlayerName";
 import "./live-draft.css";
 import { PlayerAvatar } from "./PlayerAvatar";
@@ -188,6 +189,31 @@ export function SpectatorGame({
       ) : (
         <div className="spectator-inline-tools">{tools}</div>
       )}
+      <ResultBadge
+        key={game.id}
+        result={
+          game.result?.winnerIds.length
+            ? {
+                gameId: game.id,
+                game: "Scrabble",
+                winners: game.players
+                  .filter((p) => game.result!.winnerIds.includes(p.id))
+                  .map((p) => ({
+                    name: p.name,
+                    score: game.result!.scores[p.id],
+                  })),
+                note:
+                  game.result.reason === "early"
+                    ? "Early finish"
+                    : assisted
+                      ? "Assisted result"
+                      : game.tileSupply
+                        ? "Nonstandard tile set"
+                        : undefined,
+              }
+            : null
+        }
+      />
       <div className="spectator-stage">
         <div className="spectator-table">
           {game.players.map((player) => {

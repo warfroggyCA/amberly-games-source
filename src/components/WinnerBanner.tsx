@@ -1,6 +1,7 @@
+import { ResultBadge } from "./ResultBadge";
 import { CrownIcon } from "./CrownIcon";
 import type { GameState } from "../domain/game";
-export function WinnerBanner({ game }: { game: GameState }) {
+function WinnerDetails({ game }: { game: GameState }) {
   if (!game.result) return null;
   // Solo results deliberately have no competitive winners.
   const featuredPlayers = game.players.filter(
@@ -50,5 +51,40 @@ export function WinnerBanner({ game }: { game: GameState }) {
         </small>
       </div>
     </section>
+  );
+}
+
+export function WinnerBanner({ game }: { game: GameState }) {
+  return (
+    <>
+      <ResultBadge
+        key={game.id}
+        result={
+          game.result?.winnerIds.length
+            ? {
+                gameId: game.id,
+                game: "Scrabble",
+                winners: game.players
+                  .filter((p) => game.result!.winnerIds.includes(p.id))
+                  .map((p) => ({
+                    name: p.name,
+                    score: game.result!.scores[p.id],
+                  })),
+                note:
+                  game.lexicon.status === "test"
+                    ? "Practice game"
+                    : game.result.reason === "early"
+                      ? "Early finish"
+                      : game.assistance
+                        ? "Assisted result"
+                        : game.tileSupply
+                          ? "Nonstandard tile set"
+                          : undefined,
+              }
+            : null
+        }
+      />
+      <WinnerDetails game={game} />
+    </>
   );
 }

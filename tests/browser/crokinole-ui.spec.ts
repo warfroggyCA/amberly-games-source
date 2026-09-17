@@ -168,6 +168,10 @@ test("Crokinole three-player tied finish and completed correction recalculate th
       await page.getByLabel(`${name} round total`, { exact: true }).fill("25");
     await page.getByRole("button", { name: "Save round", exact: true }).click();
   }
+  await page
+    .getByRole("dialog", { name: "Honours shared!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Doug & Erin & Nate tied", exact: true }),
   ).toBeVisible();
@@ -246,6 +250,10 @@ test("Crokinole earlier winning correction confirms excluded rounds before chang
       .fill(String(scores[1]));
     await page.getByRole("button", { name: "Save round", exact: true }).click();
   }
+  await page
+    .getByRole("dialog", { name: "Well played!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Doug wins", exact: true }),
   ).toBeVisible();

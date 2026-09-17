@@ -792,7 +792,10 @@ export function FamilyHub({
                           .catch((e) => setError(e.message))
                       }
                     >
-                      Resume Scrabble
+                      {shared.gameAccess[resumeScrabble.id]?.scorerUserId ===
+                      userId
+                        ? "Resume scoring"
+                        : "View current game"}
                     </button>
                   )}
                   <button
@@ -825,7 +828,10 @@ export function FamilyHub({
                         )
                       }
                     >
-                      Resume Crokinole
+                      {state.access[resumeCroke.definition.id]?.scorerUserId ===
+                      userId
+                        ? "Resume scoring"
+                        : "View current game"}
                     </button>
                   )}
                   {state.creationEnabled &&

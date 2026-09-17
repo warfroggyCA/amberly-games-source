@@ -38,7 +38,13 @@ test("shared menu preserves Crokinole drafts and reaches the same settings from 
     page.getByRole("heading", { name: "Settings", exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Games", exact: true }).click();
-  await page.getByRole("button", { name: "Resume Crokinole" }).click();
+  await page
+    .locator(".hub-game")
+    .filter({
+      has: page.getByRole("heading", { name: "Crokinole", exact: true }),
+    })
+    .getByRole("button", { name: "Resume scoring" })
+    .click();
   await page.getByRole("button", { name: "Continue entry" }).click();
   await expect(
     page.getByLabel("Doug round total", { exact: true }),

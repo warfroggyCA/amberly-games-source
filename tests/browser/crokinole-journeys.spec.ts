@@ -34,6 +34,10 @@ test("doubles NCA awards points, preserves names and rotates the rematch starter
   const names = ["Doug & Nate", "Erin & Cristine"];
   for (let round = 1; round <= 4; round++)
     await enterRound(page, round, names, round === 2 ? [40, 40] : [65, 40]);
+  await page
+    .getByRole("dialog", { name: "Well played!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Doug & Nate wins", exact: true }),
   ).toBeVisible();
@@ -99,6 +103,10 @@ test("four individual players resume an unfinished target round after reload", a
   for (const name of names.slice(1))
     await page.getByLabel(`${name} round total`, { exact: true }).fill("40");
   await page.getByRole("button", { name: "Save round", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Well played!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Doug wins", exact: true }),
   ).toBeVisible();
@@ -121,6 +129,10 @@ test("long cumulative score sheet retains early rounds and latest totals", async
   await page.getByRole("button", { name: "Start game", exact: true }).click();
   for (let round = 1; round <= 8; round++)
     await enterRound(page, round, ["Doug", "Erin"], [25, 20]);
+  await page
+    .getByRole("dialog", { name: "Well played!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Doug wins", exact: true }),
   ).toBeVisible();
