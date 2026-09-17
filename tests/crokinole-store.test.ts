@@ -10,6 +10,7 @@ import {
 } from "../src/lib/shared-store";
 import {
   createCrokinoleGame,
+  applyCrokinoleCommand,
   DEFAULT_PIECE_COLOURS,
 } from "../src/domain/crokinole";
 import type {
@@ -85,6 +86,40 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 describe("Crokinole retained workspace", () => {
+  it.each([false, true])(
+    "accepts reordered database JSON but rejects incorrect derived scores (corrupt=%s)",
+    async (corrupt) => {
+      const played = applyCrokinoleCommand(structuredClone(game), {
+        id: "round-command",
+        type: "record_round",
+        expectedRevision: 0,
+        roundId: "round-one",
+        entries: [
+          { participantId: "a", rawScore: 65 },
+          { participantId: "b", rawScore: 0 },
+        ],
+      });
+      function reorder(value: unknown): unknown {
+        if (Array.isArray(value)) return value.map(reorder);
+        if (value && typeof value === "object")
+          return Object.fromEntries(
+            Object.entries(value)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([key, item]) => [key, reorder(item)]),
+          );
+        return value;
+      }
+      const incoming = state();
+      incoming.games = [reorder(played) as typeof played];
+      if (corrupt) incoming.games[0].totals.a = 999;
+      request.mockResolvedValue(incoming);
+      const active = store();
+      await active.load();
+      expect(active.getSnapshot().status).toBe(corrupt ? "error" : "ready");
+      if (!corrupt)
+        expect(active.getSnapshot().games[0].totals).toEqual({ a: 65, b: 0 });
+    },
+  );
   it.each([false, true])(
     "saving a round waits for draft sync and retains failed writes (failed=%s)",
     async (failed) => {

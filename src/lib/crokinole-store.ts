@@ -146,9 +146,7 @@ function validGame(value: unknown): value is CrokinoleGame {
     validateDefinition(value.definition);
     const game = hydrateCrokinoleGame(value.definition, value.events);
     return ["revision", "rounds", "totals", "status", "result"].every(
-      (k) =>
-        JSON.stringify(value[k]) ===
-        JSON.stringify(game[k as keyof CrokinoleGame]),
+      (k) => canonical(value[k]) === canonical(game[k as keyof CrokinoleGame]),
     );
   } catch {
     return false;
