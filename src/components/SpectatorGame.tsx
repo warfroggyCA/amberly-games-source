@@ -1,4 +1,5 @@
 "use client";
+import { PlayerName } from "./PlayerName";
 import "./live-draft.css";
 import { PlayerAvatar } from "./PlayerAvatar";
 import type { SavedPlayer } from "../lib/preview-store";
@@ -231,7 +232,13 @@ export function SpectatorGame({
                 </span>
                 <span className="spectator-seat-copy">
                   <strong className="spectator-seat-name" title={player.name}>
-                    {player.name}
+                    <PlayerName
+                      player={player}
+                      profile={profiles.find(
+                        (profile) => profile.id === player.id,
+                      )}
+                      useNickname={game.status === "active"}
+                    />
                   </strong>
                   <b
                     className="spectator-seat-score"

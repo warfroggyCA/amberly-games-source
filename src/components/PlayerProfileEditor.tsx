@@ -6,6 +6,7 @@ import {
   prepareProfilePhoto,
   type PlayerProfileFields,
 } from "../lib/player-profile";
+import { ProfilePhotoFramer } from "./ProfilePhotoFramer";
 import { Modal } from "./Modal";
 import "./player-profile.css";
 
@@ -19,6 +20,8 @@ export function PlayerProfileEditor({
   onClose: () => void;
 }) {
   const [name, setName] = useState(player.name);
+  const [nickname, setNickname] = useState(player.nickname ?? "");
+  const [framing, setFraming] = useState<File | null>(null);
   const [bio, setBio] = useState(player.bio ?? "");
   const [photo, setPhoto] = useState(player.photoDataUrl);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +49,8 @@ export function PlayerProfileEditor({
     setProcessing(true);
     setError(null);
     try {
-      const result = await prepareProfilePhoto(file, abort.signal);
-      if (mounted.current && version === request.current) setPhoto(result);
+      await prepareProfilePhoto(file, abort.signal);
+      if (mounted.current && version === request.current) setFraming(file);
     } catch (e) {
       if (mounted.current && version === request.current)
         setError(
@@ -65,16 +68,23 @@ export function PlayerProfileEditor({
     controller.current?.abort();
     controller.current = null;
     setProcessing(false);
+    setFraming(null);
     setPhoto(undefined);
     setError(null);
   }
   const updates: PlayerProfileFields = {
     name: name.trim(),
+    ...(nickname.trim() ? { nickname: nickname.trim() } : {}),
     ...(bio.trim() ? { bio: bio.trim() } : {}),
     ...(photo ? { photoDataUrl: photo } : {}),
   };
   async function save() {
-    if (savingRef.current || processing || !isValidPlayerProfile(updates))
+    if (
+      savingRef.current ||
+      processing ||
+      framing ||
+      !isValidPlayerProfile(updates)
+    )
       return;
     savingRef.current = true;
     setSaving(true);
@@ -100,6 +110,19 @@ export function PlayerProfileEditor({
       if (mounted.current) setSaving(false);
     }
   }
+  if (framing)
+    return (
+      <Modal title="Edit player profile" onClose={() => setFraming(null)}>
+        <ProfilePhotoFramer
+          file={framing}
+          onCancel={() => setFraming(null)}
+          onApply={(result) => {
+            setPhoto(result);
+            setFraming(null);
+          }}
+        />
+      </Modal>
+    );
   return (
     <Modal title="Edit player profile" onClose={onClose}>
       <form
@@ -110,8 +133,7 @@ export function PlayerProfileEditor({
         }}
       >
         <p className="muted">
-          Add a familiar face and something worth knowing. Profiles are saved in
-          this browser; family accounts are not connected yet.
+          Make yourself at home with a photo, nickname and a little about you.
         </p>
         <div className="profile-photo-editor">
           {photo ? (
@@ -137,7 +159,7 @@ export function PlayerProfileEditor({
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
-                disabled={saving}
+                disabled={saving || !!framing}
                 aria-describedby={hint}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -161,9 +183,26 @@ export function PlayerProfileEditor({
             )}
           </div>
         </div>
+        {photo && !framing && (
+          <button
+            type="button"
+            className="text-button"
+            disabled={saving || processing}
+            onClick={() => {
+              const bytes = Uint8Array.from(atob(photo.slice(23)), (c) =>
+                c.charCodeAt(0),
+              );
+              setFraming(
+                new File([bytes], "profile.jpg", { type: "image/jpeg" }),
+              );
+            }}
+          >
+            Adjust photo
+          </button>
+        )}
         {processing && <p role="status">Preparing photo…</p>}
         <label className="field">
-          Name
+          Real name
           <input
             required
             maxLength={60}
@@ -172,6 +211,20 @@ export function PlayerProfileEditor({
             onChange={(e) => setName(e.target.value)}
             autoComplete="off"
           />
+        </label>
+        <label className="field">
+          Nickname (optional)
+          <input
+            maxLength={60}
+            value={nickname}
+            disabled={saving}
+            onChange={(e) => setNickname(e.target.value)}
+            autoComplete="off"
+          />
+          <small>
+            Shown as your player name. Your real name remains available on
+            hover.
+          </small>
         </label>
         <label className="field">
           About this player
@@ -205,7 +258,12 @@ export function PlayerProfileEditor({
           </button>
           <button
             className="button primary"
-            disabled={saving || processing || !isValidPlayerProfile(updates)}
+            disabled={
+              saving ||
+              processing ||
+              !!framing ||
+              !isValidPlayerProfile(updates)
+            }
           >
             {saving ? "Saving…" : "Save profile"}
           </button>

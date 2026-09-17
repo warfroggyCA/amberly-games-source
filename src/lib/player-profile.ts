@@ -2,6 +2,7 @@ export const MAX_PROFILE_PHOTO_BYTES = 200 * 1024;
 export const MAX_PROFILE_UPLOAD_BYTES = 8 * 1024 * 1024;
 export type PlayerProfileFields = {
   name: string;
+  nickname?: string;
   bio?: string;
   photoDataUrl?: string;
 };
@@ -47,8 +48,8 @@ function valid(value: unknown, withId: boolean): boolean {
       return false;
     const descriptors = Object.getOwnPropertyDescriptors(value);
     const allowed = withId
-      ? ["id", "name", "bio", "photoDataUrl"]
-      : ["name", "bio", "photoDataUrl"];
+      ? ["id", "name", "nickname", "bio", "photoDataUrl"]
+      : ["name", "nickname", "bio", "photoDataUrl"];
     if (
       Reflect.ownKeys(value).some(
         (key) =>
@@ -78,6 +79,7 @@ function valid(value: unknown, withId: boolean): boolean {
     return (
       (!withId || text(record.id, 200, true)) &&
       text(record.name, 60, true) &&
+      (!Object.hasOwn(record, "nickname") || text(record.nickname, 60, true)) &&
       (!Object.hasOwn(record, "bio") || text(record.bio, 240, false, true)) &&
       (!Object.hasOwn(record, "photoDataUrl") ||
         isValidProfilePhoto(record.photoDataUrl))
@@ -97,10 +99,34 @@ export function isValidSavedPlayerProfile(
   return valid(value, true);
 }
 
+export function playerDisplayName(player: {
+  name: string;
+  nickname?: string;
+}): string {
+  return player.nickname || player.name;
+}
+export type PhotoFrame = { zoom: number; x: number; y: number };
+export const DEFAULT_PHOTO_FRAME: PhotoFrame = { zoom: 1, x: 0.5, y: 0.5 };
+export function photoCrop(width: number, height: number, frame: PhotoFrame) {
+  if (
+    ![width, height, frame.zoom, frame.x, frame.y].every(Number.isFinite) ||
+    width <= 0 ||
+    height <= 0
+  )
+    throw new Error("Invalid photo dimensions.");
+  const size = Math.min(width, height) / Math.max(1, Math.min(4, frame.zoom));
+  return {
+    size,
+    x: (width - size) * Math.max(0, Math.min(1, frame.x)),
+    y: (height - size) * Math.max(0, Math.min(1, frame.y)),
+  };
+}
+
 /** Decode locally and discard the original; only the small JPEG is persisted. */
 export async function prepareProfilePhoto(
   file: File,
   signal?: AbortSignal,
+  frame?: PhotoFrame,
 ): Promise<string> {
   const check = () => {
     if (signal?.aborted) throw new Error("Photo processing cancelled.");
@@ -159,16 +185,32 @@ export async function prepareProfilePhoto(
     if (!img.naturalWidth || !img.naturalHeight)
       throw new Error("This photo has no readable image.");
     const scale = Math.min(1, 256 / img.naturalWidth, 256 / img.naturalHeight);
+    const crop = frame
+      ? photoCrop(img.naturalWidth, img.naturalHeight, frame)
+      : null;
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    if (crop) canvas.width = canvas.height = 256;
     try {
       const context = canvas.getContext("2d");
       if (!context)
         throw new Error("Photo processing is unavailable in this browser.");
       context.fillStyle = "#ffffff";
       context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+      if (crop)
+        context.drawImage(
+          img,
+          crop.x,
+          crop.y,
+          crop.size,
+          crop.size,
+          0,
+          0,
+          256,
+          256,
+        );
+      else context.drawImage(img, 0, 0, canvas.width, canvas.height);
       const result = canvas.toDataURL("image/jpeg", 0.85);
       if (!isValidProfilePhoto(result))
         throw new Error(

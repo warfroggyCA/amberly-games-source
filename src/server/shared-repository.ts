@@ -403,6 +403,7 @@ function player(row: postgres.Row) {
   return {
     id: row.id,
     name: row.name,
+    ...(row.nickname ? { nickname: row.nickname } : {}),
     ...(row.bio ? { bio: row.bio } : {}),
     ...(row.photo_data_url ? { photoDataUrl: row.photo_data_url } : {}),
   };
@@ -733,9 +734,9 @@ export function createSharedRepository(
             "This profile changed. Reload it before saving.",
             409,
           );
-        await tx`update scrabble.players set name=${op.profile.name},bio=${op.profile.bio ?? ""},photo_data_url=${op.profile.photoDataUrl ?? null},revision=revision+1 where family_id=${familyId}::uuid and id=${op.id}`;
+        await tx`update scrabble.players set name=${op.profile.name},nickname=${op.profile.nickname ?? null},bio=${op.profile.bio ?? ""},photo_data_url=${op.profile.photoDataUrl ?? null},revision=revision+1 where family_id=${familyId}::uuid and id=${op.id}`;
       } else
-        await tx`insert into scrabble.players(family_id,id,name,bio,photo_data_url) values(${familyId}::uuid,${op.id},${op.profile.name},${op.profile.bio ?? ""},${op.profile.photoDataUrl ?? null})`;
+        await tx`insert into scrabble.players(family_id,id,name,nickname,bio,photo_data_url) values(${familyId}::uuid,${op.id},${op.profile.name},${op.profile.nickname ?? null},${op.profile.bio ?? ""},${op.profile.photoDataUrl ?? null})`;
       const [updated] =
         await tx`select p.*,m.user_id from scrabble.players p left join scrabble.memberships m on p.family_id=m.family_id and p.id=m.player_id where p.family_id=${familyId}::uuid and p.id=${op.id}`;
       await audit(
@@ -766,7 +767,7 @@ export function createSharedRepository(
           409,
         );
       const selected =
-        await tx`select p.id,p.name,m.user_id from scrabble.players p left join scrabble.memberships m on m.family_id=p.family_id and m.player_id=p.id and m.active where p.family_id=${familyId}::uuid and p.id in ${tx(op.players.map((p) => p.id))}`;
+        await tx`select p.id,coalesce(p.nickname,p.name) as name,m.user_id from scrabble.players p left join scrabble.memberships m on m.family_id=p.family_id and m.player_id=p.id and m.active where p.family_id=${familyId}::uuid and p.id in ${tx(op.players.map((p) => p.id))}`;
       if (selected.length !== op.players.length)
         reject(
           "INVALID_PLAYERS",

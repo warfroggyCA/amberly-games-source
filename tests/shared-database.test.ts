@@ -1191,7 +1191,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
         type: "update-player",
         id: "ben",
         expectedRevision: 0,
-        profile: { name: "Benjamin", bio: "Family player" },
+        profile: { name: "Benjamin", nickname: "Benny", bio: "Family player" },
       },
       f.guest,
     );
@@ -1207,7 +1207,13 @@ suite("isolated real PostgreSQL shared family repository", () => {
       ),
       "REVISION_CONFLICT",
     );
+    expect(
+      (await repository.readState(f.admin, f.familyId)).players.find(
+        (p) => p.id === "ben",
+      ),
+    ).toMatchObject({ name: "Benjamin", nickname: "Benny" });
     const game = (await f.create()).game!;
+    expect(game.players.find((p) => p.id === "ben")?.name).toBe("Benny");
     await f.mutate({
       type: "update-player",
       id: "ben",

@@ -1,4 +1,6 @@
 "use client";
+import { playerDisplayName } from "../lib/player-profile";
+import { PlayerName } from "./PlayerName";
 import { useRef, useState, type PointerEvent } from "react";
 import {
   EMPTY_EQUIPMENT,
@@ -94,8 +96,10 @@ export function PlayerSetup({
     firstIndex < 0
       ? ordered
       : [...ordered.slice(firstIndex), ...ordered.slice(0, firstIndex)];
-  const playerName = (playerId: string) =>
-    roster.find((player) => player.id === playerId)?.name ?? "Player";
+  const playerName = (playerId: string) => {
+    const player = roster.find((player) => player.id === playerId);
+    return player ? playerDisplayName(player) : "Player";
+  };
 
   function seatPlayer(index: number, playerId: string) {
     if (disabled) return;
@@ -243,7 +247,9 @@ export function PlayerSetup({
                       )}
                     </span>
                     <span>
-                      <strong>{player.name}</strong>
+                      <strong>
+                        <PlayerName player={player} profile={player} />
+                      </strong>
                       <small>
                         {seat >= 0 ? `${SEATS[seat]} seat` : "Ready to join"}
                       </small>

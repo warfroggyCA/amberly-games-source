@@ -531,7 +531,7 @@ export function createCrokinoleRepository(
             fail("INVALID_COLOUR", "Choose an available piece colour.");
         }
         const players =
-          await tx`select id,name from scrabble.players where family_id=${familyId}::uuid`;
+          await tx`select id,coalesce(nickname,name) as name from scrabble.players where family_id=${familyId}::uuid`;
         for (const player of op.definition.players) {
           if (
             !players.some((p) => p.id === player.id && p.name === player.name)

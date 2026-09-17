@@ -1,4 +1,5 @@
 "use client";
+import { PlayerName } from "./PlayerName";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { useEffect, useId, useRef, useState } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
@@ -728,7 +729,15 @@ export function BoardEditor({
                 </span>
                 <span className="board-seat-details">
                   <span className="board-seat-summary">
-                    <strong title={p.name}>{p.name}</strong>
+                    <strong>
+                      <PlayerName
+                        player={p}
+                        profile={profiles.find(
+                          (profile) => profile.id === p.id,
+                        )}
+                        useNickname={game.status === "active"}
+                      />
+                    </strong>
                     <b className="board-seat-score" data-turn-score={p.id}>
                       {displayedScores[p.id]}
                       <span className="sr-only"> points</span>

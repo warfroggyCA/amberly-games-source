@@ -1,4 +1,5 @@
 "use client";
+import { playerDisplayName } from "../../lib/player-profile";
 import { useRef, useState } from "react";
 import {
   similarColours,
@@ -161,7 +162,7 @@ export function CrokinoleSetup({
     setError("");
     const actualPlayers = selected.map((p, seatOrder) => ({
       id: p!.id,
-      name: p!.name,
+      name: playerDisplayName(p!),
       seatOrder,
     }));
     const definition: CrokinoleDefinition = {
@@ -287,7 +288,7 @@ export function CrokinoleSetup({
                   <option value="">Choose a player</option>
                   {players.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {playerDisplayName(p)}
                     </option>
                   ))}
                 </select>

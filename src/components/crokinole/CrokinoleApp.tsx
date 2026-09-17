@@ -275,6 +275,24 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
       },
     });
   }
+  function participantName(p: CrokinoleDefinition["participants"][number]) {
+    const realName = p.playerIds
+      .map(
+        (id) =>
+          props.players.find((profile) => profile.id === id)?.name ??
+          match?.definition.players.find((player) => player.id === id)?.name ??
+          "Player",
+      )
+      .join(" & ");
+    return (
+      <span
+        title={realName}
+        aria-label={p.name === realName ? realName : `${p.name} (${realName})`}
+      >
+        {p.name}
+      </span>
+    );
+  }
   function participantAvatar(p: CrokinoleDefinition["participants"][number]) {
     return (
       <span className="crokinole-participant-avatars">
@@ -423,7 +441,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                 <div className="crokinole-identity">
                   {participantAvatar(p)}
                   <div>
-                    <strong>{p.name}</strong>
+                    <strong>{participantName(p)}</strong>
                     {leaders.length === 1 &&
                       leaders[0].id === p.id &&
                       maximum > 0 && (
@@ -507,7 +525,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                         <th scope="row">
                           <div className="crokinole-identity">
                             {participantAvatar(p)}
-                            <strong>{p.name}</strong>
+                            <strong>{participantName(p)}</strong>
                           </div>
                         </th>
                         {match.rounds.map((r) => (
@@ -637,7 +655,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             <div className="crokinole-palette-row" key={p.id}>
               <div className="crokinole-identity">
                 {participantAvatar(p)}
-                <strong>{p.name}</strong>
+                <strong>{participantName(p)}</strong>
               </div>
               <span>
                 {
@@ -693,7 +711,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                 <section className="crokinole-score-panel" key={p.id}>
                   <div className="crokinole-identity">
                     {participantAvatar(p)}
-                    <strong>{p.name}</strong>
+                    <strong>{participantName(p)}</strong>
                   </div>
                   <p>Match total: {match.totals[p.id]}</p>
                   <div className="crokinole-stepper">
@@ -748,7 +766,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                 </strong>
                 {participants.map((p) => (
                   <p key={p.id}>
-                    <span>{p.name}</span>
+                    <span>{participantName(p)}</span>
                     <strong>
                       +{awards[p.id]}
                       {!editing

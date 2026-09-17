@@ -1,4 +1,6 @@
 "use client";
+import { playerDisplayName } from "../lib/player-profile";
+import { PlayerName } from "./PlayerName";
 import {
   hasPermission,
   type MemberPermission,
@@ -323,7 +325,13 @@ export function ScorerApp({
       const players = seats.flatMap((playerId, seat) => {
         const p = data.players.find((p) => p.id === playerId);
         return p
-          ? [{ id: p.id, name: p.name, seat: seat as 0 | 1 | 2 | 3 }]
+          ? [
+              {
+                id: p.id,
+                name: playerDisplayName(p),
+                seat: seat as 0 | 1 | 2 | 3,
+              },
+            ]
           : [];
       });
       const equipment = data.equipment ?? EMPTY_EQUIPMENT;
@@ -908,7 +916,9 @@ export function ScorerApp({
                             photoDataUrl={p.photoDataUrl}
                           />
                         </span>
-                        <strong>{p.name}</strong>
+                        <strong>
+                          <PlayerName player={p} profile={p} />
+                        </strong>
                         <span className="muted">
                           {
                             state.data.games.filter((g) =>
@@ -982,7 +992,9 @@ export function ScorerApp({
                         />
                       </span>
                       <div>
-                        <h3>{p.name}</h3>
+                        <h3>
+                          <PlayerName player={p} profile={p} />
+                        </h3>
                         <p>
                           {
                             state.data.games.filter((g) =>
