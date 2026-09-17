@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Amberly Games",
     short_name: "Amberly Games",
-    description: "Scrabble scores and game nights at Amberly.",
+    description: "Shared scores and game nights at Amberly.",
     id: "/family",
     start_url: "/family",
     scope: "/",

@@ -10,7 +10,7 @@ Superadmins open **Game menu → Family access → Permissions** beside a member
 | Keep score | On | Enter, undo and finish the games where this person is designated scorer |
 | Add players | On | Shared roster creation |
 | Edit their profile | On | Name, photo and bio of their linked profile |
-| Change tile sets | On | Saved bag quantities for future games; existing games retain their snapshots |
+| Manage equipment | On | Scrabble bag quantities and Crokinole disc colours for future games; existing games retain their snapshots |
 | Share viewing links | On | Create, replace and close links for games they score |
 | Edit anyone’s profile | Off | Roster-wide profile changes |
 | Take over scoring | Off | Become another game’s designated scorer with a reason; also needs Keep score |

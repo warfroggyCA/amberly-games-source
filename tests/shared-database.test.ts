@@ -1,3 +1,4 @@
+import { crokinoleDatabaseCases } from "./crokinole-database-cases";
 import {
   MEMBER_PERMISSIONS,
   type MemberPermissions,
@@ -133,6 +134,7 @@ const code = (value: Promise<unknown>, expected: string) =>
   expect(value).rejects.toMatchObject({ code: expected });
 
 suite("isolated real PostgreSQL shared family repository", () => {
+  crokinoleDatabaseCases(owner, runtime);
   beforeAll(async () => {
     const migrationDirectory = new URL(
       "../supabase/migrations/",

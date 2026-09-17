@@ -95,7 +95,7 @@ async function mock(
   await page.route("**/api/family/draft*", (route) =>
     route.fulfill({ json: { draft: null } }),
   );
-  await page.goto("/family");
+  await page.goto("/family/scrabble");
   await expect(
     page.getByRole("button", { name: "Open game menu" }),
   ).toBeVisible();
@@ -142,7 +142,7 @@ test("permission switches retain edits after a failed save, retry the same reque
   await openPermissions(page);
   const panel = page.getByRole("dialog", { name: "Member permissions" });
   await expect(
-    panel.getByRole("switch", { name: "Change tile sets" }),
+    panel.getByRole("switch", { name: "Manage equipment" }),
   ).toBeChecked();
   await expect(
     panel.getByRole("switch", { name: "Invite people" }),
@@ -150,7 +150,7 @@ test("permission switches retain edits after a failed save, retry the same reque
   // The entire labelled row is a touch target, not only the small thumb.
   await panel
     .locator("label")
-    .filter({ has: page.getByRole("switch", { name: "Change tile sets" }) })
+    .filter({ has: page.getByRole("switch", { name: "Manage equipment" }) })
     .click();
   await panel.getByRole("switch", { name: "Invite people" }).check();
   await panel
@@ -161,7 +161,7 @@ test("permission switches retain edits after a failed save, retry the same reque
     "Connection interrupted",
   );
   await expect(
-    panel.getByRole("switch", { name: "Change tile sets" }),
+    panel.getByRole("switch", { name: "Manage equipment" }),
   ).not.toBeChecked();
   await expect(panel.getByLabel("Reason for change")).toHaveValue(
     "Nate may invite people; leave the bag setup to me.",
@@ -178,7 +178,7 @@ test("permission switches retain edits after a failed save, retry the same reque
     .getByRole("button", { name: "Permissions" })
     .click();
   await expect(
-    panel.getByRole("switch", { name: "Change tile sets" }),
+    panel.getByRole("switch", { name: "Manage equipment" }),
   ).not.toBeChecked();
   await expect(
     panel.getByRole("switch", { name: "Invite people" }),

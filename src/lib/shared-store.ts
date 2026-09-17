@@ -564,6 +564,7 @@ const initial: ScorerSnapshot = freeze({
 });
 
 export type SharedScorerStore = ScorerStore & {
+  openGame: (gameId: string) => Promise<void>;
   administer: (operation: SharedOperation) => Promise<void>;
   takeOver: (gameId: string, reason: string) => Promise<void>;
   close: () => void;
@@ -1237,6 +1238,27 @@ export function createSharedStore(userId: string): SharedScorerStore {
         if (workspace.pending) await send(workspace.pending);
       }),
     refresh,
+    openGame: (gameId) =>
+      enqueue(async () => {
+        if (workspace.pending)
+          throw new Error(
+            "Confirm the pending action before opening another game.",
+          );
+        install(
+          await sharedRequest(
+            `/api/family?gameId=${encodeURIComponent(gameId)}`,
+          ),
+          true,
+          true,
+        );
+        if (!snapshot.data.games.some((game) => game.id === gameId))
+          throw new Error("This game is no longer available.");
+        await save({ ...workspace, activeGameId: gameId });
+        publish({
+          ...snapshot,
+          data: { ...snapshot.data, activeGameId: gameId },
+        });
+      }),
     loadMore: () =>
       enqueue(async () => {
         const cursor = snapshot.shared?.nextCursor;

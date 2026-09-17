@@ -668,6 +668,28 @@ describe("account changes and closed-tab responses", () => {
 });
 
 describe("shared history refresh", () => {
+  it("opens an older game from a summary without dropping the current draft", async () => {
+    await seed(local({ "game-1": draft() }));
+    const store = create();
+    await store.load();
+    const older = makeGame("older-game", "2026-09-12T12:00:00Z");
+    fetchMock.mockResolvedValueOnce(response(state([older])));
+    await store.openGame(older.id);
+    expect(store.getSnapshot().data.activeGameId).toBe(older.id);
+    expect(store.getSnapshot().data.drafts["game-1"]).toEqual(draft());
+    expect((await stored()).activeGameId).toBe(older.id);
+  });
+
+  it("does not select a summary whose game is unavailable", async () => {
+    const store = create();
+    await store.load();
+    fetchMock.mockResolvedValueOnce(response(state([])));
+    await expect(store.openGame("missing-game")).rejects.toThrow(
+      "no longer available",
+    );
+    expect(store.getSnapshot().data.activeGameId).not.toBe("missing-game");
+  });
+
   it("retains loaded older games and the next history cursor on refresh", async () => {
     fetchMock.mockResolvedValueOnce(
       response(state([makeGame()], "older-page")),

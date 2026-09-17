@@ -1,4 +1,6 @@
 "use client";
+import { useRouter, usePathname } from "next/navigation";
+import { FamilyHub } from "./FamilyHub";
 import { hasPermission } from "../lib/member-permissions";
 import { MemberPermissions } from "./MemberPermissions";
 import { DeletePracticeGame } from "./DeletePracticeGame";
@@ -18,14 +20,25 @@ import type { FamilyMember, SharedOperation } from "../lib/shared-contract";
 import type { GameState } from "../domain/game";
 import "./family-shared.css";
 
-export function FamilyApp() {
+export function FamilyApp({ hubEnabled = false }: { hubEnabled?: boolean }) {
+  const path = usePathname();
+  const showHub = hubEnabled || path !== "/family";
   return (
     <FamilyAccess>
-      {(user) => <FamilyWorkspace key={user.id} user={user} />}
+      {(user) => (
+        <FamilyWorkspace key={user.id} user={user} hubEnabled={showHub} />
+      )}
     </FamilyAccess>
   );
 }
-function FamilyWorkspace({ user }: { user: FamilyUser }) {
+function FamilyWorkspace({
+  user,
+  hubEnabled,
+}: {
+  user: FamilyUser;
+  hubEnabled: boolean;
+}) {
+  const router = useRouter();
   const [store] = useState(() => createSharedStore(user.id));
   const state = useSyncExternalStore(
     store.subscribe,
@@ -37,6 +50,7 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
   const [working, setWorking] = useState(false);
   const busy = useRef(false);
   const joinId = useRef<string | null>(null);
+  const hubSignOutGuard = useRef<(() => Promise<void>) | null>(null);
   const mounted = useRef(false);
   useEffect(() => {
     void store.load().catch(() => {});
@@ -108,6 +122,7 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
   }
   const signOut = () =>
     act(async () => {
+      await hubSignOutGuard.current?.();
       if (state.pending || state.unresolved)
         throw new Error(
           "Confirm the saved action before signing out. Your entry is still retained on this device.",
@@ -198,6 +213,88 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
         </div>
       </FamilyWelcome>
     );
+  const renderScorer = (
+    view: "Home" | "Play" | "History" | "Players" | "Records" = "Home",
+  ) => (
+    <ScorerApp
+      key={view}
+      initialView={view}
+      onHome={hubEnabled ? () => router.push("/family") : undefined}
+      store={store}
+      liveContext={{
+        userId: user.id,
+        generation:
+          state.shared!.gameAccess[state.data.activeGameId ?? ""]?.generation ??
+          1,
+      }}
+      accountControls={
+        <div className="family-menu-account">
+          {error && (
+            <p className="error-banner" role="alert">
+              {error}
+            </p>
+          )}
+          <span>
+            <strong>{state.shared!.family.name}</strong> · {user.email}
+          </span>
+          <div>
+            {state.data.activeGameId &&
+              store.canScore?.(state.data.activeGameId) && (
+                <button
+                  className="text-button"
+                  disabled={working || !!state.pending}
+                  onClick={() => void act(() => store.refresh!())}
+                >
+                  Refresh shared history
+                </button>
+              )}
+            {(state.shared!.member.role === "superadmin" ||
+              hasPermission(state.shared!.member, "inviteMembers")) && (
+              <button className="text-button" onClick={() => setAdmin(true)}>
+                Family access
+              </button>
+            )}
+
+            <button
+              className="text-button"
+              disabled={working || !!state.pending || state.unresolved}
+              onClick={() => void signOut()}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      }
+      shareControl={
+        state.data.activeGameId &&
+        state.shared!.gameAccess[state.data.activeGameId]?.mode !==
+          "practice" &&
+        hasPermission(state.shared!.member, "shareGames") &&
+        (state.shared!.gameAccess[state.data.activeGameId]?.scorerUserId ===
+          user.id ||
+          state.shared!.member.role === "superadmin") && (
+          <GameWatchLink
+            key={state.data.activeGameId}
+            gameId={state.data.activeGameId}
+            store={store}
+            disabled={!!state.pending || !!state.unresolved}
+          />
+        )
+      }
+      renderGameItem={(game, content) => (
+        <DeletePracticeGame
+          game={game}
+          store={store}
+          disabled={!!state.pending || !!state.unresolved}
+        >
+          {content}
+        </DeletePracticeGame>
+      )}
+      renderGameStatus={(game) => (
+        <GameStatus key={game.id} game={game} store={store} working={working} />
+      )}
+    />
+  );
   return (
     <>
       {error && (
@@ -226,86 +323,20 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
           </button>
         </div>
       )}
-      <ScorerApp
-        store={store}
-        liveContext={{
-          userId: user.id,
-          generation:
-            state.shared!.gameAccess[state.data.activeGameId ?? ""]
-              ?.generation ?? 1,
-        }}
-        accountControls={
-          <div className="family-menu-account">
-            {error && (
-              <p className="error-banner" role="alert">
-                {error}
-              </p>
-            )}
-            <span>
-              <strong>{state.shared!.family.name}</strong> · {user.email}
-            </span>
-            <div>
-              {state.data.activeGameId &&
-                store.canScore?.(state.data.activeGameId) && (
-                  <button
-                    className="text-button"
-                    disabled={working || !!state.pending}
-                    onClick={() => void act(() => store.refresh!())}
-                  >
-                    Refresh shared history
-                  </button>
-                )}
-              {(state.shared!.member.role === "superadmin" ||
-                hasPermission(state.shared!.member, "inviteMembers")) && (
-                <button className="text-button" onClick={() => setAdmin(true)}>
-                  Family access
-                </button>
-              )}
+      {hubEnabled ? (
+        <FamilyHub
+          signOutGuardRef={hubSignOutGuard}
+          sharedStore={store}
+          shared={state.shared!}
+          userId={user.id}
+          renderScrabble={renderScorer}
+          onAdmin={() => setAdmin(true)}
+          onSignOut={signOut}
+        />
+      ) : (
+        renderScorer()
+      )}
 
-              <button
-                className="text-button"
-                disabled={working || !!state.pending || state.unresolved}
-                onClick={() => void signOut()}
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        }
-        shareControl={
-          state.data.activeGameId &&
-          state.shared!.gameAccess[state.data.activeGameId]?.mode !==
-            "practice" &&
-          hasPermission(state.shared!.member, "shareGames") &&
-          (state.shared!.gameAccess[state.data.activeGameId]?.scorerUserId ===
-            user.id ||
-            state.shared!.member.role === "superadmin") && (
-            <GameWatchLink
-              key={state.data.activeGameId}
-              gameId={state.data.activeGameId}
-              store={store}
-              disabled={!!state.pending || !!state.unresolved}
-            />
-          )
-        }
-        renderGameItem={(game, content) => (
-          <DeletePracticeGame
-            game={game}
-            store={store}
-            disabled={!!state.pending || !!state.unresolved}
-          >
-            {content}
-          </DeletePracticeGame>
-        )}
-        renderGameStatus={(game) => (
-          <GameStatus
-            key={game.id}
-            game={game}
-            store={store}
-            working={working}
-          />
-        )}
-      />
       {admin &&
         (state.shared!.member.role === "superadmin" ||
           hasPermission(state.shared!.member, "inviteMembers")) && (

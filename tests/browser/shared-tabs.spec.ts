@@ -76,7 +76,7 @@ test("new scoring tab takes ownership and preserves the previous tab's letters",
           : { draft: null },
     }),
   );
-  await page.goto("/family");
+  await page.goto("/family/scrabble");
   await page.locator(".game-list button").first().click();
   await page.getByTestId("cell-H8").click();
   await page
@@ -86,7 +86,7 @@ test("new scoring tab takes ownership and preserves the previous tab's letters",
     "J8 T, 1 points",
   );
   const second = await context.newPage();
-  await second.goto("/family");
+  await second.goto("/family/scrabble");
   await second
     .getByRole("button", { name: "Return to game", exact: true })
     .click();

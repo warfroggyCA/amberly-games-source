@@ -13,7 +13,7 @@ export const MEMBER_PERMISSIONS = [
     key: "scoreGames",
     label: "Keep score",
     description:
-      "Enter, undo and finish turns in games where they are the designated scorer.",
+      "Enter, correct and finish scores in games where they are the designated scorer.",
     group: "Everyday play",
     defaultValue: true,
   },
@@ -33,8 +33,9 @@ export const MEMBER_PERMISSIONS = [
   },
   {
     key: "manageEquipment",
-    label: "Change tile sets",
-    description: "Update saved bags and letter quantities for future games.",
+    label: "Manage equipment",
+    description:
+      "Update Scrabble tile sets and Crokinole disc colours for future games.",
     group: "Everyday play",
     defaultValue: true,
   },

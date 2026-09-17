@@ -88,8 +88,12 @@ export function ScorerApp({
   accountControls,
   shareControl,
   liveContext,
+  initialView = "Home",
+  onHome,
 }: {
   store?: ScorerStore;
+  initialView?: View;
+  onHome?: () => void;
   liveContext?: LiveContext;
   accountControls?: ReactNode;
   shareControl?: ReactNode;
@@ -112,7 +116,7 @@ export function ScorerApp({
   const [creationMode, setCreationMode] = useState<"confirmed" | "practice">(
     "confirmed",
   );
-  const [view, setView] = useState<View>("Home");
+  const [view, setView] = useState<View>(initialView);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -260,6 +264,10 @@ export function ScorerApp({
     if (target?.pendingEnd && !target.assistance) openEnding(target);
   }
   function goHome() {
+    if (onHome) {
+      onHome();
+      return;
+    }
     setView("Home");
     setModal(null);
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -622,7 +630,8 @@ export function ScorerApp({
                 aria-current={view === item ? "page" : undefined}
                 onClick={() => {
                   setModal(null);
-                  setView(item);
+                  if (item === "Home" && onHome) onHome();
+                  else setView(item);
                 }}
               >
                 <TabletopIcon
