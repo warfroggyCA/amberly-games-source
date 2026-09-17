@@ -169,7 +169,7 @@ test("Crokinole three-player tied finish and completed correction recalculate th
     await page.getByRole("button", { name: "Save round", exact: true }).click();
   }
   await page
-    .getByRole("dialog", { name: "Honours shared!" })
+    .getByRole("dialog", { name: "Well played!" })
     .getByRole("button", { name: "Close dialog" })
     .click();
   await expect(
