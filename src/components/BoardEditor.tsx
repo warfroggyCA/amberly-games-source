@@ -1,4 +1,5 @@
 "use client";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { useEffect, useId, useRef, useState } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
 import { calculateDraftScore, scoreMove } from "../domain/scoring";
@@ -706,19 +707,13 @@ export function BoardEditor({
                     className={`avatar colour-${p.seat}`}
                     aria-hidden="true"
                   >
-                    {profiles.find((profile) => profile.id === p.id)
-                      ?.photoDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          profiles.find((profile) => profile.id === p.id)!
-                            .photoDataUrl
-                        }
-                        alt=""
-                      />
-                    ) : (
-                      Array.from(p.name)[0]?.toUpperCase()
-                    )}
+                    <PlayerAvatar
+                      name={p.name}
+                      photoDataUrl={
+                        profiles.find((profile) => profile.id === p.id)
+                          ?.photoDataUrl
+                      }
+                    />
                   </span>
                   {leaders.includes(p.id) && (
                     <span

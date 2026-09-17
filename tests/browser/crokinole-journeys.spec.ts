@@ -174,7 +174,7 @@ test("shared hub opens history, existing people and equipment without replacing 
   ).toBeVisible();
   const id = fixture.game().definition.id;
   await page
-    .getByRole("button", { name: "← Games", exact: true })
+    .getByRole("link", { name: "Amberly Games — Home", exact: true })
     .first()
     .click();
   await expect(
@@ -191,7 +191,7 @@ test("shared hub opens history, existing people and equipment without replacing 
   await page.getByRole("button", { name: /Doug vs Erin/ }).click();
   await expect(page).toHaveURL(new RegExp(`/family/crokinole/${id}$`));
   await page
-    .getByRole("button", { name: "← Games", exact: true })
+    .getByRole("link", { name: "Amberly Games — Home", exact: true })
     .first()
     .click();
   await page.getByRole("button", { name: "Players", exact: true }).click();

@@ -9,6 +9,7 @@
   max-width: 1140px;
   margin: auto;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 18px 24px;
@@ -276,7 +277,25 @@
 .hub-brand .brand-wordmark .brand-tile small {
   position: absolute;
 }
-.hub-in-game > .hub-header,
-.hub-in-game > .hub-navigation {
-  display: none;
+.hub-header .brand {
+  margin-right: auto;
+}
+.hub-header .brand-wordmark {
+  font-size: 28px;
+}
+.hub-in-game .hub-header {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+@media (max-width: 650px) {
+  .hub-header {
+    gap: 8px;
+  }
+  .hub-header .brand-wordmark {
+    font-size: 24px;
+  }
+  .hub-header .crokinole-save-status {
+    flex-basis: 100%;
+    text-align: right;
+  }
 }

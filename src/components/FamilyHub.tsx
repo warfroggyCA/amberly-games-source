@@ -1,4 +1,5 @@
 "use client";
+import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
 import {
   useEffect,
   useCallback,
@@ -23,7 +24,6 @@ import {
 } from "../lib/game-summary";
 import type { CrokinoleOperation } from "../lib/crokinole-contract";
 import { hasPermission } from "../lib/member-permissions";
-import { BrandWordmark } from "./BrandWordmark";
 import { CrokinoleApp } from "./crokinole/CrokinoleApp";
 import { CrokinoleDefaultsSettings } from "./crokinole/CrokinoleDefaultsSettings";
 import { ColourSettings } from "./crokinole/ColourSettings";
@@ -370,81 +370,100 @@ export function FamilyHub({
     ) ?? visibleGames.find((g) => g.status === "active");
   return (
     <div className={`family-hub${gameId ? " hub-in-game" : ""}`}>
-      <header className="hub-header">
-        <button
-          className="hub-brand"
-          aria-label="Amberly Games home"
-          onClick={() => void navigate("/family")}
-        >
-          <BrandWordmark />
-        </button>
-        <button
-          className="button light"
-          aria-label="Open Amberly menu"
-          aria-expanded={menu}
-          onClick={() => setMenu(!menu)}
-        >
-          ☰
-        </button>
-      </header>
-      <nav className="hub-navigation" aria-label="Amberly Games">
-        {[
-          ["/family", "Games"],
-          ["/family/history", "History"],
-          ["/family/players", "Players"],
-          ["/family/settings", "Settings"],
-        ].map(([path, label]) => (
-          <button
-            key={path}
-            aria-current={pathname === path ? "page" : undefined}
-            onClick={() => void navigate(path)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <AmberlyHeader
+        className="hub-header"
+        onHome={() => void navigate("/family")}
+        onMenu={() => setMenu(!menu)}
+        menuOpen={menu}
+      >
+        {isCrokinole && (
+          <span className="crokinole-save-status" role="status">
+            {state.pending
+              ? "Waiting to confirm save"
+              : draft?.dirty
+                ? "Unfinished entry"
+                : "Saved"}
+          </span>
+        )}
+      </AmberlyHeader>
+      {!gameId && (
+        <nav className="hub-navigation" aria-label="Amberly Games">
+          {[
+            ["/family", "Games"],
+            ["/family/history", "History"],
+            ["/family/players", "Players"],
+            ["/family/settings", "Settings"],
+          ].map(([path, label]) => (
+            <button
+              key={path}
+              aria-current={pathname === path ? "page" : undefined}
+              onClick={() => void navigate(path)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
       {menu && (
-        <div className="hub-menu">
-          <span>{shared.member.email}</span>
-          {gameId && (
+        <Modal
+          title="Amberly Games"
+          className="tabletop-menu"
+          onClose={() => setMenu(false)}
+        >
+          <AmberlyNavigation
+            onNavigate={(path) => void navigate(path)}
+            current={pathname}
+          />
+          <div className="hub-menu">
+            {error && (
+              <p role="alert" className="error-banner">
+                {error}
+              </p>
+            )}
+            <span>{shared.member.email}</span>
+            {gameId && (
+              <button
+                className="button light"
+                onClick={() => {
+                  setMenu(false);
+                  setNewGameConfirm(true);
+                }}
+              >
+                New Crokinole game
+              </button>
+            )}
+            {(shared.member.role === "superadmin" ||
+              hasPermission(shared.member, "inviteMembers")) && (
+              <button
+                className="button light"
+                onClick={() => {
+                  setMenu(false);
+                  onAdmin();
+                }}
+              >
+                Family access
+              </button>
+            )}
             <button
               className="button light"
-              onClick={() => setNewGameConfirm(true)}
+              disabled={locked}
+              onClick={() =>
+                void store
+                  .flush()
+                  .then(() => {
+                    if (store.getSnapshot().pending)
+                      throw new Error(
+                        "Confirm the saved action before signing out.",
+                      );
+                    return onSignOut();
+                  })
+                  .catch((e) => setError(e.message))
+              }
             >
-              New Crokinole game
+              Sign out
             </button>
-          )}
-          {(shared.member.role === "superadmin" ||
-            hasPermission(shared.member, "inviteMembers")) && (
-            <button
-              className="button light"
-              onClick={() => {
-                setMenu(false);
-                onAdmin();
-              }}
-            >
-              Family access
-            </button>
-          )}
-          <button
-            className="button light"
-            disabled={locked}
-            onClick={() =>
-              void store
-                .flush()
-                .then(() => {
-                  if (store.getSnapshot().pending)
-                    throw new Error(
-                      "Confirm the saved action before signing out.",
-                    );
-                  return onSignOut();
-                })
-                .catch((e) => setError(e.message))
-            }
-          >
-            Sign out
-          </button>
-        </div>
+          </div>
+        </Modal>
       )}
       <div className="hub-recovery">{commonRecovery}</div>
       {isCrokinole ? (

@@ -220,6 +220,7 @@ function FamilyWorkspace({
       key={view}
       initialView={view}
       onHome={hubEnabled ? () => router.push("/family") : undefined}
+      onNavigate={hubEnabled ? (path) => router.push(path) : undefined}
       store={store}
       liveContext={{
         userId: user.id,

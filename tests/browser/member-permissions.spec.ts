@@ -249,7 +249,7 @@ test("members get shared setup only and controls reflect disabled permissions", 
   await page.getByRole("button", { name: "Open game menu" }).click();
   await expect(
     page.getByRole("button", { name: "Settings", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled(); // Shared settings include readable rules; editing stays permission-gated.
   await expect(
     page.getByRole("button", { name: "Family access", exact: true }),
   ).toHaveCount(0);
@@ -291,7 +291,9 @@ test("practice deletion requires confirmation, handles rejection and removes the
     });
   });
   await page.getByRole("button", { name: "Open game menu" }).click();
-  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Scrabble history", exact: true })
+    .click();
   await page.getByRole("button", { name: "Show delete action" }).click();
   await page.getByRole("button", { name: "Delete practice game…" }).click();
   const panel = page.getByRole("dialog", {

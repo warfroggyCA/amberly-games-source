@@ -147,7 +147,7 @@ export async function installFixture(
     }
     throw new Error(`Unexpected Crokinole mutation ${op.type}`);
   });
-  return { shared, game: () => shared.games.at(-1) as CrokinoleGame };
+  return { family, shared, game: () => shared.games.at(-1) as CrokinoleGame };
 }
 export async function fitsWidth(page: Page) {
   const dimensions = await page.evaluate(() => ({

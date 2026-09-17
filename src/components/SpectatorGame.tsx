@@ -1,5 +1,7 @@
 "use client";
 import "./live-draft.css";
+import { PlayerAvatar } from "./PlayerAvatar";
+import type { SavedPlayer } from "../lib/preview-store";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { currentLiveDraft, type LiveDraft } from "../lib/live-draft";
@@ -20,12 +22,14 @@ import "./spectator-game.css";
 type Selection = { type: "player" | "word"; id: string } | null;
 export function SpectatorGame({
   game,
+  profiles = [],
   liveDraft,
   confirmation,
   toolsTarget,
   assisted = game.assisted ?? false,
 }: {
   game: SpectatorState;
+  profiles?: SavedPlayer[];
   liveDraft?: LiveDraft | null;
   confirmation?: ReactNode;
   toolsTarget?: HTMLElement | null;
@@ -217,7 +221,12 @@ export function SpectatorGame({
                   className={`spectator-player-initial seat-colour-${player.seat}`}
                   aria-hidden="true"
                 >
-                  {player.name.charAt(0)}
+                  <PlayerAvatar
+                    name={player.name}
+                    photoDataUrl={
+                      profiles.find((p) => p.id === player.id)?.photoDataUrl
+                    }
+                  />
                   {isLeader && <CrownIcon />}
                 </span>
                 <span className="spectator-seat-copy">

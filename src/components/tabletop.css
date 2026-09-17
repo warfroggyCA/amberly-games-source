@@ -96,10 +96,10 @@ body {
   border-radius: 8px;
 }
 .app-shell .button.primary:not(:disabled):active,
-.app-shell .tabletop-tool:not(:disabled):active {
+:is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):active {
   transform: translateY(1px);
 }
-.app-shell .tabletop-tool {
+:is(.app-shell, .family-hub) .tabletop-tool {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -115,10 +115,10 @@ body {
   background: #fffcf480;
   box-shadow: 0 2px 3px #51412714;
 }
-.app-shell .tabletop-tool:not(:disabled):hover {
+:is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):hover {
   background: #fffcf4;
 }
-.app-shell .tabletop-menu-button {
+:is(.app-shell, .family-hub) .tabletop-menu-button {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
@@ -471,7 +471,7 @@ body > .family-toolbar {
 }
 @media (prefers-reduced-motion: reduce) {
   .app-shell .button.primary:not(:disabled):active,
-  .app-shell .tabletop-tool:not(:disabled):active {
+  :is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):active {
     transform: none;
   }
 }

@@ -17,6 +17,7 @@ import type { CrokinoleDefaults } from "../../domain/crokinole-defaults";
 import { CrokinoleRules } from "./CrokinoleRules";
 import type { SavedPlayer } from "../../lib/preview-store";
 import { Modal } from "../Modal";
+import { PlayerAvatar } from "../PlayerAvatar";
 import { Disc } from "./Disc";
 import { ColourSettings } from "./ColourSettings";
 import { CrokinoleSetup, SCORING_LABELS } from "./CrokinoleSetup";
@@ -274,49 +275,73 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
       },
     });
   }
+  function participantAvatar(p: CrokinoleDefinition["participants"][number]) {
+    return (
+      <span className="crokinole-participant-avatars">
+        {p.playerIds.map((id) => {
+          const player = match?.definition.players.find(
+            (player) => player.id === id,
+          );
+          return (
+            <Disc key={id} value={p.colour.value} label={p.colour.name}>
+              <PlayerAvatar
+                name={player?.name ?? p.name}
+                photoDataUrl={
+                  props.players.find((profile) => profile.id === id)
+                    ?.photoDataUrl
+                }
+              />
+            </Disc>
+          );
+        })}
+      </span>
+    );
+  }
   const starter = match
     ? getStartingPlayer(match.definition, match.rounds.length)
     : null;
   return (
     <main className="crokinole">
-      <header className="crokinole-header">
-        <button
-          className="text-button"
-          onClick={props.onHome}
-          disabled={pending}
-        >
-          ← Games
-        </button>
-        <span className="crokinole-save-status" role="status">
-          {props.saveStatus}
-        </span>
-        {match && props.onMenu && (
-          <button
-            className="button light"
-            aria-label="More game options"
-            onClick={props.onMenu}
-          >
-            ⋯
-          </button>
-        )}
-        {match && canScore && !props.onMenu && (
+      {!props.onMenu && (
+        <header className="crokinole-header">
           <button
             className="text-button"
+            onClick={props.onHome}
             disabled={pending}
-            onClick={() =>
-              confirm({
-                title: "Start another game?",
-                message:
-                  "This match stays in your history. Any unfinished match can be resumed later.",
-                action: "New game",
-                run: async () => props.onNewGame(),
-              })
-            }
           >
-            New game
+            ← Games
           </button>
-        )}
-      </header>
+          <span className="crokinole-save-status" role="status">
+            {props.saveStatus}
+          </span>
+          {match && props.onMenu && (
+            <button
+              className="button light"
+              aria-label="More game options"
+              onClick={props.onMenu}
+            >
+              ⋯
+            </button>
+          )}
+          {match && canScore && !props.onMenu && (
+            <button
+              className="text-button"
+              disabled={pending}
+              onClick={() =>
+                confirm({
+                  title: "Start another game?",
+                  message:
+                    "This match stays in your history. Any unfinished match can be resumed later.",
+                  action: "New game",
+                  run: async () => props.onNewGame(),
+                })
+              }
+            >
+              New game
+            </button>
+          )}
+        </header>
+      )}
       {!match ? (
         <CrokinoleSetup
           {...props}
@@ -396,11 +421,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             {participants.map((p) => (
               <section className="crokinole-standing" key={p.id}>
                 <div className="crokinole-identity">
-                  <Disc
-                    value={p.colour.value}
-                    label={p.colour.name}
-                    initial={p.name.slice(0, 1)}
-                  />
+                  {participantAvatar(p)}
                   <div>
                     <strong>{p.name}</strong>
                     {leaders.length === 1 &&
@@ -485,10 +506,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                       <tr key={p.id}>
                         <th scope="row">
                           <div className="crokinole-identity">
-                            <Disc
-                              value={p.colour.value}
-                              label={p.colour.name}
-                            />
+                            {participantAvatar(p)}
                             <strong>{p.name}</strong>
                           </div>
                         </th>
@@ -618,7 +636,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
           {participants.map((p) => (
             <div className="crokinole-palette-row" key={p.id}>
               <div className="crokinole-identity">
-                <Disc value={p.colour.value} label={p.colour.name} />
+                {participantAvatar(p)}
                 <strong>{p.name}</strong>
               </div>
               <span>
@@ -674,11 +692,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
               {participants.map((p) => (
                 <section className="crokinole-score-panel" key={p.id}>
                   <div className="crokinole-identity">
-                    <Disc
-                      value={p.colour.value}
-                      label={p.colour.name}
-                      initial={p.name.slice(0, 1)}
-                    />
+                    {participantAvatar(p)}
                     <strong>{p.name}</strong>
                   </div>
                   <p>Match total: {match.totals[p.id]}</p>

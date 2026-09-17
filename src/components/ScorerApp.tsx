@@ -62,7 +62,8 @@ import "./game-screen.css";
 import { GameScorePanel, useNarrowGameScreen } from "./GameScorePanel";
 import { SpectatorGame } from "./SpectatorGame";
 import { useLiveDraft, type LiveContext } from "./useLiveDraft";
-import { BrandWordmark } from "./BrandWordmark";
+import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { TabletopIcon } from "./TabletopIcon";
 import { CountCheck, CountCorrectionHistory } from "./CountCheck";
 
@@ -74,8 +75,6 @@ const NAV: View[] = ["Home", "Play", "Records", "History", "Players"];
 const id = () => crypto.randomUUID();
 const nameOf = (game: GameState, playerId: string) =>
   game.players.find((p) => p.id === playerId)?.name ?? "Player";
-const initials = (name: string) =>
-  Array.from(name.trim())[0]?.toUpperCase() ?? "?";
 const errorText = (error: unknown) =>
   error instanceof Error
     ? error.message
@@ -90,10 +89,12 @@ export function ScorerApp({
   liveContext,
   initialView = "Home",
   onHome,
+  onNavigate,
 }: {
   store?: ScorerStore;
   initialView?: View;
   onHome?: () => void;
+  onNavigate?: (path: string) => void;
   liveContext?: LiveContext;
   accountControls?: ReactNode;
   shareControl?: ReactNode;
@@ -622,8 +623,22 @@ export function ScorerApp({
           className="tabletop-menu"
           onClose={() => setModal(null)}
         >
+          {onNavigate && (
+            <AmberlyNavigation
+              onNavigate={(path) => {
+                setModal(null);
+                onNavigate(path);
+              }}
+            />
+          )}
           <nav className="game-menu-nav" aria-label="Game navigation">
-            {NAV.map((item) => (
+            {NAV.filter(
+              (item) =>
+                !onNavigate ||
+                item === "Play" ||
+                item === "Records" ||
+                item === "History",
+            ).map((item) => (
               <button
                 className="button light"
                 key={item}
@@ -647,17 +662,19 @@ export function ScorerApp({
                             : "players"
                   }
                 />
-                {item}
+                {onNavigate && item === "History" ? "Scrabble history" : item}
               </button>
             ))}
-            <button
-              className="button light"
-              disabled={!allowed("manageEquipment")}
-              onClick={() => setModal("settings")}
-            >
-              <TabletopIcon name="settings" />
-              Settings
-            </button>
+            {!onNavigate && (
+              <button
+                className="button light"
+                disabled={!allowed("manageEquipment")}
+                onClick={() => setModal("settings")}
+              >
+                <TabletopIcon name="settings" />
+                Settings
+              </button>
+            )}
           </nav>
           {(error || state.error) && (
             <p className="error-banner" role="alert">
@@ -735,31 +752,17 @@ export function ScorerApp({
   if (shared && view === "Play" && game && readOnly)
     return (
       <div className="app-shell spectator-shell">
-        <header className="site-header">
-          <button
-            className="tabletop-tool tabletop-menu-button"
-            onClick={() => setModal("game-menu")}
-            aria-label="Open game menu"
-            title="Game menu"
-          >
-            <TabletopIcon name="menu" />
-          </button>
-          <a
-            className="brand"
-            href="/family"
-            aria-label="Amberly Games — Home"
-            onClick={(event) => {
-              event.preventDefault();
-              goHome();
-            }}
-          >
-            <BrandWordmark />
-          </a>
+        <AmberlyHeader
+          onHome={goHome}
+          onMenu={() => setModal("game-menu")}
+          menuOpen={modal === "game-menu"}
+          menuLabel="Open game menu"
+        >
           <div className="spectator-header-actions">
             {shareControl}
             <div className="spectator-header-tools" ref={setViewerTools} />
           </div>
-        </header>
+        </AmberlyHeader>
         <main>
           {(error || state.error) && (
             <p className="error-banner" role="alert">
@@ -768,6 +771,7 @@ export function ScorerApp({
           )}
           <SpectatorGame
             game={game}
+            profiles={state.data.players}
             liveDraft={livePreview.draft}
             toolsTarget={viewerTools}
             assisted={!!game.assistance}
@@ -784,28 +788,13 @@ export function ScorerApp({
           Viewer preview reconnecting · your entry is retained
         </span>
       )}
-      <header className="site-header">
-        <button
-          className="tabletop-tool tabletop-menu-button"
-          onClick={() => setModal("game-menu")}
-          aria-label="Open game menu"
-          title="Game menu"
-          aria-haspopup="dialog"
-          aria-expanded={modal === "game-menu"}
-        >
-          <TabletopIcon name="menu" />
-        </button>
-        <a
-          className="brand"
-          href={shared ? "/family" : "/"}
-          aria-label="Amberly Games — Home"
-          onClick={(event) => {
-            event.preventDefault();
-            goHome();
-          }}
-        >
-          <BrandWordmark />
-        </a>
+      <AmberlyHeader
+        homeHref={shared ? "/family" : "/"}
+        onHome={goHome}
+        onMenu={() => setModal("game-menu")}
+        menuOpen={modal === "game-menu"}
+        menuLabel="Open game menu"
+      >
         {fitGame && gameActions}
         {!fitGame && (
           <span className="local-label">
@@ -813,7 +802,7 @@ export function ScorerApp({
             {shared ? "Shared games" : "Local preview"}
           </span>
         )}
-      </header>
+      </AmberlyHeader>
       <main>
         {notice && (
           <p className="inline-message" role="status">
@@ -914,13 +903,10 @@ export function ScorerApp({
                     {state.data.players.map((p, i) => (
                       <div key={p.id}>
                         <span className={`avatar colour-${i % 4}`}>
-                          {p.photoDataUrl ? (
-                            // Local resized image data; no remote image request.
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.photoDataUrl} alt="" />
-                          ) : (
-                            initials(p.name)
-                          )}
+                          <PlayerAvatar
+                            name={p.name}
+                            photoDataUrl={p.photoDataUrl}
+                          />
                         </span>
                         <strong>{p.name}</strong>
                         <span className="muted">
@@ -990,13 +976,10 @@ export function ScorerApp({
                   {state.data.players.map((p, i) => (
                     <div key={p.id}>
                       <span className={`avatar colour-${i % 4}`}>
-                        {p.photoDataUrl ? (
-                          // Local resized image data; no remote image request.
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.photoDataUrl} alt="" />
-                        ) : (
-                          initials(p.name)
-                        )}
+                        <PlayerAvatar
+                          name={p.name}
+                          photoDataUrl={p.photoDataUrl}
+                        />
                       </span>
                       <div>
                         <h3>{p.name}</h3>

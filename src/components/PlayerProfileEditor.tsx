@@ -147,8 +147,7 @@ export function PlayerProfileEditor({
               />
             </label>
             <small id={hint}>
-              JPEG, PNG or WebP · up to 8 MB. Stored as a small photo on this
-              device.
+              JPEG, PNG or WebP · up to 8 MB. Resized for your player profile.
             </small>
             {(photo || processing) && (
               <button
