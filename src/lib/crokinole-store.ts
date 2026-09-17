@@ -294,6 +294,7 @@ export function createCrokinoleStore(
   let writes: Promise<void> = Promise.resolve();
   let working = false;
   let network = false;
+  let refreshDone: Promise<void> | null = null;
   let revoked = false;
   const pausedSync = new Set<string>();
   let refreshAfterFailure: string | null = null;
@@ -451,6 +452,10 @@ export function createCrokinoleStore(
     )
       return;
     network = true;
+    let finishRefresh!: () => void;
+    refreshDone = new Promise<void>((resolve) => {
+      finishRefresh = resolve;
+    });
     try {
       await open();
       await writes;
@@ -571,6 +576,8 @@ export function createCrokinoleStore(
         });
     } finally {
       network = false;
+      refreshDone = null;
+      finishRefresh();
     }
   }
   function schedule(gameId: string) {
@@ -739,6 +746,9 @@ export function createCrokinoleStore(
   async function mutate(
     operation: CrokinoleOperation,
   ): Promise<CrokinoleMutationResult | undefined> {
+    // Background reads must not reject an otherwise available scoring action.
+    // Recheck ownership and pending writes after the read reconciles its result.
+    if (refreshDone) await refreshDone;
     if (working || network || closed || state.displaced || revoked)
       throw new Error("Another action is still being saved.");
     if (workspace.pending)
@@ -805,6 +815,7 @@ export function createCrokinoleStore(
     command: Extract<CrokinoleOperation, { type: "command" }>["command"],
   ) {
     clearTimeout(timer);
+    if (refreshDone) await refreshDone;
     if (working || network)
       throw new Error(
         "Your entry is still synchronizing. Please try again in a moment.",

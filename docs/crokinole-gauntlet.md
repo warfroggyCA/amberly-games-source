@@ -50,3 +50,7 @@ The local work does not claim remote CI, deployment, hosted migration or physica
 Additional revisions from integrated review: keep Save Round reachable on short viewports; restore standings scroll after saving; preserve uncertain mutations until both server acknowledgement and local checkpoint succeed; quarantine unreadable local workspaces only after confirmation; avoid claiming a Crokinole workspace when opening Scrabble directly.
 
 Earlier failing regression cases and viewport checks were corrected and rerun; none were waived. Independent cross-reviews found no remaining material blocker in their reviewed portions. The lead's final integrated pass found no additional release-candidate blocker. Stop the local loop here: remaining verification is release-environment and physical-device acceptance, with separate hosted-change authority.
+
+## Release CI follow-up
+
+The first hosted Verify run (35218614368, candidate 676793b) passed all non-browser checks, then reported 104 browser passes, 3 expected skips and one iPhone rematch failure. The captured state showed a background read rejecting an enabled Rematch action as another save. This was an application race, not a timeout to waive. Mutations now await the in-flight read and recheck ownership/pending state afterward. Two store cases cover normal completion and access revoked during that read; the browser rematch test deliberately holds the next refresh across the click. A new exact-commit Verify run is required before release.

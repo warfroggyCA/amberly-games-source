@@ -85,6 +85,47 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 describe("Crokinole retained workspace", () => {
+  it.each([false, true])(
+    "waits for a background read before a mutation and rechecks access (revoked=%s)",
+    async (revoked) => {
+      const active = store();
+      await active.load("game");
+      let release!: () => void;
+      let started!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const readStarted = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      request.mockImplementation(async (_path: string, body: unknown) => {
+        if (body)
+          return { palette: { revision: 1, colours: DEFAULT_PIECE_COLOURS } };
+        started();
+        await gate;
+        if (revoked) throw new FamilyRequestError("Access revoked", 403);
+        return state();
+      });
+      const refreshing = active.refresh("game");
+      await readStarted;
+      const saving = active.mutate({
+        type: "save-palette",
+        expectedRevision: 0,
+        colours: DEFAULT_PIECE_COLOURS,
+      });
+      const outcome = revoked
+        ? expect(saving).rejects.toThrow()
+        : expect(saving).resolves.toBeUndefined();
+      expect(request.mock.calls.filter((call) => call[1])).toHaveLength(0);
+      release();
+      await refreshing;
+      await outcome;
+      expect(request.mock.calls.filter((call) => call[1])).toHaveLength(
+        revoked ? 0 : 1,
+      );
+    },
+  );
+
   it("retains blank and invalid draft text across reload without treating blank as zero", async () => {
     const first = store();
     await first.load("game");

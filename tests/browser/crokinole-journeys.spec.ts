@@ -39,7 +39,25 @@ test("doubles NCA awards points, preserves names and rotates the rematch starter
   ).toBeVisible();
   expect(Object.values(fixture.game().totals)).toEqual([7, 1]);
   const previous = fixture.game().definition;
+  // Hold the next background refresh while the scorer starts a rematch.
+  let releaseRead!: () => void;
+  let readStarted!: () => void;
+  const heldRead = new Promise<void>((resolve) => {
+    releaseRead = resolve;
+  });
+  const startedRead = new Promise<void>((resolve) => {
+    readStarted = resolve;
+  });
+  await page.route("**/api/family/crokinole*", async (route) => {
+    if (route.request().method() === "GET") {
+      readStarted();
+      await heldRead;
+    }
+    await route.fallback();
+  });
+  await startedRead;
   await page.getByRole("button", { name: "Rematch", exact: true }).click();
+  releaseRead();
   await expect(
     page.getByRole("button", { name: "Add Round 1", exact: true }),
   ).toBeVisible();
