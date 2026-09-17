@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
 
-test("Crokinole blank scores, deliberate zero, round review and undo preserve the entry", async ({
+test("Crokinole default zero scores, round review and undo preserve the entry", async ({
   page,
 }, testInfo) => {
   const fixture = await installFixture(page);
@@ -20,14 +20,14 @@ test("Crokinole blank scores, deliberate zero, round review and undo preserve th
   });
   await expect(
     dialog.getByRole("button", { name: "Save round", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await dialog.getByLabel("Doug round total", { exact: true }).fill("65");
   await expect(
     dialog.getByRole("button", { name: "Save round", exact: true }),
-  ).toBeDisabled();
-  await dialog
-    .getByRole("button", { name: "Set Erin to 0", exact: true })
-    .click();
+  ).toBeEnabled();
+  await expect(
+    dialog.getByLabel("Erin round total", { exact: true }),
+  ).toHaveValue("0");
   await expect(
     dialog.getByRole("button", { name: "Save round", exact: true }),
   ).toBeInViewport();
@@ -291,4 +291,55 @@ test("Crokinole earlier winning correction confirms excluded rounds before chang
   await expect.poll(() => fixture.game().rounds.length).toBe(1);
   expect(fixture.game().events).toHaveLength(4);
   expect(fixture.game().totals.doug).toBe(105);
+});
+
+test("family net defaults, rules guide and zero opponents survive a reload", async ({
+  page,
+}) => {
+  const { DEFAULT_CROKINOLE_SETTINGS } =
+    await import("../../src/domain/crokinole-defaults");
+  const fixture = await installFixture(page, DEFAULT_CROKINOLE_SETTINGS);
+  await page.goto("/family/settings");
+  await page
+    .getByRole("button", {
+      name: "Crokinole rules & family defaults",
+      exact: true,
+    })
+    .click();
+  await page.getByText("Rules & scoring explained", { exact: true }).click();
+  await expect(page.getByText(/it does not subtract again/)).toBeVisible();
+  await page.getByLabel("Default target", { exact: true }).fill("350");
+  await page
+    .getByRole("button", { name: "Save family defaults", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.goto("/family/crokinole/new");
+  await expect(page.getByText(/Game options.*first to 350/)).toBeVisible();
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Add Round 1", exact: true }).click();
+  await expect(
+    page.getByLabel("Doug round total", { exact: true }),
+  ).toHaveValue("0");
+  await page.getByLabel("Doug round total", { exact: true }).fill("25");
+  await page.getByLabel("Erin round total", { exact: true }).fill("5");
+  await expect(
+    page.getByRole("button", { name: "Save round", exact: true }),
+  ).toBeDisabled();
+  await page.getByLabel("Erin round total", { exact: true }).fill("0");
+  await page.getByRole("button", { name: "Save round", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Add Round 2", exact: true }),
+  ).toBeVisible();
+  expect(fixture.game().totals).toEqual({
+    doug: 25,
+    erin: 0,
+    nate: 0,
+    cristine: 0,
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Add Round 2", exact: true }).click();
+  for (const name of ["Doug", "Erin", "Nate", "Cristine"])
+    await expect(
+      page.getByLabel(`${name} round total`, { exact: true }),
+    ).toHaveValue("0");
 });

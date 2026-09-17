@@ -13,7 +13,15 @@ import type {
 } from "../../../src/lib/crokinole-contract";
 import type { SharedState } from "../../../src/lib/shared-contract";
 
-export async function installFixture(page: Page) {
+export async function installFixture(
+  page: Page,
+  defaults: import("../../../src/domain/crokinole-defaults").CrokinoleDefaults = {
+    playerCount: 2,
+    format: "singles",
+    scoringMode: "cumulative_round_totals",
+    endCondition: { type: "fixed_rounds", rounds: 4 },
+  },
+) {
   const user = {
     id: "11111111-1111-4111-8111-111111111111",
     email: "doug@example.test",
@@ -45,7 +53,11 @@ export async function installFixture(page: Page) {
   const shared: CrokinoleSharedState = {
     games: [],
     access: {},
-    palette: { revision: 0, colours: structuredClone(DEFAULT_PIECE_COLOURS) },
+    palette: {
+      revision: 0,
+      colours: structuredClone(DEFAULT_PIECE_COLOURS),
+      defaults,
+    },
     nextCursor: null,
     creationEnabled: true,
   };
@@ -117,8 +129,17 @@ export async function installFixture(page: Page) {
         json: { game, access: shared.access[op.gameId], draft: null },
       });
     }
+    if (op.type === "save-defaults") {
+      shared.palette = {
+        ...shared.palette,
+        revision: shared.palette.revision + 1,
+        defaults: op.defaults,
+      };
+      return route.fulfill({ json: { palette: shared.palette } });
+    }
     if (op.type === "save-palette") {
       shared.palette = {
+        ...shared.palette,
         revision: shared.palette.revision + 1,
         colours: op.colours,
       };

@@ -5,7 +5,12 @@ import type {
 } from "../domain/crokinole";
 import type { PieceColour } from "../domain/crokinole";
 import type { GameProtest } from "./shared-contract";
-export type CrokinolePalette = { revision: number; colours: PieceColour[] };
+import type { CrokinoleDefaults } from "../domain/crokinole-defaults";
+export type CrokinolePalette = {
+  revision: number;
+  colours: PieceColour[];
+  defaults?: CrokinoleDefaults;
+};
 export type CrokinoleDraft = {
   revision: number;
   baseRevision: number;
@@ -56,6 +61,11 @@ export type CrokinoleOperation =
       expectedDraftRevision: number;
       values: Record<string, string>;
       editingRoundId: string | null;
+    }
+  | {
+      type: "save-defaults";
+      expectedRevision: number;
+      defaults: CrokinoleDefaults;
     }
   | { type: "save-palette"; expectedRevision: number; colours: PieceColour[] }
   | {

@@ -13,6 +13,7 @@ import type {
   CrokinolePalette,
   CrokinoleSharedState,
 } from "./crokinole-contract";
+import { isCrokinoleDefaults } from "../domain/crokinole-defaults";
 import { familyRequest, FamilyRequestError } from "./shared-store";
 
 export type CrokinoleEntry = {
@@ -157,6 +158,7 @@ function validPalette(v: unknown): v is CrokinolePalette {
   return (
     object(v) &&
     revision(v.revision) &&
+    (v.defaults === undefined || isCrokinoleDefaults(v.defaults)) &&
     Array.isArray(v.colours) &&
     v.colours.length <= 64 &&
     v.colours.every(isPieceColour) &&
@@ -229,6 +231,10 @@ function checkResult(
   if (
     (requiresGame && (!validGame(v.game) || !validAccess(v.access))) ||
     (op.type === "save-draft" && !isServerDraft(v.draft)) ||
+    (op.type === "save-defaults" &&
+      (!validPalette(v.palette) ||
+        v.palette.revision !== op.expectedRevision + 1 ||
+        canonical(v.palette.defaults) !== canonical(op.defaults))) ||
     (op.type === "save-palette" &&
       (!validPalette(v.palette) ||
         v.palette.revision !== op.expectedRevision + 1 ||

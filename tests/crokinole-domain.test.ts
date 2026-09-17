@@ -507,3 +507,27 @@ describe("review regressions", () => {
     cloneSpy.mockRestore();
   });
 });
+
+describe("Already-netted winner-only scoring", () => {
+  it("awards the entered net score once and completes at 300", () => {
+    const d = definition(4);
+    d.scoringMode = "net_winner_only";
+    d.endCondition = { type: "target", target: 300 };
+    let game = createCrokinoleGame(d);
+    game = record(game, [100, 0, 0, 0]);
+    game = record(game, [0, 0, 0, 0]);
+    game = record(game, [200, 0, 0, 0]);
+    expect(game.totals).toEqual({ p0: 300, p1: 0, p2: 0, p3: 0 });
+    expect(game.status).toBe("completed");
+    expect(hydrateCrokinoleGame(d, game.events)).toEqual(game);
+  });
+  it("rejects multiple winners in a new or corrected round", () => {
+    const d = definition(4);
+    d.scoringMode = "net_winner_only";
+    const game = createCrokinoleGame(d);
+    expect(() => record(game, [25, 5, 0, 0])).toThrow(/Only one/);
+    expect(() =>
+      calculateRoundAwards("net_winner_only", entries(game, [25, 5, 0, 0])),
+    ).toThrow(/Only one/);
+  });
+});

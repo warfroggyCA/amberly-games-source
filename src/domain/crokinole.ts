@@ -18,7 +18,10 @@ export type CrokinoleParticipant = {
   colour: CrokinoleColour;
 };
 export type CrokinoleScoringMode =
-  "traditional_differential" | "nca_match_points" | "cumulative_round_totals";
+  | "traditional_differential"
+  | "nca_match_points"
+  | "cumulative_round_totals"
+  | "net_winner_only";
 export type CrokinoleDefinition = {
   schemaVersion: 1;
   rulesVersion: 1;
@@ -338,9 +341,12 @@ export function validateDefinition(
       "traditional_differential",
       "nca_match_points",
       "cumulative_round_totals",
+      "net_winner_only",
     ].includes(value.scoringMode) ||
     (value.format === "free_for_all" &&
-      value.scoringMode !== "cumulative_round_totals")
+      !["cumulative_round_totals", "net_winner_only"].includes(
+        value.scoringMode,
+      ))
   )
     fail("INVALID_SCORING", "This scoring mode requires two sides.");
   const end = value.endCondition;
@@ -416,7 +422,15 @@ export function calculateRoundAwards(
     !unique(entries.map((e) => e.participantId))
   )
     fail("INVALID_SCORES", "Invalid round scores.");
-  if (mode === "cumulative_round_totals")
+  if (
+    mode === "net_winner_only" &&
+    entries.filter((e) => e.rawScore > 0).length > 1
+  )
+    fail(
+      "INVALID_SCORES",
+      "Only one player or team can receive a net score. For a tied round, leave everyone at zero.",
+    );
+  if (mode === "cumulative_round_totals" || mode === "net_winner_only")
     return Object.fromEntries(
       entries.map((e) => [e.participantId, e.rawScore]),
     );

@@ -8,8 +8,14 @@ import {
   type PieceColour,
 } from "../../domain/crokinole";
 import type { SavedPlayer } from "../../lib/preview-store";
+import {
+  DEFAULT_CROKINOLE_SETTINGS,
+  type CrokinoleDefaults,
+} from "../../domain/crokinole-defaults";
+import { CrokinoleRules } from "./CrokinoleRules";
 import { Disc } from "./Disc";
 export const SCORING_LABELS: Record<CrokinoleScoringMode, string> = {
+  net_winner_only: "Net score — winner only",
   cumulative_round_totals: "Cumulative Round Totals",
   traditional_differential: "Traditional Difference",
   nca_match_points: "NCA-style Match Points",
@@ -24,6 +30,7 @@ export function CrokinoleSetup({
   onCreate,
   onColours,
   initialDefinition,
+  defaults = DEFAULT_CROKINOLE_SETTINGS,
   onAddPlayer,
 }: {
   familyId: string;
@@ -35,13 +42,14 @@ export function CrokinoleSetup({
   onCreate: (definition: CrokinoleDefinition) => Promise<void>;
   onColours: (() => void) | null;
   initialDefinition?: CrokinoleDefinition;
+  defaults?: CrokinoleDefaults;
   onAddPlayer?: () => void;
 }) {
   const [count, setCount] = useState<2 | 3 | 4>(
-    (initialDefinition?.players.length ?? 2) as 2 | 3 | 4,
+    (initialDefinition?.players.length ?? defaults.playerCount) as 2 | 3 | 4,
   );
   const [individual, setIndividual] = useState(
-    initialDefinition?.format === "free_for_all",
+    (initialDefinition?.format ?? defaults.format) === "free_for_all",
   );
   const [ids, setIds] = useState<string[]>(() =>
     [
@@ -69,16 +77,25 @@ export function CrokinoleSetup({
     ].slice(0, 4),
   );
   const [mode, setMode] = useState<CrokinoleScoringMode>(
-    initialDefinition?.scoringMode ?? "cumulative_round_totals",
+    initialDefinition?.scoringMode ?? defaults.scoringMode,
   );
   const [endType, setEndType] = useState<"target" | "fixed_rounds">(
-    initialDefinition?.endCondition.type ?? "fixed_rounds",
+    initialDefinition?.endCondition.type ?? defaults.endCondition.type,
   );
   const [length, setLength] = useState(
     String(
-      initialDefinition?.endCondition.type === "target"
-        ? initialDefinition.endCondition.target
-        : (initialDefinition?.endCondition.rounds ?? 4),
+      (initialDefinition?.endCondition ?? defaults.endCondition).type ===
+        "target"
+        ? (
+            (initialDefinition?.endCondition ?? defaults.endCondition) as {
+              target: number;
+            }
+          ).target
+        : (
+            (initialDefinition?.endCondition ?? defaults.endCondition) as {
+              rounds: number;
+            }
+          ).rounds,
     ),
   );
   const [starter, setStarter] = useState("random");
@@ -122,14 +139,22 @@ export function CrokinoleSetup({
     setIndividual(false);
     setStarter("random");
     setIds([...new Set([...ids, ...players.map((p) => p.id)])].slice(0, 4));
-    if (value === 3) changeMode("cumulative_round_totals");
+    if (
+      value === 3 &&
+      !["net_winner_only", "cumulative_round_totals"].includes(mode)
+    )
+      changeMode("net_winner_only");
   }
   function changeMode(value: CrokinoleScoringMode) {
     setMode(value);
-    setEndType(
-      value === "traditional_differential" ? "target" : "fixed_rounds",
+    setEndType(value === "nca_match_points" ? "fixed_rounds" : "target");
+    setLength(
+      value === "nca_match_points"
+        ? "4"
+        : value === "traditional_differential"
+          ? "100"
+          : "300",
     );
-    setLength(value === "traditional_differential" ? "100" : "4");
   }
   async function start() {
     if (lock.current || busy || !ready) return;
@@ -212,7 +237,10 @@ export function CrokinoleSetup({
               aria-pressed={individual}
               onClick={() => {
                 setIndividual(true);
-                changeMode("cumulative_round_totals");
+                if (
+                  !["net_winner_only", "cumulative_round_totals"].includes(mode)
+                )
+                  changeMode("net_winner_only");
               }}
             >
               Individual
@@ -318,7 +346,7 @@ export function CrokinoleSetup({
           {endType === "target" ? `first to ${length}` : `${length} rounds`}
         </summary>
         <div className="crokinole-fields">
-          {!free && (
+          {
             <label className="crokinole-field">
               Scoring
               <select
@@ -327,14 +355,22 @@ export function CrokinoleSetup({
                   changeMode(e.target.value as CrokinoleScoringMode)
                 }
               >
-                {Object.entries(SCORING_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
+                {Object.entries(SCORING_LABELS)
+                  .filter(
+                    ([value]) =>
+                      !free ||
+                      ["net_winner_only", "cumulative_round_totals"].includes(
+                        value,
+                      ),
+                  )
+                  .map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
               </select>
             </label>
-          )}
+          }
           <label className="crokinole-field">
             Match length
             <select
@@ -348,7 +384,7 @@ export function CrokinoleSetup({
                     ? "4"
                     : mode === "nca_match_points"
                       ? "5"
-                      : "100",
+                      : "300",
                 );
               }}
             >
@@ -396,11 +432,13 @@ export function CrokinoleSetup({
           </label>
         </div>
         <p className="crokinole-subtitle">
-          {mode === "cumulative_round_totals"
-            ? "Family scoring: add each round total. Equal leaders at the end share a tie."
-            : mode === "traditional_differential"
-              ? "The higher side receives the difference. A tied round awards zero."
-              : "A round win awards 2 points; a tie awards 1 each. Equal leaders at the target share a tie."}
+          {mode === "net_winner_only"
+            ? "Enter the winner’s already-netted points. Other players stay at zero. No further subtraction."
+            : mode === "cumulative_round_totals"
+              ? "Family scoring: add each round total. Equal leaders at the end share a tie."
+              : mode === "traditional_differential"
+                ? "The higher side receives the difference. A tied round awards zero."
+                : "A round win awards 2 points; a tie awards 1 each. Equal leaders at the target share a tie."}
         </p>
         {canPractice && (
           <label>
@@ -413,6 +451,7 @@ export function CrokinoleSetup({
           </label>
         )}
       </details>
+      <CrokinoleRules mode={mode} />
       {error && (
         <p role="alert" className="crokinole-error">
           {error}

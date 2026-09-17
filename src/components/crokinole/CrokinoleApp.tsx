@@ -13,6 +13,8 @@ import {
   type CrokinoleRound,
   type PieceColour,
 } from "../../domain/crokinole";
+import type { CrokinoleDefaults } from "../../domain/crokinole-defaults";
+import { CrokinoleRules } from "./CrokinoleRules";
 import type { SavedPlayer } from "../../lib/preview-store";
 import { Modal } from "../Modal";
 import { Disc } from "./Disc";
@@ -27,6 +29,7 @@ export type CrokinoleUiDraft = {
 export type CrokinoleAppProps = {
   familyId: string;
   initialDefinition?: CrokinoleDefinition;
+  defaults?: CrokinoleDefaults;
   onAddPlayer?: () => void;
   players: SavedPlayer[];
   palette: PieceColour[];
@@ -74,7 +77,9 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
   const pending = working || busy;
   const participants = match?.definition.participants ?? [];
   const editing = match?.rounds.find((r) => r.id === draft?.editingRoundId);
-  const values = draft?.values ?? {};
+  const values = Object.fromEntries(
+    participants.map((p) => [p.id, draft?.values[p.id] ?? "0"]),
+  );
   const entries: CrokinoleEntry[] = participants.map((p) => ({
     participantId: p.id,
     rawScore: /^\d+$/.test(values[p.id] ?? "") ? Number(values[p.id]) : NaN,
@@ -82,6 +87,8 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
   const valid =
     !(draft?.editingRoundId && !editing) &&
     entries.length >= 2 &&
+    (match?.definition.scoringMode !== "net_winner_only" ||
+      entries.filter((e) => e.rawScore > 0).length <= 1) &&
     entries.every(
       (e) =>
         Number.isSafeInteger(e.rawScore) &&
@@ -154,7 +161,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
       setEntryOpen(true);
     };
     if (
-      Object.values(values).some((v) => v !== "") &&
+      Object.values(draft?.values ?? {}).some((v) => v !== "") &&
       draft?.editingRoundId !== round.id
     ) {
       confirm({
@@ -242,7 +249,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
   function undo() {
     if (!match || !match.rounds.length) return;
     const last = match.rounds.at(-1)!;
-    const hasDraft = Object.values(values).some((v) => v !== "");
+    const hasDraft = Object.values(draft?.values ?? {}).some((v) => v !== "");
     confirm({
       title: `Undo round ${last.number}?`,
       message: `The last round will stop contributing to the match, and its values will reopen for correction.${hasDraft ? " This replaces your unfinished entry." : ""} Original entries remain in history.`,
@@ -328,6 +335,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             {match.definition.mode === "practice" ? " · Private test" : ""}
           </span>
           <h1>Crokinole</h1>
+          <CrokinoleRules mode={match.definition.scoringMode} />
           <p className="crokinole-subtitle">
             {SCORING_LABELS[match.definition.scoringMode]} ·{" "}
             {match.definition.endCondition.type === "target"
@@ -434,9 +442,11 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             <>
               <h2 id="crokinole-rounds">Rounds</h2>
               <p className="crokinole-subtitle">
-                {match.definition.scoringMode === "cumulative_round_totals"
-                  ? "Round totals add up to each score."
-                  : "Awarded match points are shown. Open a round to see its raw totals."}
+                {match.definition.scoringMode === "net_winner_only"
+                  ? "Only the winner’s net points are added. Tied rounds add zero."
+                  : match.definition.scoringMode === "cumulative_round_totals"
+                    ? "Round totals add up to each score."
+                    : "Awarded match points are shown. Open a round to see its raw totals."}
               </p>
               <button
                 className="text-button crokinole-latest"
@@ -539,7 +549,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                 >
                   {draft?.editingRoundId
                     ? "Continue correction"
-                    : Object.values(values).some((v) => v !== "")
+                    : Object.values(draft?.values ?? {}).some((v) => v !== "")
                       ? "Continue entry"
                       : `Add Round ${match.rounds.length + 1}`}
                 </button>
@@ -616,8 +626,10 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                   details.entries.find((e) => e.participantId === p.id)
                     ?.rawScore
                 }{" "}
-                raw → {details.awards[p.id]} points · total{" "}
-                {details.totals[p.id]}
+                {match.definition.scoringMode === "net_winner_only"
+                  ? "net points"
+                  : `raw → ${details.awards[p.id]} points`}{" "}
+                · total {details.totals[p.id]}
               </span>
             </div>
           ))}
@@ -648,7 +660,9 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
         >
           <div className="crokinole-entry-body">
             <p className="crokinole-subtitle">
-              Enter the full round total, including 20s.
+              {match.definition.scoringMode === "net_winner_only"
+                ? "Enter only the winner’s net points after cancelling pieces on the board. Everyone else stays at zero. For a tie, save all zeros."
+                : "Enter each full round total, including 20s. Scores start at zero."}
             </p>
             {draft?.editingRoundId && !editing && (
               <p className="crokinole-error" role="alert">
@@ -690,8 +704,8 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                       aria-label={`${p.name} round total`}
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="—"
-                      value={values[p.id] ?? ""}
+                      placeholder="0"
+                      value={values[p.id] ?? "0"}
                       disabled={pending}
                       onChange={(e) => change(p.id, e.target.value)}
                     />
@@ -710,13 +724,6 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                       +5
                     </button>
                   </div>
-                  <button
-                    className="text-button"
-                    disabled={pending}
-                    onClick={() => change(p.id, "0")}
-                  >
-                    Set {p.name} to 0
-                  </button>
                 </section>
               ))}
             </div>
@@ -738,12 +745,14 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                 ))}
               </div>
             )}
-            {!valid && Object.values(values).some((v) => v !== "") && (
-              <p className="crokinole-subtitle">
-                Enter a non-negative multiple of five for every side. Zero must
-                be entered deliberately.
-              </p>
-            )}
+            {!valid &&
+              Object.values(draft?.values ?? {}).some((v) => v !== "") && (
+                <p className="crokinole-subtitle">
+                  {match.definition.scoringMode === "net_winner_only"
+                    ? "Enter a multiple of five for at most one winner. Everyone else must be zero."
+                    : "Scores must be non-negative multiples of five."}
+                </p>
+              )}
             {error && (
               <p role="alert" className="crokinole-error">
                 {error}

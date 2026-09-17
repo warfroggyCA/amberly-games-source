@@ -28,6 +28,10 @@ import { isCrokinoleDefinition, isCrokinoleCommand } from "../domain/crokinole";
 import { DEFAULT_PIECE_COLOURS, isPieceColour } from "../domain/crokinole";
 import type { CrokinoleGame } from "../domain/crokinole";
 
+import {
+  DEFAULT_CROKINOLE_SETTINGS,
+  isCrokinoleDefaults,
+} from "../domain/crokinole-defaults";
 type Tx = postgres.TransactionSql;
 const fail = (code: string, message: string, status = 400): never => {
   throw new SharedRepositoryError(code, message, status);
@@ -114,8 +118,16 @@ export function createCrokinoleRepository(
     const [p] =
       await tx`select * from scrabble.crokinole_palette where family_id=${familyId}::uuid`;
     return p
-      ? { revision: p.revision, colours: p.colours }
-      : { revision: 0, colours: structuredClone(DEFAULT_PIECE_COLOURS) };
+      ? {
+          revision: p.revision,
+          colours: p.colours,
+          defaults: p.defaults ?? DEFAULT_CROKINOLE_SETTINGS,
+        }
+      : {
+          revision: 0,
+          colours: structuredClone(DEFAULT_PIECE_COLOURS),
+          defaults: structuredClone(DEFAULT_CROKINOLE_SETTINGS),
+        };
   }
   async function checked(tx: Tx, familyId: string, gameId: string) {
     if (!id(gameId)) fail("INVALID_GAME", "Invalid game reference.");
@@ -274,6 +286,7 @@ export function createCrokinoleRepository(
       "create-game": ["definition", "paletteRevision"],
       rematch: ["gameId", "newGameId", "expectedRevision"],
       "save-palette": ["expectedRevision", "colours"],
+      "save-defaults": ["expectedRevision", "defaults"],
       command: [
         "gameId",
         "generation",
@@ -354,7 +367,8 @@ export function createCrokinoleRepository(
             };
           }
         }
-        if (op.type === "save-palette") permit(who, "manageEquipment");
+        if (op.type === "save-palette" || op.type === "save-defaults")
+          permit(who, "manageEquipment");
         return { ...response, draft: undefined, replayed: true };
       }
       if (!enabled())
@@ -364,7 +378,32 @@ export function createCrokinoleRepository(
           503,
         );
       let response: CrokinoleMutationResult = {};
-      if (op.type === "save-palette") {
+      if (op.type === "save-defaults") {
+        permit(who, "manageEquipment");
+        const old = await palette(tx, familyId);
+        if (
+          !revision(op.expectedRevision) ||
+          old.revision !== op.expectedRevision
+        )
+          fail(
+            "REVISION_CONFLICT",
+            "Family settings changed elsewhere. Reload before saving.",
+            409,
+          );
+        if (!isCrokinoleDefaults(op.defaults))
+          fail(
+            "INVALID_DEFAULTS",
+            "Choose a valid format, scoring method and match length.",
+          );
+        const next = {
+          ...old,
+          revision: old.revision + 1,
+          defaults: op.defaults,
+        };
+        await tx`insert into scrabble.crokinole_palette(family_id,revision,colours,defaults) values(${familyId}::uuid,${next.revision},${json(tx, next.colours)},${json(tx, next.defaults)}) on conflict(family_id) do update set revision=excluded.revision,defaults=excluded.defaults`;
+        await audit(tx, actor, familyId, op.type, familyId, old, next);
+        response = { palette: next };
+      } else if (op.type === "save-palette") {
         permit(who, "manageEquipment");
         const old = await palette(tx, familyId);
         if (
@@ -397,7 +436,11 @@ export function createCrokinoleRepository(
           )
         )
           fail("INVALID_PALETTE", "The colour palette is invalid.");
-        const next = { revision: old.revision + 1, colours: op.colours };
+        const next = {
+          ...old,
+          revision: old.revision + 1,
+          colours: op.colours,
+        };
         await tx`insert into scrabble.crokinole_palette(family_id,revision,colours) values(${familyId}::uuid,${next.revision},${json(tx, next.colours)}) on conflict(family_id) do update set revision=excluded.revision,colours=excluded.colours`;
         await audit(tx, actor, familyId, op.type, familyId, old, next);
         response = { palette: next };

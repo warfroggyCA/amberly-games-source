@@ -80,6 +80,7 @@ test("four individual players resume an unfinished target round after reload", a
   await page
     .getByRole("combobox", { name: "Match length", exact: true })
     .selectOption("target");
+  await page.getByLabel("Target", { exact: true }).fill("100");
   await page.getByRole("button", { name: "Start game", exact: true }).click();
   const names = ["Doug", "Erin", "Nate", "Cristine"];
   await enterRound(page, 1, names, [60, 50, 40, 30]);

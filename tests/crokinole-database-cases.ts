@@ -1,6 +1,7 @@
 import { createGameSummaryRepository } from "../src/server/game-summary-repository";
 import { createSharedRepository } from "../src/server/shared-repository";
 import { testLexicon } from "../src/lib/test-lexicon";
+import { DEFAULT_CROKINOLE_SETTINGS } from "../src/domain/crokinole-defaults";
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { describe, it, expect } from "vitest";
@@ -62,6 +63,43 @@ export function crokinoleDatabaseCases(
     return { familyId, admin, member, definition, mutate };
   }
   describe("Crokinole shared PostgreSQL boundaries", () => {
+    it("shares family defaults, protects permission and revisions, preserves old games and colours", async () => {
+      const f = await fixture();
+      const created = await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      const op = {
+        type: "save-defaults" as const,
+        expectedRevision: 0,
+        defaults: DEFAULT_CROKINOLE_SETTINGS,
+      };
+      await owner`update scrabble.memberships set permissions='{"manageEquipment":false}'::jsonb where family_id=${f.familyId} and user_id=${f.member.userId}`;
+      await expect(f.mutate(op, f.member)).rejects.toMatchObject({
+        code: "PERMISSION_DENIED",
+      });
+      const requestId = randomUUID();
+      await f.mutate(op, f.admin, requestId);
+      expect((await f.mutate(op, f.admin, requestId)).replayed).toBe(true);
+      await expect(f.mutate(op)).rejects.toMatchObject({
+        code: "REVISION_CONFLICT",
+      });
+      const read = await repo.readState(f.member, f.familyId, {
+        gameId: f.definition.id,
+      });
+      expect(read.palette.defaults).toEqual(DEFAULT_CROKINOLE_SETTINGS);
+      expect(read.games[0].definition).toEqual(created.game!.definition);
+      await f.mutate({
+        type: "save-palette",
+        expectedRevision: 1,
+        colours: DEFAULT_PIECE_COLOURS,
+      });
+      expect(
+        (await repo.readState(f.member, f.familyId, {})).palette.defaults,
+      ).toEqual(DEFAULT_CROKINOLE_SETTINGS);
+    });
+
     it("atomically records a round, retries once, checks revisions and restores shared history", async () => {
       const f = await fixture();
       await f.mutate({

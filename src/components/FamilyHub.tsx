@@ -25,6 +25,7 @@ import type { CrokinoleOperation } from "../lib/crokinole-contract";
 import { hasPermission } from "../lib/member-permissions";
 import { BrandWordmark } from "./BrandWordmark";
 import { CrokinoleApp } from "./crokinole/CrokinoleApp";
+import { CrokinoleDefaultsSettings } from "./crokinole/CrokinoleDefaultsSettings";
 import { ColourSettings } from "./crokinole/ColourSettings";
 import { TileSetSettings } from "./TileSetSettings";
 import { Modal } from "./Modal";
@@ -66,6 +67,7 @@ export function FamilyHub({
   const [menu, setMenu] = useState(false);
   const [newGameConfirm, setNewGameConfirm] = useState(false);
   const [recoverConfirm, setRecoverConfirm] = useState(false);
+  const [showDefaults, setShowDefaults] = useState(false);
   const [equipment, setEquipment] = useState<"tiles" | "colours" | null>(null);
   const [action, setAction] = useState<{
     title: string;
@@ -514,15 +516,11 @@ export function FamilyHub({
             )}
             <CrokinoleApp
               key={gameId ?? "new"}
+              defaults={state.palette?.defaults}
               familyId={shared.family.id}
               players={shared.players}
               palette={state.palette?.colours ?? []}
               match={game}
-              initialDefinition={
-                visibleGames.find(
-                  (g) => state.access[g.definition.id]?.scorerUserId === userId,
-                )?.definition
-              }
               canScore={
                 !!access?.canScore &&
                 hasPermission(shared.member, "scoreGames") &&
@@ -701,6 +699,14 @@ export function FamilyHub({
       ) : pathname === "/family/settings" ? (
         <main className="hub-content">
           <h1>Settings</h1>
+          <h2>Rules & defaults</h2>
+          <button
+            className="button light"
+            disabled={!state.palette}
+            onClick={() => setShowDefaults(true)}
+          >
+            Crokinole rules & family defaults
+          </button>
           <h2>Equipment</h2>
           <p>
             Shared sets and colours for future games. Existing games keep their
@@ -910,6 +916,21 @@ export function FamilyHub({
             });
           }}
           onClose={() => setEquipment(null)}
+        />
+      )}
+      {showDefaults && state.palette && (
+        <CrokinoleDefaultsSettings
+          initial={state.palette.defaults}
+          busy={locked}
+          canEdit={hasPermission(shared.member, "manageEquipment")}
+          onClose={() => setShowDefaults(false)}
+          onSave={async (defaults) => {
+            await store.mutate({
+              type: "save-defaults",
+              expectedRevision: state.palette!.revision,
+              defaults,
+            });
+          }}
         />
       )}
       {newGameConfirm && (
