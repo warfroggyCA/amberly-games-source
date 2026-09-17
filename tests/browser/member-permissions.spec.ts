@@ -292,6 +292,7 @@ test("practice deletion requires confirmation, handles rejection and removes the
   });
   await page.getByRole("button", { name: "Open game menu" }).click();
   await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: "Show delete action" }).click();
   await page.getByRole("button", { name: "Delete practice game…" }).click();
   const panel = page.getByRole("dialog", {
     name: "Delete this practice game?",
@@ -302,6 +303,7 @@ test("practice deletion requires confirmation, handles rejection and removes the
   expect(writes).toHaveLength(0);
   await panel.getByRole("button", { name: "Keep game" }).click();
   await expect(page.locator(".game-list-item")).toHaveCount(1);
+  await page.getByRole("button", { name: "Show delete action" }).click();
   await page.getByRole("button", { name: "Delete practice game…" }).click();
   await panel.getByLabel("Reason for deleting").fill("Done testing");
   await page.screenshot({ path: testInfo.outputPath("delete-practice.png") });
@@ -335,4 +337,200 @@ test("practice deletion requires confirmation, handles rejection and removes the
     page.getByRole("button", { name: "Open game menu" }),
   ).toBeVisible();
   await expect(page.locator(".game-list-item")).toHaveCount(0);
+});
+
+test("swiping a practice row reveals Delete without opening it, supports cancellation and keyboard access", async ({
+  page,
+}, testInfo) => {
+  await mock(page, fixture());
+  const row = page.locator(".swipe-game").first();
+  await row.scrollIntoViewIfNeeded();
+  const box = (await row.boundingBox())!;
+  const swipe = async (dx: number) => {
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + dx, box.y + box.height / 2, {
+      steps: 12,
+    });
+    await page.mouse.up();
+  };
+  await swipe(-25);
+  await expect(
+    row.getByRole("button", { name: "Show delete action" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await swipe(-110);
+  await expect(
+    row.getByRole("button", { name: "Delete practice game…" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(row).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("swipe-delete.png") });
+  await swipe(110);
+  await expect(
+    row.getByRole("button", { name: "Show delete action" }),
+  ).toBeVisible();
+  await row.getByRole("button", { name: "Show delete action" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    row.getByRole("button", { name: "Delete practice game…" }),
+  ).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(
+    row.getByRole("button", { name: "Delete practice game…" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    row.getByRole("button", { name: "Show delete action" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await row.locator(".game-list-item > button").click();
+  await expect(row).not.toBeVisible();
+});
+
+test("removing an invitation needs confirmation and preserves it on cancel or a failed request", async ({
+  page,
+}, testInfo) => {
+  const shared = fixture();
+  shared.invitations = [{ email: "guest@example.test", active: true }];
+  const writes: SharedMutation[] = [];
+  await mock(page, shared, async (route, mutation) => {
+    writes.push(mutation);
+    if (mutation.operation.type !== "revoke-invitation")
+      throw new Error("Unexpected operation");
+    if (writes.length === 1)
+      return route.fulfill({
+        status: 503,
+        json: { error: "Connection interrupted" },
+      });
+    shared.invitations = [];
+    return route.fulfill({ json: {} });
+  });
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page
+    .getByRole("button", { name: "Family access", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Remove invitation…", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Remove this invitation?" });
+  await expect(dialog).toContainText("guest@example.test");
+  expect(writes).toHaveLength(0);
+  await dialog.getByRole("button", { name: "Keep invitation" }).click();
+  await expect(page.locator(".family-invitation")).toContainText(
+    "guest@example.test",
+  );
+  await page
+    .getByRole("button", { name: "Remove invitation…", exact: true })
+    .click();
+  await page.screenshot({ path: testInfo.outputPath("remove-invitation.png") });
+  await dialog
+    .getByRole("button", { name: "Remove invitation", exact: true })
+    .click();
+  await expect(dialog.getByRole("alert")).toContainText(
+    "Connection interrupted",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Remove invitation", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole("button", { name: "Retry saved change" }).click();
+  expect(writes).toHaveLength(2);
+  expect(writes[0].requestId).toBe(writes[1].requestId);
+  await expect(page.locator(".family-invitation")).toHaveCount(0);
+});
+
+test("turning off member access asks for confirmation before saving and retains changes on cancel", async ({
+  page,
+}, testInfo) => {
+  const shared = fixture();
+  const writes: SharedMutation[] = [];
+  await mock(page, shared, async (route, mutation) => {
+    writes.push(mutation);
+    if (mutation.operation.type !== "update-member")
+      throw new Error("Unexpected operation");
+    Object.assign(shared.members[1], {
+      active: mutation.operation.active,
+      revision: 1,
+    });
+    return route.fulfill({ json: {} });
+  });
+  await openPermissions(page);
+  const panel = page.getByRole("dialog", { name: "Member permissions" });
+  await panel.getByRole("switch", { name: "Account access" }).uncheck();
+  await panel
+    .getByLabel("Reason for change")
+    .fill("Remove test account access");
+  await panel.getByRole("button", { name: "Save permissions" }).click();
+  await expect(panel).toContainText("Remove this member’s access?");
+  await expect(panel).toContainText(shared.members[1].email);
+  expect(writes).toHaveLength(0);
+  await panel.getByRole("button", { name: "Back to permissions" }).click();
+  await expect(panel.getByLabel("Reason for change")).toHaveValue(
+    "Remove test account access",
+  );
+  await panel.getByRole("button", { name: "Save permissions" }).click();
+  await page.screenshot({ path: testInfo.outputPath("remove-member.png") });
+  await panel.getByRole("button", { name: "Remove member access" }).click();
+  await expect(
+    page
+      .locator(".family-members li")
+      .filter({ hasText: shared.members[1].email }),
+  ).toContainText("Access revoked");
+  expect(writes).toHaveLength(1);
+  expect(writes[0].operation).toMatchObject({
+    type: "update-member",
+    active: false,
+    expectedRevision: 0,
+  });
+});
+
+test("touch swipe starting on the game button preserves vertical scroll and never opens the game", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "CDP touch input is Chromium-only; WebKit covers pointer and keyboard paths separately.",
+  );
+  await mock(page, fixture());
+  const row = page.locator(".swipe-game").first();
+  await row.scrollIntoViewIfNeeded();
+  const box = (await row.boundingBox())!;
+  const cdp = await page.context().newCDPSession(page);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x, y }],
+  });
+  for (let step = 1; step <= 10; step++)
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: x - step * 11, y }],
+    });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(
+    row.getByRole("button", { name: "Delete practice game…" }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await row.getByRole("button", { name: "Hide delete action" }).click();
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x, y }],
+  });
+  for (let step = 1; step <= 10; step++)
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: y - step * 8 }],
+    });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(
+    row.getByRole("button", { name: "Show delete action" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await cdp.detach();
 });

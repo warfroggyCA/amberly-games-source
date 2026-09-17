@@ -20,13 +20,13 @@ Superadmins open **Game menu → Family access → Permissions** beside a member
 
 Existing memberships and new invitees use these defaults when no override is saved. New members can be customized after they join. Superadmins retain every capability; individual switches apply when the role is Member. Only superadmins may change membership, roles, linked profiles, or permissions. The last active superadmin cannot be demoted or suspended.
 
-Viewing shared history and reporting concerns remain available to active members. Suspending Account access blocks family access without deleting the person’s history. The share switch controls link management: previously issued links retain their normal expiration/revocation behavior.
+Viewing shared history and reporting concerns remain available to active members. Suspending Account access asks for confirmation naming the member before saving, and blocks family access without deleting the person’s history. Removing a pending invitation also asks for confirmation naming its email; cancelling makes no change. The share switch controls link management: previously issued links retain their normal expiration/revocation behavior.
 
 ## Private tests
 
 Shared games with `mode=practice` are visible only to superadmins, including historical tests. Regular members cannot create them, open them by ID, read their draft, export them, or see their concerns. Practice links cannot be created and existing practice viewing tokens no longer resolve. Enabling every member capability does not grant private-test access. The independent local `/` preview remains a device-only development sandbox and does not read shared tests.
 
-**Delete practice game…** appears in Home, History and the game details for superadmins. It requires confirmation and a reason. Removal is an immutable marker, not a physical deletion: original definitions, turns, results and audit evidence remain in the internal archive. Finalized practice games may be removed; confirmed games cannot. Removed tests disappear from normal lists and cannot be scored or restored by an old request. Retries acknowledge the original removal once, including when the connection fails after commit.
+In Home and History, superadmins swipe a practice game left to reveal **Delete**, or use the row’s **…** control with a mouse or keyboard. Swiping alone never deletes or opens a game. The game details also retain **Delete practice game…**. It requires confirmation and a reason. Removal is an immutable marker, not a physical deletion: original definitions, turns, results and audit evidence remain in the internal archive. Finalized practice games may be removed; confirmed games cannot. Removed tests disappear from normal lists and cannot be scored or restored by an old request. Retries acknowledge the original removal once, including when the connection fails after commit.
 
 ## Enforcement and recovery
 

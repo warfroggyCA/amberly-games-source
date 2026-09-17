@@ -1,17 +1,20 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { GameState } from "../domain/game";
 import type { SharedScorerStore } from "../lib/shared-store";
+import { SwipeToDelete } from "./SwipeToDelete";
 import { Modal } from "./Modal";
 
 export function DeletePracticeGame({
   game,
   store,
   disabled,
+  children,
 }: {
   game: GameState;
   store: SharedScorerStore;
   disabled: boolean;
+  children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -24,7 +27,7 @@ export function DeletePracticeGame({
     state.shared?.member.role !== "superadmin" ||
     state.shared?.gameAccess[game.id]?.mode !== "practice"
   )
-    return null;
+    return children ?? null;
   const remove = async (retry = false) => {
     if (busy.current || (!retry && (disabled || !reason.trim()))) return;
     busy.current = true;
@@ -54,14 +57,25 @@ export function DeletePracticeGame({
     }
   };
   return (
-    <div className="game-delete-action">
-      <button
-        className="text-button"
-        disabled={disabled || working}
-        onClick={() => setOpen(true)}
-      >
-        Delete practice game…
-      </button>
+    <>
+      {children ? (
+        <SwipeToDelete
+          disabled={disabled || working}
+          onDelete={() => setOpen(true)}
+        >
+          {children}
+        </SwipeToDelete>
+      ) : (
+        <div className="game-delete-action">
+          <button
+            className="text-button"
+            disabled={disabled || working}
+            onClick={() => setOpen(true)}
+          >
+            Delete practice game…
+          </button>
+        </div>
+      )}
       {open && (
         <Modal
           title="Delete this practice game?"
@@ -136,6 +150,6 @@ export function DeletePracticeGame({
           </form>
         </Modal>
       )}
-    </div>
+    </>
   );
 }

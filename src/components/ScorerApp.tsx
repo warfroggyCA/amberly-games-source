@@ -5,6 +5,7 @@ import {
 } from "../lib/member-permissions";
 import "./live-draft.css";
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -83,7 +84,7 @@ const errorText = (error: unknown) =>
 export function ScorerApp({
   store = localScorerStore,
   renderGameStatus,
-  renderGameActions,
+  renderGameItem,
   accountControls,
   shareControl,
   liveContext,
@@ -93,7 +94,7 @@ export function ScorerApp({
   accountControls?: ReactNode;
   shareControl?: ReactNode;
   renderGameStatus?: (game: GameState) => ReactNode;
-  renderGameActions?: (game: GameState) => ReactNode;
+  renderGameItem?: (game: GameState, content: ReactNode) => ReactNode;
 } = {}) {
   const {
     subscribe,
@@ -954,7 +955,7 @@ export function ScorerApp({
                   gameAccess={state.shared?.gameAccess}
                   games={state.data.games.slice(-3).reverse()}
                   onOpen={openGame}
-                  renderActions={renderGameActions}
+                  renderItem={renderGameItem}
                 />
               </>
             )}
@@ -1026,7 +1027,7 @@ export function ScorerApp({
                   </p>
                 </div>
                 <GameList
-                  renderActions={renderGameActions}
+                  renderItem={renderGameItem}
                   gameAccess={state.shared?.gameAccess}
                   games={[...state.data.games].reverse()}
                   onOpen={openGame}
@@ -1886,62 +1887,71 @@ function GameList({
   games,
   gameAccess,
   onOpen,
-  renderActions,
+  renderItem,
 }: {
-  renderActions?: (game: GameState) => ReactNode;
+  renderItem?: (game: GameState, content: ReactNode) => ReactNode;
   games: GameState[];
   gameAccess?: Record<string, GameAccess>;
   onOpen: (id: string) => Promise<void>;
 }) {
   return games.length ? (
     <div className="game-list">
-      {games.map((g) => (
-        <div className="game-list-item" key={g.id}>
-          <button onClick={() => void onOpen(g.id)}>
-            <span className="game-date">
-              {new Date(g.definition.createdAt).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
-            <span>
-              <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
-              <small>
-                {gameAccess?.[g.id]?.mode === "practice"
-                  ? "Private test · "
-                  : ""}
-                {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
-                {g.status === "finalized"
-                  ? g.result?.reason === "early"
-                    ? "Ended early"
-                    : "Finalized"
-                  : g.status === "paused"
-                    ? "Paused"
-                    : "In progress"}{" "}
-                · {lexiconDetails(g.lexicon).historyLabel}
-              </small>
-              {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
-                <small className="game-review-label">
-                  Concern awaiting review
+      {games.map((g) => {
+        const content = (
+          <div className="game-list-item">
+            <button onClick={() => void onOpen(g.id)}>
+              <span className="game-date">
+                {new Date(g.definition.createdAt).toLocaleDateString(
+                  undefined,
+                  {
+                    month: "short",
+                    day: "numeric",
+                  },
+                )}
+              </span>
+              <span>
+                <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
+                <small>
+                  {gameAccess?.[g.id]?.mode === "practice"
+                    ? "Private test · "
+                    : ""}
+                  {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
+                  {g.status === "finalized"
+                    ? g.result?.reason === "early"
+                      ? "Ended early"
+                      : "Finalized"
+                    : g.status === "paused"
+                      ? "Paused"
+                      : "In progress"}{" "}
+                  · {lexiconDetails(g.lexicon).historyLabel}
                 </small>
-              ) : gameAccess?.[g.id]?.protests.some(
-                  (p) => p.resolution?.outcome === "upheld",
-                ) ? (
-                <small className="game-review-label">
-                  Concern upheld · excluded from records
-                </small>
-              ) : null}
-            </span>
-            <span className="game-list-score">
-              {g.players
-                .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
-                .join(" / ")}
-            </span>
-            <span aria-hidden="true">→</span>
-          </button>
-          {renderActions?.(g)}
-        </div>
-      ))}
+                {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
+                  <small className="game-review-label">
+                    Concern awaiting review
+                  </small>
+                ) : gameAccess?.[g.id]?.protests.some(
+                    (p) => p.resolution?.outcome === "upheld",
+                  ) ? (
+                  <small className="game-review-label">
+                    Concern upheld · excluded from records
+                  </small>
+                ) : null}
+              </span>
+              <span className="game-list-score">
+                {g.players
+                  .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
+                  .join(" / ")}
+              </span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        );
+        return (
+          <Fragment key={g.id}>
+            {renderItem ? renderItem(g, content) : content}
+          </Fragment>
+        );
+      })}
     </div>
   ) : (
     <div className="empty-inline">

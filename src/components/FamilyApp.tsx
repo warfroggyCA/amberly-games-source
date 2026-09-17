@@ -288,12 +288,14 @@ function FamilyWorkspace({ user }: { user: FamilyUser }) {
             />
           )
         }
-        renderGameActions={(game) => (
+        renderGameItem={(game, content) => (
           <DeletePracticeGame
             game={game}
             store={store}
             disabled={!!state.pending || !!state.unresolved}
-          />
+          >
+            {content}
+          </DeletePracticeGame>
         )}
         renderGameStatus={(game) => (
           <GameStatus
@@ -448,6 +450,7 @@ function FamilyAdmin({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<FamilyMember | null>(null);
+  const [removingInvite, setRemovingInvite] = useState<string | null>(null);
   const run = async (operation?: SharedOperation) => {
     if (ref.current) return;
     ref.current = true;
@@ -465,6 +468,7 @@ function FamilyAdmin({
       );
       if (operation?.type === "invite-member") setEmail("");
       setEditing(null);
+      setRemovingInvite(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The access change failed.");
     } finally {
@@ -474,7 +478,13 @@ function FamilyAdmin({
   };
   return (
     <Modal
-      title={editing ? "Member permissions" : "Amberly access"}
+      title={
+        editing
+          ? "Member permissions"
+          : removingInvite
+            ? "Remove this invitation?"
+            : "Amberly access"
+      }
       className={editing ? "member-permissions-dialog" : ""}
       onClose={() => {
         if (!working) onClose();
@@ -493,12 +503,48 @@ function FamilyAdmin({
           </button>
         </p>
       )}
-      {editing && error && (
+      {(editing || removingInvite) && error && (
         <p role="alert" className="error-banner">
           {error}
         </p>
       )}
-      {editing ? (
+      {removingInvite ? (
+        <div className="access-removal-confirm">
+          <p>
+            <strong>{removingInvite}</strong> will no longer be able to join
+            using this invitation.
+          </p>
+          <p>
+            You can invite them again later. Existing games and player records
+            stay unchanged.
+          </p>
+          <div className="dialog-actions">
+            <button
+              className="button light"
+              disabled={working}
+              onClick={() => setRemovingInvite(null)}
+            >
+              {state.unresolved ? "Close for now" : "Keep invitation"}
+            </button>
+            <button
+              className="button danger-outline"
+              disabled={
+                working ||
+                !!state.pending ||
+                !!state.unresolved ||
+                !state.shared!.invitations.some(
+                  (i) => i.email === removingInvite && i.active,
+                )
+              }
+              onClick={() =>
+                void run({ type: "revoke-invitation", email: removingInvite })
+              }
+            >
+              {working ? "Removing…" : "Remove invitation"}
+            </button>
+          </div>
+        </div>
+      ) : editing ? (
         <MemberPermissions
           key={editing.userId}
           member={editing}
@@ -575,11 +621,9 @@ function FamilyAdmin({
                 <button
                   className="text-button"
                   disabled={working}
-                  onClick={() =>
-                    void run({ type: "revoke-invitation", email: invite.email })
-                  }
+                  onClick={() => setRemovingInvite(invite.email)}
                 >
-                  Revoke invitation
+                  Remove invitation…
                 </button>
               </div>
             ))}

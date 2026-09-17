@@ -32,22 +32,67 @@ export function MemberPermissions({
   }));
   const [reason, setReason] = useState("");
   const fullAccess = role === "superadmin";
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const save = () => {
+    if (working || stale || !reason.trim() || member.revision === undefined)
+      return;
+    return onSave({
+      type: "update-member",
+      userId: member.userId,
+      role,
+      active,
+      playerId: playerId || null,
+      reason: reason.trim(),
+      permissions,
+      expectedRevision: member.revision,
+    });
+  };
+  if (confirmRemoval)
+    return (
+      <section className="access-removal-confirm">
+        <h3>Remove this member’s access?</h3>
+        <p>
+          <strong>{member.email}</strong> will lose access to shared games and
+          scoring. Their player profile, past games and scores will stay.
+        </p>
+        <p>You can restore their access later.</p>
+        {stale && (
+          <p role="alert" className="error-banner">
+            Access changed elsewhere. Go back and reopen this person before
+            saving.
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button
+            className="button light"
+            disabled={working}
+            onClick={() => setConfirmRemoval(false)}
+          >
+            Back to permissions
+          </button>
+          <button
+            className="button danger-outline"
+            disabled={
+              working ||
+              stale ||
+              !reason.trim() ||
+              member.revision === undefined
+            }
+            onClick={() => void save()}
+          >
+            {working ? "Removing…" : "Remove member access"}
+          </button>
+        </div>
+      </section>
+    );
   return (
     <form
       className="member-permissions"
       onSubmit={(e) => {
         e.preventDefault();
         if (working || stale || member.revision === undefined) return;
-        void onSave({
-          type: "update-member",
-          userId: member.userId,
-          role,
-          active,
-          playerId: playerId || null,
-          reason: reason.trim(),
-          permissions,
-          expectedRevision: member.revision,
-        });
+        if (member.active && !active) setConfirmRemoval(true);
+        else void save();
       }}
     >
       <div className="permissions-person">
