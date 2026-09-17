@@ -162,6 +162,8 @@ describe("Crokinole retained workspace", () => {
         ? expect(syncing).rejects.toThrow("Draft connection lost")
         : expect(syncing).resolves.toBeUndefined();
       await began;
+      expect(active.getSnapshot().busy).toBe(false);
+      expect(active.getSnapshot().pending).toBe(false);
       const saving = active.command("game", {
         id: "save-round",
         type: "record_round",

@@ -80,3 +80,47 @@ test("doubles display both partners with photos and disc colours", async ({
     path: testInfo.outputPath("shared-doubles-identity.png"),
   });
 });
+
+test("saving a round stays available during background draft synchronization", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const began = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  await page.route("**/api/family/crokinole*", async (route) => {
+    if (
+      route.request().method() === "POST" &&
+      route.request().postDataJSON().operation.type === "save-draft"
+    ) {
+      started();
+      await gate;
+    }
+    await route.fallback();
+  });
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Add Round 1", exact: true }).click();
+  await page.getByLabel("Doug round total", { exact: true }).fill("65");
+  await began;
+  try {
+    const save = page.getByRole("button", { name: "Save round", exact: true });
+    await expect(save).toBeEnabled();
+    await save.click();
+    await expect(
+      page.getByRole("button", { name: "Saving…", exact: true }),
+    ).toBeDisabled();
+    expect(fixture.game().rounds).toHaveLength(0);
+  } finally {
+    release();
+  }
+  await expect(
+    page.getByRole("button", { name: "Add Round 2", exact: true }),
+  ).toBeVisible();
+  expect(fixture.game().totals).toEqual({ doug: 65, erin: 0 });
+});

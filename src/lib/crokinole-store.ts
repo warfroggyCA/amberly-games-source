@@ -777,7 +777,9 @@ export function createCrokinoleStore(
       const next = { ...workspace, pending: mutation };
       workspace = next;
       await checkpoint(next);
-      publish({ pending: true });
+      // Background draft syncing must not disable controls midway through a tap.
+      // Commands await draftDone; failed writes still publish pending in sendPending.
+      publish({ pending: operation.type !== "save-draft" });
       await sendPending();
       return undefined;
     } finally {
