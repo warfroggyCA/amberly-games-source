@@ -616,3 +616,66 @@ body .app-shell.game-screen.keyboard-open .persistent-entry-bar {
 body .app-shell.game-screen.keyboard-open .persistent-entry-bar > * {
   position: static;
 }
+body
+  .app-shell.game-screen.keyboard-open
+  .persistent-entry-bar
+  > .entry-direction-toggle {
+  position: relative;
+}
+
+/* A landscape keyboard can leave only 170px. Give the word that full height;
+   a narrow side rail keeps every entry action reachable without covering tiles. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen.keyboard-open > .site-header {
+    display: none;
+  }
+  body .app-shell.game-screen.keyboard-open > main {
+    padding: 2px 6px;
+  }
+  body .app-shell.game-screen.keyboard-open .board-stage {
+    margin-right: 120px;
+  }
+  body .app-shell.game-screen.keyboard-open .persistent-entry-bar {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: 112px;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(3, 44px);
+    align-content: center;
+    justify-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+  }
+  body
+    .app-shell.game-screen.keyboard-open
+    .persistent-entry-bar
+    .entry-board-status,
+  body
+    .app-shell.game-screen.keyboard-open
+    .persistent-entry-bar
+    .entry-blank-button {
+    display: none;
+  }
+  body
+    .app-shell.game-screen.keyboard-open
+    .persistent-entry-bar
+    .entry-review-button {
+    grid-column: 1 / -1;
+    width: 108px;
+  }
+  body
+    .app-shell.game-screen.keyboard-open
+    .board-workspace.persistent-board
+    .board-frame {
+    width: 480px;
+  }
+  body .app-shell.game-screen.keyboard-open .entry-message-overlay {
+    position: fixed;
+    top: var(--usable-game-top, 0px);
+    bottom: auto;
+    max-height: calc(var(--usable-game-height, 100dvh) - 8px);
+  }
+}

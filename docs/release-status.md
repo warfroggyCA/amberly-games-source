@@ -2,7 +2,22 @@
 
 This is the release ledger. Older milestone documents describe what was known at that milestone; they are not the current deployment record.
 
-## Current observed Preview and keyboard/recovery candidate
+## Unreleased second keyboard follow-up
+
+After the release below, physical iPhone feedback confirmed portrait improvement but exposed a clipped vertical word in landscape and an unresponsive blocked-square dialog. The local follow-up reserves landscape keyboard space for the word with a side control rail, keeps entered letters in view, and replaces the rejected-square modal with a dismissible warning that preserves draft, cursor and typing focus. Review and Clear letters remain available through their existing controls.
+
+The landscape defect reproduced against the released build. The physical dialog freeze did not reproduce in WebKit; removing this modal removes that failure path without claiming a general native-dialog root cause. Other dialogs still require physical acceptance. Build/TypeScript, lint,144 focused unit tests and32 browser checks passed, including vertical entry with installed-app top clearance and touch dismissal through rotation. These are local checks, not physical-device proof. No database or hosted changes are included. Exact-commit CI, release gate and approval remain required before publication.
+
+## Last verified Preview release
+
+- Source: `1e3c9874da0cfadbdba14f95dd4bbaf5b5f9bb5c`.
+- Alias: `https://amberly-games-preview.vercel.app`.
+- Ready deployment: `dpl_BnpzNbCW7k9Mion8HS6BSTK14rpt`, `amberly-games-pk7spkyef-dougs-projects-e9ca299b.vercel.app`.
+- Exact-commit CI passed: https://github.com/warfroggyCA/amberly-games-source/actions/runs/35372670151 . PR CI and release gate also passed.
+- Hosted smoke verified existing sign-in, both game types, preserved synthetic final results and viewing-link revocation. No migration or permission change.
+- This release remains the rollback target for the unreleased follow-up above. Its physical keyboard acceptance failed as described above; retain all drafts/history.
+
+## Historical keyboard/recovery candidate before publication
 
 Observed September 18, 2026 after physical iPhone testing:
 

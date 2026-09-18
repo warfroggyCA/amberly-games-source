@@ -32,7 +32,11 @@ import { extendLexicon } from "../domain/verified-words";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-function revealEntry(workspace: HTMLElement | null, fitScreen: boolean) {
+function revealEntry(
+  workspace: HTMLElement | null,
+  fitScreen: boolean,
+  draft: Draft,
+) {
   const tile = workspace?.querySelector<HTMLElement>('[aria-selected="true"]');
   const scroller = workspace?.querySelector<HTMLElement>(".board-scroll");
   if (!tile) return;
@@ -44,6 +48,17 @@ function revealEntry(workspace: HTMLElement | null, fitScreen: boolean) {
   // while its keyboard is opening and move the entire entry bar out of reach.
   const bounds = scroller.getBoundingClientRect();
   const cell = tile.getBoundingClientRect();
+  const fresh = Array.from(
+    workspace!.querySelectorAll<HTMLElement>(".square.fresh"),
+    (element) => element.getBoundingClientRect(),
+  );
+  // Keep the entered letters and one preceding square for an existing prefix.
+  // If a long word cannot fit, follow its end without shrinking the touch targets.
+  const wordTop =
+    Math.min(cell.top, ...fresh.map((rect) => rect.top)) -
+    (draft.direction === "down" ? cell.height : 0);
+  const wordBottom = Math.max(cell.bottom, ...fresh.map((rect) => rect.bottom));
+  const targetTop = Math.max(wordTop, wordBottom - bounds.height + 4);
   const margin = cell.width + 4;
   const left =
     cell.left < bounds.left + margin
@@ -53,7 +68,7 @@ function revealEntry(workspace: HTMLElement | null, fitScreen: boolean) {
         : 0;
   scroller.scrollBy({
     left,
-    top: (cell.top + cell.bottom - bounds.top - bounds.bottom) / 2,
+    top: (targetTop + wordBottom - bounds.top - bounds.bottom) / 2,
     behavior: "instant",
   });
 }
@@ -118,10 +133,6 @@ export function BoardEditor({
   const [entryOptions, setEntryOptions] = useState(false);
   const [review, setReview] = useState(false);
   const [inspectCell, setInspectCell] = useState<{
-    row: number;
-    col: number;
-  } | null>(null);
-  const [blockedSquare, setBlockedSquare] = useState<{
     row: number;
     col: number;
   } | null>(null);
@@ -231,7 +242,7 @@ export function BoardEditor({
   useEffect(() => {
     if (!focused || blank || review) return;
     const frame = requestAnimationFrame(() =>
-      revealEntry(workspace.current, fitScreen),
+      revealEntry(workspace.current, fitScreen, current.current),
     );
     return () => cancelAnimationFrame(frame);
   }, [focused, draft.row, draft.col, zoom, blank, review, fitScreen]);
@@ -268,7 +279,8 @@ export function BoardEditor({
         dimensions = nextDimensions;
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
-          if (focusedRef.current) revealEntry(workspace.current, true);
+          if (focusedRef.current)
+            revealEntry(workspace.current, true, current.current);
         });
       }
     };
@@ -457,8 +469,10 @@ export function BoardEditor({
     if (disabled) return;
     const d = current.current;
     if (!canSelectDraftSquare(d, game.board, row, col)) {
-      input.current?.blur();
-      setBlockedSquare({ row, col });
+      setMessage(
+        `Finish this word first. Your letters are kept. Review this turn, or ${fitScreen ? "clear letters in Letter tools" : "use Clear letters"} before starting elsewhere.`,
+      );
+      focusInput();
       return;
     }
     change({
@@ -473,7 +487,7 @@ export function BoardEditor({
     enterFocus();
   }
   function insert(text: string, asBlank = false) {
-    if (disabled || blockedSquare) return;
+    if (disabled) return;
     const result = insertLetters(
       current.current,
       game.board,
@@ -982,52 +996,47 @@ export function BoardEditor({
             </div>
           </div>
         </div>
-        {focused &&
-          lastPlacement &&
-          !review &&
-          !blank &&
-          !inspectCell &&
-          !blockedSquare && (
-            <div
-              ref={scoreBubble}
-              className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
-              aria-label={
-                shortageLabel ??
-                `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
-              }
-              role="status"
-              aria-live="polite"
-            >
-              {exhaustedTile ? (
-                <>
-                  <strong>{shortageLabel}</strong>
-                  <div className="tile-inventory-actions">
-                    {canUseBlank && (
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={useBlankForExhaustedTile}
-                      >
-                        Use a blank
-                      </button>
-                    )}
+        {focused && lastPlacement && !review && !blank && !inspectCell && (
+          <div
+            ref={scoreBubble}
+            className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
+            aria-label={
+              shortageLabel ??
+              `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
+            }
+            role="status"
+            aria-live="polite"
+          >
+            {exhaustedTile ? (
+              <>
+                <strong>{shortageLabel}</strong>
+                <div className="tile-inventory-actions">
+                  {canUseBlank && (
                     <button
                       type="button"
                       disabled={disabled}
-                      onClick={finishEntry}
+                      onClick={useBlankForExhaustedTile}
                     >
-                      Check tiles
+                      Use a blank
                     </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <strong>{potentialScore ?? "—"}</strong>
-                  <span>{preview?.ok ? "pts" : "pts · check"}</span>
-                </>
-              )}
-            </div>
-          )}
+                  )}
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={finishEntry}
+                  >
+                    Check tiles
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <strong>{potentialScore ?? "—"}</strong>
+                <span>{preview?.ok ? "pts" : "pts · check"}</span>
+              </>
+            )}
+          </div>
+        )}
         {fitScreen ? (
           <footer className="persistent-entry-bar">
             <span
@@ -1148,7 +1157,10 @@ export function BoardEditor({
                 <button
                   className="icon-button"
                   aria-label="Dismiss entry message"
-                  onClick={() => setMessage(null)}
+                  onClick={() => {
+                    setMessage(null);
+                    focusInput();
+                  }}
                 >
                   ×
                 </button>
@@ -1235,67 +1247,6 @@ export function BoardEditor({
           </footer>
         )}
       </dialog>
-      {blockedSquare && (
-        <Modal
-          title="Finish this word first"
-          onClose={() => {
-            setBlockedSquare(null);
-            requestAnimationFrame(focusInput);
-          }}
-        >
-          <p>
-            Your letters are still on the board. Review this turn, or clear them
-            before starting somewhere else.
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button primary"
-              disabled={disabled}
-              onClick={() => {
-                setBlockedSquare(null);
-                finishEntry();
-              }}
-            >
-              Review current turn
-            </button>
-            <button
-              className="button light"
-              disabled={disabled}
-              onClick={() => {
-                const target = blockedSquare;
-                change({
-                  ...current.current,
-                  placements: [],
-                  row: target.row,
-                  col: target.col,
-                  atEdge: false,
-                  direction: manualDirection
-                    ? current.current.direction
-                    : inferDirection(
-                        game.board,
-                        target.row,
-                        target.col,
-                        current.current.direction,
-                      ),
-                });
-                setBlockedSquare(null);
-                requestAnimationFrame(enterFocus);
-              }}
-            >
-              Clear letters and start here
-            </button>
-            <button
-              className="text-button"
-              onClick={() => {
-                setBlockedSquare(null);
-                requestAnimationFrame(focusInput);
-              }}
-            >
-              Keep editing
-            </button>
-          </div>
-        </Modal>
-      )}
       {entryOptions && (
         <Modal title="Letter tools" onClose={() => setEntryOptions(false)}>
           {tools}
