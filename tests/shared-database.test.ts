@@ -1141,6 +1141,235 @@ suite("isolated real PostgreSQL shared family repository", () => {
     });
     expect(rows).toHaveLength(0);
   });
+  it("links an invited existing player and completes setup without duplicating history", async () => {
+    const f = await fixture();
+    await f.mutate({
+      type: "create-player",
+      id: "nate",
+      profile: { name: "Nathan" },
+    });
+    const recorded = await f.mutate({
+      type: "create-game",
+      id: randomUUID(),
+      mode: "confirmed",
+      players: [
+        { id: "nate", seat: 0 },
+        { id: "ada", seat: 2 },
+      ],
+      firstPlayerId: "nate",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    const invited = actor("nate");
+    await f.mutate({
+      type: "invite-member",
+      email: invited.email,
+      playerId: "nate",
+    });
+    await repository.admit(invited, f.familyId, randomUUID());
+    let state = await repository.readState(invited, f.familyId);
+    expect(state.member).toMatchObject({
+      playerId: "nate",
+      profileSetupPending: true,
+    });
+    const op = {
+      type: "complete-profile" as const,
+      id: "nate",
+      expectedRevision: state.member.revision!,
+      expectedPlayerRevision: 0,
+      profile: { name: "Nathan", nickname: "Nate" },
+    };
+    const requestId = randomUUID();
+    await f.mutate(op, invited, requestId);
+    expect((await f.mutate(op, invited, requestId)).replayed).toBe(true);
+    state = await repository.readState(invited, f.familyId);
+    expect(state.member).toMatchObject({
+      playerId: "nate",
+      profileSetupPending: false,
+    });
+    expect(state.players).toHaveLength(3);
+    expect(state.games.find((g) => g.id === recorded.game!.id)).toEqual(
+      recorded.game,
+    );
+    expect(state.players.find((p) => p.id === "nate")?.nickname).toBe("Nate");
+    await code(
+      f.mutate({ ...op, expectedRevision: state.member.revision! }, invited),
+      "PROFILE_ALREADY_SET",
+    );
+  });
+  it("creates and links a new member's own profile atomically, even with addPlayers disabled", async () => {
+    const f = await fixture();
+    const invited = actor("new");
+    await f.mutate({ type: "invite-member", email: invited.email });
+    await repository.admit(invited, f.familyId, randomUUID());
+    await f.mutate({
+      type: "update-member",
+      userId: invited.userId,
+      role: "member",
+      active: true,
+      playerId: null,
+      permissions: { addPlayers: false, editOwnProfile: false },
+      expectedRevision: 0,
+      reason: "Initial setup only",
+    });
+    const state = await repository.readState(invited, f.familyId);
+    await code(
+      f.mutate(
+        {
+          type: "complete-profile",
+          id: "ada",
+          expectedRevision: state.member.revision!,
+          expectedPlayerRevision: null,
+          profile: { name: "Imposter" },
+        },
+        invited,
+      ),
+      "PLAYER_EXISTS",
+    );
+    const op = {
+      type: "complete-profile" as const,
+      id: "new-player",
+      expectedRevision: state.member.revision!,
+      expectedPlayerRevision: null,
+      profile: { name: "New player" },
+    };
+    const retryId = randomUUID();
+    await Promise.all([
+      f.mutate(op, invited, retryId),
+      f.mutate(op, invited, retryId),
+    ]);
+    const after = await repository.readState(invited, f.familyId);
+    expect(after.member.playerId).toBe("new-player");
+    expect(after.players).toHaveLength(3);
+    await code(
+      f.mutate(
+        {
+          type: "update-player",
+          id: "new-player",
+          expectedRevision: 0,
+          profile: { name: "Changed" },
+        },
+        invited,
+      ),
+      "PERMISSION_DENIED",
+    );
+  });
+  it("protects reserved players and rejects stale profile setup", async () => {
+    const f = await fixture();
+    const invited = actor("reserved");
+    await f.mutate({
+      type: "create-player",
+      id: "reserved",
+      profile: { name: "Original" },
+    });
+    await f.mutate({
+      type: "invite-member",
+      email: invited.email,
+      playerId: "reserved",
+    });
+    await code(
+      f.mutate({
+        type: "invite-member",
+        email: actor("other").email,
+        playerId: "reserved",
+      }),
+      "PLAYER_ALREADY_LINKED",
+    );
+    await code(
+      f.mutate({
+        type: "update-member",
+        userId: f.guest.userId,
+        role: "member",
+        active: true,
+        playerId: "reserved",
+        reason: "Try reserved",
+      }),
+      "PLAYER_ALREADY_LINKED",
+    );
+    await repository.admit(invited, f.familyId, randomUUID());
+    await f.mutate({
+      type: "update-player",
+      id: "reserved",
+      expectedRevision: 0,
+      profile: { name: "Updated" },
+    });
+    await code(
+      f.mutate(
+        {
+          type: "complete-profile",
+          id: "reserved",
+          expectedRevision: 0,
+          expectedPlayerRevision: 0,
+          profile: { name: "Stale" },
+        },
+        invited,
+      ),
+      "REVISION_CONFLICT",
+    );
+    await code(
+      f.mutate(
+        {
+          type: "complete-profile",
+          id: "ada",
+          expectedRevision: 0,
+          expectedPlayerRevision: 0,
+          profile: { name: "Wrong" },
+        },
+        invited,
+      ),
+      "INVALID_PROFILE",
+    );
+    expect(
+      (await repository.readState(invited, f.familyId)).member
+        .profileSetupPending,
+    ).toBe(true);
+  });
+  it("does not reopen one-time setup when an administrator unlinks a completed account", async () => {
+    const f = await fixture();
+    await f.mutate({
+      type: "update-member",
+      userId: f.guest.userId,
+      role: "member",
+      active: true,
+      playerId: null,
+      reason: "Unlink profile",
+    });
+    const state = await repository.readState(f.guest, f.familyId);
+    await code(
+      f.mutate(
+        {
+          type: "complete-profile",
+          id: "another",
+          expectedRevision: state.member.revision!,
+          expectedPlayerRevision: null,
+          profile: { name: "Another player" },
+        },
+        f.guest,
+      ),
+      "PROFILE_ALREADY_SET",
+    );
+  });
+  it("allows inviters to invite but only superadmins can attach existing profiles", async () => {
+    const f = await fixture();
+    await setPermissions(f, { inviteMembers: true });
+    await f.mutate({
+      type: "create-player",
+      id: "unlinked",
+      profile: { name: "Unlinked" },
+    });
+    await code(
+      f.mutate(
+        {
+          type: "invite-member",
+          email: actor("x").email,
+          playerId: "unlinked",
+        },
+        f.guest,
+      ),
+      "FORBIDDEN",
+    );
+    await f.mutate({ type: "invite-member", email: actor("y").email }, f.guest);
+  });
   it("requires allowlisted verified email, records admission once, never re-admits revoked users", async () => {
     const f = await fixture();
     const invited = actor("invite");

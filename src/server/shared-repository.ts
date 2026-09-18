@@ -174,7 +174,16 @@ function validateMutation(input: SharedMutation) {
     "create-watch-link": ["gameId", "token"],
     "revoke-watch-link": ["gameId"],
     "take-over-scoring": ["gameId", "deviceId", "expectedGeneration", "reason"],
-    "invite-member": ["email"],
+    "complete-profile": [
+      "id",
+      "expectedRevision",
+      "expectedPlayerRevision",
+      "profile",
+    ],
+    "invite-member": [
+      "email",
+      ...(Object.hasOwn(op, "playerId") ? ["playerId"] : []),
+    ],
     "revoke-invitation": ["email"],
     "update-member": [
       "userId",
@@ -229,7 +238,17 @@ function validateMutation(input: SharedMutation) {
       "INVALID_EQUIPMENT",
       "Enter valid named sets with whole-number tile quantities and a valid default.",
     );
-  if (op.type === "create-player" || op.type === "update-player") {
+  if (
+    op.type === "create-player" ||
+    op.type === "update-player" ||
+    op.type === "complete-profile"
+  ) {
+    if (
+      op.type === "complete-profile" &&
+      op.expectedPlayerRevision !== null &&
+      !revision(op.expectedPlayerRevision)
+    )
+      reject("INVALID_REQUEST", "The profile revision is invalid.");
     if (!isValidPlayerProfile(op.profile))
       reject(
         "INVALID_PROFILE",
@@ -343,9 +362,16 @@ function validateMutation(input: SharedMutation) {
         "INVALID_APPROVAL",
         "Choose whether to approve participation or the final result.",
       );
-  } else if (op.type === "invite-member" || op.type === "revoke-invitation")
+  } else if (op.type === "invite-member" || op.type === "revoke-invitation") {
     email(op.email);
-  else if (op.type === "update-member") {
+    if (
+      op.type === "invite-member" &&
+      op.playerId !== undefined &&
+      op.playerId !== null &&
+      !safeId(op.playerId)
+    )
+      reject("INVALID_REQUEST", "Choose a valid player profile.");
+  } else if (op.type === "update-member") {
     if (
       !uuid(op.userId) ||
       !["member", "superadmin"].includes(op.role as string) ||
@@ -369,6 +395,7 @@ function member(row: postgres.Row): FamilyMember {
     role: row.role,
     active: row.active,
     playerId: row.player_id,
+    profileSetupPending: row.profile_setup_pending,
     permissions: row.permissions ?? {},
     revision: row.revision,
   };
@@ -653,6 +680,53 @@ export function createSharedRepository(
     deferred: Array<() => Promise<unknown>>,
   ): Promise<SharedMutationResult> {
     const op = input.operation;
+    if (op.type === "complete-profile") {
+      if (!who.profileSetupPending)
+        reject(
+          "PROFILE_ALREADY_SET",
+          "Your profile is already connected. Use Edit profile to change it.",
+          409,
+        );
+      if (who.revision !== op.expectedRevision)
+        reject(
+          "MEMBER_CHANGED",
+          "Your account link changed. Refresh before continuing.",
+          409,
+        );
+      if (who.playerId && who.playerId !== op.id)
+        reject(
+          "INVALID_PROFILE",
+          "Use the profile linked to your invitation.",
+          403,
+        );
+      if (who.playerId) {
+        const [existing] =
+          await tx`select revision from scrabble.players where family_id=${familyId}::uuid and id=${who.playerId}`;
+        if (!existing || existing.revision !== op.expectedPlayerRevision)
+          reject(
+            "REVISION_CONFLICT",
+            "This profile changed. Refresh before continuing.",
+            409,
+          );
+      } else if (
+        op.expectedPlayerRevision !== null ||
+        (
+          await tx`select 1 from scrabble.players where family_id=${familyId}::uuid and id=${op.id}`
+        ).length
+      )
+        reject(
+          "PLAYER_EXISTS",
+          "A new profile needs a new identity. Ask an administrator to link an existing player.",
+          409,
+        );
+      await tx`select scrabble.complete_player_profile(${op.id},${op.expectedRevision},${op.expectedPlayerRevision},${json(tx, op.profile)})`;
+      const [updated] =
+        await tx`select * from scrabble.players where family_id=${familyId}::uuid and id=${op.id}`;
+      return {
+        player: player(updated),
+        playerAccess: { revision: updated.revision, userId: actor.userId },
+      };
+    }
     if (op.type === "delete-practice-game") {
       requireAdmin(who);
       const { row, game } = await checkedGame(tx, familyId, op.gameId, true);
@@ -1235,7 +1309,38 @@ export function createSharedRepository(
             "This email already belongs to a family member. Manage their existing access.",
             409,
           );
-        await tx`insert into scrabble.invitations(family_id,email) values(${familyId}::uuid,${address}) on conflict(family_id,email) do update set active=true,revision=scrabble.invitations.revision+1`;
+        const linkedPlayer =
+          op.playerId === undefined ? (before?.player_id ?? null) : op.playerId;
+        if (linkedPlayer) {
+          requireAdmin(who);
+          if (
+            !(
+              await tx`select 1 from scrabble.players where family_id=${familyId}::uuid and id=${linkedPlayer}`
+            ).length
+          )
+            reject(
+              "PLAYER_NOT_FOUND",
+              "Choose an existing family player.",
+              404,
+            );
+          if (
+            (
+              await tx`select 1 from scrabble.memberships where family_id=${familyId}::uuid and player_id=${linkedPlayer}`
+            ).length ||
+            (
+              await tx`select 1 from scrabble.invitations where family_id=${familyId}::uuid and player_id=${linkedPlayer} and active and email<>${address}`
+            ).length
+          )
+            reject(
+              "PLAYER_ALREADY_LINKED",
+              "That player already has an account or pending invitation.",
+              409,
+            );
+        }
+        // Only administrators may change a reserved profile, including removing it.
+        if (before?.player_id && linkedPlayer !== before.player_id)
+          requireAdmin(who);
+        await tx`insert into scrabble.invitations(family_id,email,player_id) values(${familyId}::uuid,${address},${linkedPlayer}) on conflict(family_id,email) do update set active=true,player_id=excluded.player_id,revision=scrabble.invitations.revision+1`;
       } else {
         if (!before)
           reject(
@@ -1301,6 +1406,17 @@ export function createSharedRepository(
             409,
           );
       }
+      if (
+        op.playerId &&
+        (
+          await tx`select 1 from scrabble.invitations where family_id=${familyId}::uuid and player_id=${op.playerId} and active`
+        ).length
+      )
+        reject(
+          "PLAYER_ALREADY_LINKED",
+          "That profile is reserved for a pending invitation.",
+          409,
+        );
       // Audit is written while the actor remains authorized, then the access change is atomic.
       const after = {
         ...member(before),
@@ -1364,7 +1480,7 @@ export function createSharedRepository(
         const players =
           await tx`select * from scrabble.players where family_id=${familyId}::uuid order by lower(name),id limit 500`;
         const invitations = hasPermission(who, "inviteMembers")
-          ? await tx`select email,active from scrabble.invitations where family_id=${familyId}::uuid order by email limit 500`
+          ? await tx`select email,active,player_id from scrabble.invitations where family_id=${familyId}::uuid order by email limit 500`
           : [];
         const page =
           await tx`select d.game_id,d.created_at,d.created_at::text created_cursor,d.mode,h.state,h.scorer_user_id,h.scorer_device_id,h.scorer_device_hash,h.scorer_generation from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id) where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id) ${cursor ? tx`and (d.created_at,d.game_id)<(${cursor.createdAt}::text::timestamptz,${cursor.id})` : tx``} order by d.created_at desc,d.game_id desc limit 21`;
@@ -1409,6 +1525,7 @@ export function createSharedRepository(
           invitations: invitations.map((r) => ({
             email: r.email,
             active: r.active,
+            playerId: r.player_id,
           })),
           players: players.map(player),
           playerAccess: Object.fromEntries(
@@ -1470,7 +1587,8 @@ export function createSharedRepository(
     const hash = fingerprint(input.operation);
     if (
       (input.operation.type === "create-player" ||
-        input.operation.type === "update-player") &&
+        input.operation.type === "update-player" ||
+        input.operation.type === "complete-profile") &&
       input.operation.profile.photoDataUrl
     ) {
       try {

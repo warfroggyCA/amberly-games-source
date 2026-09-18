@@ -273,3 +273,19 @@
     animation: none;
   }
 }
+
+.family-profile-welcome .family-access-card {
+  width: min(100%, 580px);
+  padding-top: 24px;
+}
+.family-profile-welcome .family-welcome-rack,
+.family-profile-welcome .family-welcome-caption {
+  display: none;
+}
+.family-profile-welcome .player-profile-form {
+  text-align: left;
+  margin-top: 24px;
+}
+.family-profile-welcome .dialog-actions {
+  flex-wrap: wrap;
+}

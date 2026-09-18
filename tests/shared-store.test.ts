@@ -1475,3 +1475,28 @@ describe("member permission changes and removed practice games", () => {
     expect(store.getSnapshot().unresolved).toBe(false);
   });
 });
+
+it("retains an initial profile save when the server does not confirm its player identity", async () => {
+  fetchMock.mockResolvedValueOnce(response(state()));
+  const store = create();
+  await store.load();
+  fetchMock.mockResolvedValueOnce(response({}));
+  await expect(
+    store.administer({
+      type: "complete-profile",
+      id: "new-profile",
+      expectedRevision: 0,
+      expectedPlayerRevision: null,
+      profile: { name: "New player" },
+    }),
+  ).rejects.toThrow("did not confirm");
+  expect(store.getSnapshot().unresolved).toBe(true);
+  expect((await stored()).pending).toMatchObject({
+    mutation: {
+      operation: {
+        type: "complete-profile",
+        profile: { name: "New player" },
+      },
+    },
+  });
+});

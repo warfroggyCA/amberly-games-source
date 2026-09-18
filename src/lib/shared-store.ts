@@ -197,6 +197,7 @@ const operations = [
   "report-protest",
   "resolve-protest",
   "invite-member",
+  "complete-profile",
   "revoke-invitation",
   "update-member",
   "take-over-scoring",
@@ -523,7 +524,9 @@ function validateResult(
       0,
     );
   if (
-    (["create-player", "update-player"].includes(operation.type) &&
+    (["create-player", "update-player", "complete-profile"].includes(
+      operation.type,
+    ) &&
       (!result.player ||
         result.player.id !== (operation as { id: string }).id)) ||
     ([

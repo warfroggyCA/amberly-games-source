@@ -7,14 +7,18 @@ import "./family-access.css";
 export function FamilyWelcome({
   title,
   loading = false,
+  profile = false,
   children,
 }: {
   title: string;
   loading?: boolean;
+  profile?: boolean;
   children: ReactNode;
 }) {
   return (
-    <main className="family-access">
+    <main
+      className={`family-access${profile ? " family-profile-welcome" : ""}`}
+    >
       <div className="family-access-shell">
         <header className="family-access-header">
           <Link

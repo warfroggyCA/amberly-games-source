@@ -20,6 +20,7 @@ export type FamilyMember = {
   role: FamilyRole;
   active: boolean;
   playerId: string | null;
+  profileSetupPending?: boolean;
   permissions?: MemberPermissions;
   revision?: number;
 };
@@ -54,7 +55,11 @@ export type GameAccess = {
     resultApproved: boolean;
   }[];
 };
-export type FamilyInvitation = { email: string; active: boolean };
+export type FamilyInvitation = {
+  email: string;
+  active: boolean;
+  playerId?: string | null;
+};
 export type SharedState = {
   equipment?: Equipment;
   removedGameIds?: string[];
@@ -137,7 +142,14 @@ export type SharedOperation =
       outcome: "dismissed" | "upheld";
       reason: string;
     }
-  | { type: "invite-member"; email: string }
+  | {
+      type: "complete-profile";
+      id: string;
+      expectedRevision: number;
+      expectedPlayerRevision: number | null;
+      profile: PlayerProfileFields;
+    }
+  | { type: "invite-member"; email: string; playerId?: string | null }
   | { type: "revoke-invitation"; email: string }
   | {
       type: "update-member";

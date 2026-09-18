@@ -1,5 +1,6 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
+import { PlayerOnboarding } from "./PlayerOnboarding";
 import { FamilyHub } from "./FamilyHub";
 import { hasPermission } from "../lib/member-permissions";
 import { MemberPermissions } from "./MemberPermissions";
@@ -212,6 +213,14 @@ function FamilyWorkspace({
           </button>
         </div>
       </FamilyWelcome>
+    );
+  if (state.shared?.member.profileSetupPending)
+    return (
+      <PlayerOnboarding
+        store={store}
+        onSignOut={() => void signOut()}
+        onComplete={() => router.replace("/family")}
+      />
     );
   const renderScorer = (
     view: "Home" | "Play" | "History" | "Players" | "Records" = "Home",
@@ -479,6 +488,7 @@ function FamilyAdmin({
     store.getServerSnapshot,
   );
   const [email, setEmail] = useState("");
+  const [invitePlayerId, setInvitePlayerId] = useState("");
   const [working, setWorking] = useState(false);
   const ref = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -500,7 +510,10 @@ function FamilyAdmin({
       setNotice(
         "Family access updated. The original change remains in the audit history.",
       );
-      if (operation?.type === "invite-member") setEmail("");
+      if (operation?.type === "invite-member") {
+        setEmail("");
+        setInvitePlayerId("");
+      }
       setEditing(null);
       setRemovingInvite(null);
     } catch (e) {
@@ -601,7 +614,13 @@ function FamilyAdmin({
             className="family-invite"
             onSubmit={(e) => {
               e.preventDefault();
-              void run({ type: "invite-member", email: email.trim() });
+              void run({
+                type: "invite-member",
+                email: email.trim(),
+                ...(state.shared!.member.role === "superadmin"
+                  ? { playerId: invitePlayerId || null }
+                  : {}),
+              });
             }}
           >
             <label className="field">
@@ -615,7 +634,43 @@ function FamilyAdmin({
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
-            <button className="button primary" disabled={working}>
+            {state.shared!.member.role === "superadmin" && (
+              <label className="field">
+                Player profile for this invitation
+                <select
+                  value={invitePlayerId}
+                  disabled={working}
+                  onChange={(e) => setInvitePlayerId(e.target.value)}
+                >
+                  <option value="">Create their profile when they join</option>
+                  {state.data.players
+                    .filter(
+                      (p) =>
+                        !state.shared!.playerAccess[p.id]?.userId &&
+                        !state.shared!.invitations.some(
+                          (i) =>
+                            i.active &&
+                            i.playerId === p.id &&
+                            i.email !== email.trim().toLowerCase(),
+                        ),
+                    )
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nickname ? `${p.nickname} (${p.name})` : p.name}
+                      </option>
+                    ))}
+                </select>
+                <small>
+                  Choose their existing player to keep all game history
+                  together. They can confirm their name, nickname and photo when
+                  they join.
+                </small>
+              </label>
+            )}
+            <button
+              className="button primary"
+              disabled={working || !!state.pending || !!state.unresolved}
+            >
               Allow this person to join
             </button>
           </form>
@@ -631,6 +686,14 @@ function FamilyAdmin({
                 <li key={member.userId}>
                   <div>
                     <strong>{member.email}</strong>
+                    <span>
+                      {member.playerId
+                        ? `Player: ${state.data.players.find((p) => p.id === member.playerId)?.name ?? member.playerId}`
+                        : "No linked player — choose one in Permissions"}
+                      {member.profileSetupPending
+                        ? " · Profile setup pending"
+                        : ""}
+                    </span>
                     <span>
                       {member.role === "superadmin" ? "Superadmin" : "Member"} ·{" "}
                       {member.active ? "Active" : "Access revoked"}
@@ -651,7 +714,13 @@ function FamilyAdmin({
             .shared!.invitations.filter((i) => i.active)
             .map((invite) => (
               <div className="family-invitation" key={invite.email}>
-                <span>{invite.email} · Invitation available</span>
+                <span>
+                  {invite.email} · Invitation available
+                  <br />
+                  {invite.playerId
+                    ? `Player: ${state.data.players.find((p) => p.id === invite.playerId)?.name ?? invite.playerId}`
+                    : "Creates a player profile when they join"}
+                </span>
                 <button
                   className="text-button"
                   disabled={working}

@@ -43,3 +43,15 @@ Apply the migration before publishing the matching API, after separately approvi
 Do not roll back to an older API after enabling restrictions or removing tests: earlier API versions do not implement all capability and removal checks. Prefer a forward fix or a rollback build that retains this authorization layer. Keep the additive schema and audit evidence intact.
 
 Verification covers direct API denial, SQL read isolation, stale forms, simultaneous access updates, duplicate retries, permission removal during scoring, cached practice visibility after demotion, removed-game replay, finalized results, transaction failure rollback, and touch controls across Chromium desktop and WebKit phone/tablet/landscape. These are isolated browser tests, not physical iPhone/iPad acceptance.
+
+## Invitations and player onboarding
+
+Invitations may reserve an existing player profile. In **Family access**, a superadmin selects **Player profile for this invitation**, or leaves **Create their profile when they join**. The recipient signs in using the invited, verified email and accepts the invitation. Acceptance links the reserved player atomically and opens **Set up your player profile**. The recipient confirms their real name and can set a nickname, cropped photo and bio; saving returns to Games.
+
+There is one profile across Scrabble and Crokinole. Existing game IDs, player IDs and historical name snapshots are unchanged. Accounts and pending invitations now show their player link in Family access. Existing accounts are not guessed or matched by name: a superadmin can still connect them through Permissions → Role & player profile. Email-only invitations advise recipients already in the roster to request that link rather than create a duplicate.
+
+Only superadmins can reserve or change an existing profile link. Members with Invite people permission can still issue email-only invitations. A profile cannot be reserved for two active invitations or linked to two accounts. Initial profile completion is a narrow one-time permission, even if general Add players/Edit own profile permissions are disabled. Once completed, the ordinary permission switches govern further edits. A recipient cannot use onboarding to claim an arbitrary existing player or change their role/permissions.
+
+Profile completion uses the existing retained-request mechanism: uncertain saves survive reload and retry the same request. Member and player revisions protect against concurrent changes. The profile write, account link, completion flag and audit record commit together.
+
+The additive migration `20260918003644_invitation_player_onboarding.sql` must be applied before this API is published. It adds nullable invitation player links and a setup flag, and narrowly scoped admission/completion functions in the private schema. Existing memberships default to no onboarding prompt. No historical games are rewritten. Hosted migration and publication require the normal release approval; local verification is not a hosted release. For rollback, keep the additive columns and data; prefer a forward fix because older application versions do not show pending onboarding.
