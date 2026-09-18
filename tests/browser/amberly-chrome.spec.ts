@@ -43,7 +43,7 @@ test("shared menu preserves Crokinole drafts and reaches the same settings from 
     .filter({
       has: page.getByRole("heading", { name: "Crokinole", exact: true }),
     })
-    .getByRole("button", { name: "Resume scoring" })
+    .getByRole("button", { name: "Resume game" })
     .click();
   await page.getByRole("button", { name: "Continue entry" }).click();
   await expect(
@@ -53,11 +53,18 @@ test("shared menu preserves Crokinole drafts and reaches the same settings from 
   await page
     .getByRole("link", { name: "Amberly Games — Home", exact: true })
     .click();
-  await page.getByRole("button", { name: "Open Scrabble" }).click();
-  await expect(page).toHaveURL(/\/family\/scrabble$/);
-  await expect(
-    page.getByRole("button", { name: "New game", exact: false }),
-  ).toBeVisible();
+  await page
+    .locator(".hub-game")
+    .filter({
+      has: page.getByRole("heading", { name: "Scrabble", exact: true }),
+    })
+    .getByRole("button", { name: "Start game", exact: true })
+    .click();
+  const setup = page.getByRole("dialog", { name: "Set the table" });
+  await expect(setup).toContainText("0 of 4 seats filled");
+  await setup.getByRole("button", { name: "Close dialog" }).click();
+  await expect(page).toHaveURL(/\/family$/);
+  await page.goto("/family/scrabble");
   await page.getByRole("button", { name: "Open game menu" }).click();
   await page
     .getByRole("dialog", { name: "Amberly Games", exact: true })
@@ -129,4 +136,69 @@ test("saving a round stays available during background draft synchronization", a
     page.getByRole("button", { name: "Add Round 2", exact: true }),
   ).toBeVisible();
   expect(fixture.game().totals).toEqual({ doug: 65, erin: 0 });
+});
+
+test("new Scrabble opens empty seats without replacing saved games", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  const { createGame } = await import("../../src/domain/game");
+  const { testLexicon } = await import("../../src/lib/test-lexicon");
+  const saved = createGame({
+    id: "existing-table",
+    players: [
+      { id: "doug", name: "Doug", seat: 0 },
+      { id: "erin", name: "Erin", seat: 2 },
+    ],
+    firstPlayerId: "doug",
+    direction: "clockwise",
+    lexicon: testLexicon,
+  });
+  if (!saved.ok) throw new Error(saved.error.message);
+  fixture.family.games.push(saved.game);
+  const before = JSON.stringify(fixture.family.games);
+  await page.goto("/family");
+  await page
+    .locator(".hub-game")
+    .filter({
+      has: page.getByRole("heading", { name: "Scrabble", exact: true }),
+    })
+    .getByRole("button", { name: "Start game", exact: true })
+    .click();
+  await expect(page).toHaveURL(/view=new/);
+  const setup = page.getByRole("dialog", { name: "Set the table" });
+  await expect(setup).toContainText("0 of 4 seats filled");
+  await expect(
+    setup.getByRole("button", { name: "Start game", exact: true }),
+  ).toBeDisabled();
+  await expect(setup.locator(".roster-player")).toHaveCount(4);
+  await setup.getByRole("button", { name: "Close dialog" }).click();
+  await expect(page).toHaveURL(/\/family$/);
+  await page
+    .locator(".hub-game")
+    .filter({
+      has: page.getByRole("heading", { name: "Scrabble", exact: true }),
+    })
+    .getByRole("button", { name: "Start game", exact: true })
+    .click();
+  await expect(setup).toContainText("0 of 4 seats filled");
+  expect(JSON.stringify(fixture.family.games)).toBe(before);
+});
+
+test("both game cards offer Start game and no Resume without an underway game", async ({
+  page,
+}) => {
+  await installFixture(page);
+  await page.goto("/family");
+  for (const game of ["Scrabble", "Crokinole"]) {
+    const card = page
+      .locator(".hub-game")
+      .filter({ has: page.getByRole("heading", { name: game, exact: true }) });
+    await expect(
+      card.getByRole("button", { name: "Start game", exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByRole("button", { name: "Resume game", exact: true }),
+    ).toHaveCount(0);
+  }
 });

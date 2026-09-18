@@ -215,10 +215,12 @@ function FamilyWorkspace({
     );
   const renderScorer = (
     view: "Home" | "Play" | "History" | "Players" | "Records" = "Home",
+    newGame = false,
   ) => (
     <ScorerApp
-      key={view}
+      key={`${view}-${newGame}`}
       initialView={view}
+      initialNewGame={newGame}
       onHome={hubEnabled ? () => router.push("/family") : undefined}
       onNavigate={hubEnabled ? (path) => router.push(path) : undefined}
       store={store}

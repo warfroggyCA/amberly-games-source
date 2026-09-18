@@ -90,11 +90,13 @@ export function ScorerApp({
   shareControl,
   liveContext,
   initialView = "Home",
+  initialNewGame = false,
   onHome,
   onNavigate,
 }: {
   store?: ScorerStore;
   initialView?: View;
+  initialNewGame?: boolean;
   onHome?: () => void;
   onNavigate?: (path: string) => void;
   liveContext?: LiveContext;
@@ -133,7 +135,7 @@ export function ScorerApp({
     | "counts"
     | "extra-tiles"
     | null
-  >(null);
+  >(initialNewGame && canStart ? "setup" : null);
   const [countOrigin, setCountOrigin] = useState<"bag" | "end" | "assist">(
     "bag",
   );
@@ -365,6 +367,7 @@ export function ScorerApp({
     if (success) {
       setModal(null);
       setView("Play");
+      if (initialNewGame) onNavigate?.("/family/scrabble?view=play");
     }
   }
   async function autoFinish(all: boolean) {
@@ -1598,7 +1601,10 @@ export function ScorerApp({
           allowPractice={!shared || state.shared?.member.role === "superadmin"}
           onAdd={addPlayer}
           onStart={startGame}
-          onClose={() => setModal(null)}
+          onClose={() => {
+            setModal(null);
+            if (initialNewGame) onHome?.();
+          }}
           error={error}
         />
       )}

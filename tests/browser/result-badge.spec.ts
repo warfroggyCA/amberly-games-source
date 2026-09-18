@@ -96,7 +96,7 @@ test("winner badge pops up, downloads, shares without a private link, and remain
   await expect(badge).toBeVisible();
 });
 
-test("other members see View current game instead of Resume scoring", async ({
+test("other members see View current game instead of Resume game", async ({
   page,
 }) => {
   const fixture = await installFixture(page);
@@ -113,7 +113,7 @@ test("other members see View current game instead of Resume scoring", async ({
     page.getByRole("button", { name: "View current game", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Resume scoring", exact: true }),
+    page.getByRole("button", { name: "Resume game", exact: true }),
   ).toHaveCount(0);
 });
 

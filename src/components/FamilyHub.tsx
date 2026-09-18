@@ -46,6 +46,7 @@ export function FamilyHub({
   userId: string;
   renderScrabble: (
     view?: "Home" | "Play" | "History" | "Players" | "Records",
+    newGame?: boolean,
   ) => ReactNode;
   onAdmin: () => void;
   onSignOut: () => Promise<void>;
@@ -346,6 +347,7 @@ export function FamilyHub({
             : search.get("view") === "records"
               ? "Records"
               : "Home",
+          search.get("view") === "new",
         )}
       </>
     );
@@ -794,15 +796,19 @@ export function FamilyHub({
                     >
                       {shared.gameAccess[resumeScrabble.id]?.scorerUserId ===
                       userId
-                        ? "Resume scoring"
+                        ? "Resume game"
                         : "View current game"}
                     </button>
                   )}
                   <button
                     className={`button ${resumeScrabble ? "light" : "primary"}`}
-                    onClick={() => void navigate("/family/scrabble")}
+                    disabled={
+                      !hasPermission(shared.member, "startGames") ||
+                      !hasPermission(shared.member, "scoreGames")
+                    }
+                    onClick={() => void navigate("/family/scrabble?view=new")}
                   >
-                    Open Scrabble
+                    Start game
                   </button>
                 </div>
               </div>
@@ -830,7 +836,7 @@ export function FamilyHub({
                     >
                       {state.access[resumeCroke.definition.id]?.scorerUserId ===
                       userId
-                        ? "Resume scoring"
+                        ? "Resume game"
                         : "View current game"}
                     </button>
                   )}
@@ -845,7 +851,7 @@ export function FamilyHub({
                             : void navigate("/family/crokinole/new")
                         }
                       >
-                        New Crokinole game
+                        Start game
                       </button>
                     )}
                   {!state.creationEnabled && (

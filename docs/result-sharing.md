@@ -1,6 +1,6 @@
 # Viewing and sharing results
 
-The shared Games hub labels an active game's action **Resume scoring** for its designated scorer and **View current game** for other signed-in members. Viewing does not transfer scoring ownership.
+The shared Games hub labels an active game's action **Resume game** for its designated scorer and **View current game** for other signed-in members. Viewing does not transfer scoring ownership. Both game cards offer **Start game** for setup; Resume/View appears only for an unfinished game. Scrabble starts with empty seats and retains the roster for selection. Cancelling setup returns to Games without changing existing games.
 
 Scrabble and Crokinole show a dismissible crown badge when an open game transitions to a completed result. Historical results offer **Share result** without automatically reopening the celebration. Ties name all winners. Solo Scrabble has no competitive badge, and Crokinole games ended early declare no winner.
 
