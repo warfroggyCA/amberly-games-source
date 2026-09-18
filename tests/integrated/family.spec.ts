@@ -11,6 +11,7 @@ const identities = JSON.parse(
   process.env.AMBERLY_INTEGRATED_IDENTITIES!,
 ) as Record<"owner" | "member", { id: string; email: string }>;
 const origin = process.env.AMBERLY_INTEGRATED_ORIGIN!;
+const authOrigin = process.env.AMBERLY_INTEGRATED_AUTH_ORIGIN!;
 async function signIn(page: Page, email: string) {
   await page.goto("/family");
   await page.getByLabel("Your email", { exact: true }).fill(email);
@@ -39,6 +40,55 @@ test("real invitation/profile, persisted scoring, final history, and reduced per
   await expect(
     owner.getByRole("heading", { name: "What are we playing?" }),
   ).toBeVisible();
+  // Model elapsed time in the already-issued synthetic session. Keep its real
+  // fixture credentials intact so the production SSR client must renew them.
+  const authCookies = (await owner.context().cookies(origin)).filter((cookie) =>
+    /^sb-.+-auth-token$/.test(cookie.name),
+  );
+  expect(authCookies).toHaveLength(1);
+  const cookie = authCookies[0];
+  expect(cookie.httpOnly).toBe(true);
+  expect(cookie.value.startsWith("base64-")).toBe(true);
+  const before = JSON.parse(
+    Buffer.from(cookie.value.slice(7), "base64url").toString(),
+  );
+  const observationBefore = await (
+    await owner.request.get(`${authOrigin}/__fixture/observations`)
+  ).json();
+  await owner.context().addCookies([
+    {
+      ...cookie,
+      value: `base64-${Buffer.from(JSON.stringify({ ...before, expires_at: Math.floor(Date.now() / 1000) - 60 })).toString("base64url")}`,
+    },
+  ]);
+  await owner.reload();
+  await expect(
+    owner.getByRole("heading", { name: "What are we playing?" }),
+  ).toBeVisible();
+  const observationAfter = await (
+    await owner.request.get(`${authOrigin}/__fixture/observations`)
+  ).json();
+  expect(observationAfter.refreshCalls[identities.owner.id]).toBeGreaterThan(
+    observationBefore.refreshCalls[identities.owner.id] ?? 0,
+  );
+  const renewedCookie = (await owner.context().cookies(origin)).find(
+    (candidate) => candidate.name === cookie.name,
+  )!;
+  expect(renewedCookie.httpOnly).toBe(true);
+  const renewed = JSON.parse(
+    Buffer.from(renewedCookie.value.slice(7), "base64url").toString(),
+  );
+  expect(renewed.expires_at).toBeGreaterThan(
+    Math.floor(Date.now() / 1000) + 3000,
+  );
+  expect(renewed.access_token !== before.access_token).toBe(true);
+  expect(renewed.refresh_token !== before.refresh_token).toBe(true);
+  const authenticated = await owner.request.get("/api/auth/session");
+  expect(authenticated.ok()).toBe(true);
+  expect((await authenticated.json()).user.id).toBe(identities.owner.id);
+  const continued = await owner.request.get("/api/family");
+  expect(continued.ok()).toBe(true);
+  expect((await continued.json()).member.userId).toBe(identities.owner.id);
   await mutate(owner.request, {
     type: "invite-member",
     email: identities.member.email,

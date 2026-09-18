@@ -19,10 +19,17 @@ finalization and idempotent retry also pass through real application HTTP routes
 No application API requests are intercepted. Screenshots and failure traces go to
 `output/integrated-tests`, separate from the ordinary browser suite.
 
+Session renewal is deterministic: the test ages only the expiry metadata in an
+already-issued synthetic session cookie while preserving its valid credentials.
+The production SSR client then calls the local refresh endpoint. The test checks
+the provider call counter, rotated tokens and fresh expiry in the returned
+HttpOnly cookie, and continued authenticated session/family reads. No clock
+sleeps or product authentication bypasses are used.
+
 Only the external Supabase Auth service is simulated: a loopback HTTP fixture
 implements the email OTP, verification, user and refresh endpoints for two
 synthetic users. This proves application integration with the auth client and
-cookie flow (session refresh is not exercised); it does **not** prove real email delivery, OAuth consent, hosted
+cookie flow and session renewal; it does **not** prove real email delivery, OAuth consent, hosted
 Supabase configuration, deployment health or physical-device behaviour.
 
 The harness stops its servers and deletes its database on completion or failure.

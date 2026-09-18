@@ -128,7 +128,8 @@ try {
 
   const signingKey = randomBytes(32),
     accessTokens = new Map(),
-    refreshTokens = new Map();
+    refreshTokens = new Map(),
+    refreshCalls = new Map();
   function userRecord(identity) {
     return {
       ...identity,
@@ -153,6 +154,7 @@ try {
         aud: "authenticated",
         role: "authenticated",
         email: identity.email,
+        jti: randomUUID(),
         iat: now,
         exp: now + 3600,
       },
@@ -190,6 +192,8 @@ try {
         ? JSON.parse(Buffer.concat(chunks).toString())
         : {};
       const path = new URL(request.url, "http://127.0.0.1").pathname;
+      if (path === "/__fixture/observations" && request.method === "GET")
+        return send(200, { refreshCalls: Object.fromEntries(refreshCalls) });
       const identity = Object.values(identities).find(
         (user) => user.email === body.email,
       );
@@ -209,9 +213,9 @@ try {
       }
       if (path === "/auth/v1/token" && request.method === "POST") {
         const user = refreshTokens.get(body.refresh_token);
-        return user
-          ? send(200, session(user))
-          : send(401, { message: "Unknown fixture refresh" });
+        if (!user) return send(401, { message: "Unknown fixture refresh" });
+        refreshCalls.set(user.id, (refreshCalls.get(user.id) ?? 0) + 1);
+        return send(200, session(user));
       }
       if (path === "/auth/v1/logout" && request.method === "POST")
         return send(200, {});
@@ -241,6 +245,7 @@ try {
     SCRABBLE_FAMILY_ID: familyId,
     AMBERLY_CROKINOLE_ENABLED: "true",
     AMBERLY_INTEGRATED_ORIGIN: origin,
+    AMBERLY_INTEGRATED_AUTH_ORIGIN: `http://127.0.0.1:${auth.address().port}`,
     AMBERLY_INTEGRATED_IDENTITIES: JSON.stringify(identities),
   });
   const server = child(
@@ -289,6 +294,11 @@ try {
       ],
       env,
     ),
+  );
+  if (!(refreshCalls.get(identities.owner.id) > 0))
+    throw new Error("The integrated journey did not exercise session renewal.");
+  console.log(
+    "Session renewal verified: the real SSR auth client refreshed the synthetic owner's session through the local provider fixture.",
   );
 } finally {
   await Promise.all([...children].map(stop));

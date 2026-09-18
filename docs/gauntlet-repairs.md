@@ -23,7 +23,7 @@ Acceptance is observable behavior, not a test count:
 | U1 hidden amendment history | Read-only Changes disclosure, prior/new totals/results, reason, retained raw entries, excluded rounds; bounded rendering | Six projection cases, four-layout History-to-viewer journey |
 | U2 landscape score visibility | Compact match heading/rules on short screens; reset scroll only on match identity change | Four-long-name landscape viewport assertions and screenshots |
 | Optional Play again | New confirmed setup from prior player arrangement; new ID and existing append-only create path | Complete Scrabble finish/reload/replay browser journey |
-| Integrated test gap | Normal sign-in/cookies and actual app APIs, RLS-backed repositories and real disposable PostgreSQL; only external Auth service is simulated | `npm run test:integrated`, included in `npm run check` and CI |
+| Integrated test gap | Normal sign-in/cookies, deterministic SSR session renewal and actual app APIs, RLS-backed repositories and real disposable PostgreSQL; only external Auth service is simulated | `npm run test:integrated`, included in `npm run check` and CI |
 | Restore identity gap | Restored app-schema test exercises original UUID access, restricted role/grants, revoked/new-UUID denial, scorer write, retry and stale revision | Existing actual database restore rehearsal extended; provider Auth remains outside this evidence |
 
 ## Independent critique and verification
