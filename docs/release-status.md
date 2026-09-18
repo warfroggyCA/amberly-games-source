@@ -2,6 +2,12 @@
 
 This is the release ledger. Older milestone documents describe what was known at that milestone; they are not the current deployment record.
 
+## Local review-footer correction after ecb2ada deployment
+
+Preview was subsequently verified on `ecb2adae1a535f8f9457a60e53745626d23f586a`, deployment `dpl_ChnHcVd9Z8e4PAWYf3hWKVciCg6i`, with [successful exact-commit CI](https://github.com/warfroggyCA/amberly-games-source/actions/runs/35382399158), release gate and hosted smoke checks. The sections below retain earlier milestones.
+
+Physical iPhone feedback found that the landscape turn-review buttons needed scrolling. The local follow-up keeps the title and action footer visible while only review details scroll, and compacts spacing on short screens. The regression failed against ecb2ada; build/TypeScript and 32 focused browser checks passed after the change, including normal and correction review states. This follow-up is not deployed and still needs the full release gate and physical acceptance. No persistence or hosted changes are included.
+
 ## Unreleased second keyboard follow-up
 
 After the release below, physical iPhone feedback confirmed portrait improvement but exposed a clipped vertical word in landscape and an unresponsive blocked-square dialog. The local follow-up reserves landscape keyboard space for the word with a side control rail, keeps entered letters in view, and replaces the rejected-square modal with a dismissible warning that preserves draft, cursor and typing focus. Review and Clear letters remain available through their existing controls.

@@ -211,4 +211,73 @@ test("vertical entry stays readable through short landscape rotation and acciden
   await expect(
     page.getByRole("button", { name: "Record 5 points", exact: true }),
   ).toBeEnabled();
+  const dialog = page.getByRole("dialog", { name: "Review this turn" });
+  for (const size of [
+    { width: 844, height: 390 },
+    { width: 667, height: 320 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size);
+    await keyboardViewport(page, size.height);
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          const actions = Array.from(
+            element.querySelectorAll(".dialog-actions button"),
+          );
+          return (
+            actions.length === 2 &&
+            actions.every((button) => {
+              const rect = button.getBoundingClientRect();
+              return (
+                rect.top >= Math.max(0, bounds.top) &&
+                rect.bottom <= Math.min(window.innerHeight, bounds.bottom) &&
+                rect.left >= bounds.left &&
+                rect.right <= bounds.right
+              );
+            })
+          );
+        }),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`review-actions-${size.width}-${size.height}.png`),
+    });
+  }
+  await dialog
+    .getByRole("button", { name: "Keep editing", exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("cell-H9")).toHaveAccessibleName(
+    "H9 O, 1 points",
+  );
+  await expect(page.getByTestId("cell-H10")).toHaveAccessibleName(
+    "H10 G, 2 points",
+  );
+  await input.pressSequentially("Q");
+  await review.click();
+  await expect(dialog).toContainText("This turn needs a correction");
+  await page.setViewportSize({ width: 667, height: 320 });
+  await keyboardViewport(page, 320);
+  await expect
+    .poll(() =>
+      dialog.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        const button = element.querySelector(".dialog-actions button")!;
+        const rect = button.getBoundingClientRect();
+        return (
+          rect.top >= Math.max(0, bounds.top) &&
+          rect.bottom <= Math.min(window.innerHeight, bounds.bottom)
+        );
+      }),
+    )
+    .toBe(true);
+  await dialog
+    .getByRole("button", { name: "Keep editing", exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId("cell-H11")).toHaveAccessibleName(
+    "H11 Q, 10 points",
+  );
 });

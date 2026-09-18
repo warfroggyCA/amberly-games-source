@@ -1346,55 +1346,61 @@ export function BoardEditor({
         </Modal>
       )}
       {review && preview && !preview.ok && (
-        <Modal title="Review this turn" onClose={returnToLetters}>
-          <p>This turn needs a correction before it can be recorded.</p>
-          <div
-            className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
-            role={inventoryWarning ? "alert" : "status"}
-          >
-            <span>
-              {formedWords.length === 0 &&
-              preview &&
-              !preview.ok &&
-              preview.error.words?.length ? (
-                <strong className="entry-rejected-words">
-                  Check the complete word
-                  {preview.error.words.length > 1 ? "s" : ""}:{" "}
-                  {preview.error.words.join(", ")}
-                </strong>
-              ) : null}
-              {shortages.length > 0 ? (
-                <>
-                  {shortages.map(({ letter, count }) => (
-                    <strong className="inventory-shortfall" key={letter}>
-                      {letter === "?" ? "Blank" : letter}: this play needs{" "}
-                      {count} more physical {letter === "?" ? "blank" : letter}{" "}
-                      tile
-                      {count === 1 ? "" : "s"} than this set contains.
-                    </strong>
-                  ))}
-                  <small className="inventory-blank-note">
-                    If a letter is an actual blank tile, enter it with Blank or
-                    Space. A blank uses the blank supply, not the letter it
-                    represents.
-                  </small>
-                </>
-              ) : (
-                validationMessage
+        <Modal
+          title="Review this turn"
+          className="turn-review-modal"
+          onClose={returnToLetters}
+        >
+          <div className="turn-review-content">
+            <p>This turn needs a correction before it can be recorded.</p>
+            <div
+              className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
+              role={inventoryWarning ? "alert" : "status"}
+            >
+              <span>
+                {formedWords.length === 0 &&
+                preview &&
+                !preview.ok &&
+                preview.error.words?.length ? (
+                  <strong className="entry-rejected-words">
+                    Check the complete word
+                    {preview.error.words.length > 1 ? "s" : ""}:{" "}
+                    {preview.error.words.join(", ")}
+                  </strong>
+                ) : null}
+                {shortages.length > 0 ? (
+                  <>
+                    {shortages.map(({ letter, count }) => (
+                      <strong className="inventory-shortfall" key={letter}>
+                        {letter === "?" ? "Blank" : letter}: this play needs{" "}
+                        {count} more physical{" "}
+                        {letter === "?" ? "blank" : letter} tile
+                        {count === 1 ? "" : "s"} than this set contains.
+                      </strong>
+                    ))}
+                    <small className="inventory-blank-note">
+                      If a letter is an actual blank tile, enter it with Blank
+                      or Space. A blank uses the blank supply, not the letter it
+                      represents.
+                    </small>
+                  </>
+                ) : (
+                  validationMessage
+                )}
+              </span>
+              {inventoryWarning && onRequestExtraTiles && (
+                <button
+                  className="button light"
+                  onClick={() => {
+                    setReview(false);
+                    exitFocus();
+                    onRequestExtraTiles(current.current.placements);
+                  }}
+                >
+                  Use anyway…
+                </button>
               )}
-            </span>
-            {inventoryWarning && onRequestExtraTiles && (
-              <button
-                className="button light"
-                onClick={() => {
-                  setReview(false);
-                  exitFocus();
-                  onRequestExtraTiles(current.current.placements);
-                }}
-              >
-                Use anyway…
-              </button>
-            )}
+            </div>
           </div>
           <div className="dialog-actions">
             {canUseBlank && (
@@ -1435,43 +1441,46 @@ export function BoardEditor({
       {review && preview?.ok && (
         <Modal
           title="Review this turn"
+          className="turn-review-modal"
           onClose={() => {
             if (!recordingRef.current) returnToLetters();
           }}
         >
-          <p className="muted">
-            {player.name} · Checked against {wordReference.shortLabel}
-          </p>
-          <div className="score-breakdown">
-            {preview.words.map((w) => (
-              <ReviewWord
-                key={`${w.row}-${w.col}-${w.direction}`}
-                word={w}
-                board={preview.board}
-                placements={preview.placements}
-              />
-            ))}
-            {preview.bingo > 0 && (
-              <div>
-                <strong>Seven-tile bonus</strong>
-                <span>+{preview.bingo}</span>
-              </div>
-            )}
-            <div className="total">
-              <strong>Turn total</strong>
-              <strong>{preview.score}</strong>
-            </div>
-          </div>
-          <p className="review-tile-key">
-            Outlined tiles are new. Faded multipliers marked “used” do not score
-            again.
-          </p>
-          {recordError && (
-            <p role="alert" className="inline-message">
-              This turn could not be saved. Your letters are retained. Keep
-              editing to see the recovery message.
+          <div className="turn-review-content">
+            <p className="muted">
+              {player.name} · Checked against {wordReference.shortLabel}
             </p>
-          )}
+            <div className="score-breakdown">
+              {preview.words.map((w) => (
+                <ReviewWord
+                  key={`${w.row}-${w.col}-${w.direction}`}
+                  word={w}
+                  board={preview.board}
+                  placements={preview.placements}
+                />
+              ))}
+              {preview.bingo > 0 && (
+                <div>
+                  <strong>Seven-tile bonus</strong>
+                  <span>+{preview.bingo}</span>
+                </div>
+              )}
+              <div className="total">
+                <strong>Turn total</strong>
+                <strong>{preview.score}</strong>
+              </div>
+            </div>
+            <p className="review-tile-key">
+              Outlined tiles are new. Faded multipliers marked “used” do not
+              score again.
+            </p>
+            {recordError && (
+              <p role="alert" className="inline-message">
+                This turn could not be saved. Your letters are retained. Keep
+                editing to see the recovery message.
+              </p>
+            )}
+          </div>
           <div className="dialog-actions">
             <button
               className="button light"
