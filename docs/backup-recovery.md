@@ -6,7 +6,15 @@ The operator tool captures the entire `scrabble` schema as a consistent PostgreS
 
 The database test suite uses this actual tool, compares row counts and ordered-content digests for **every** application table, rejects a damaged archive, and refuses overwriting an existing backup. A separate database test restores original grants, while the normal database suite tests runtime permissions. The isolated operator rehearsal deliberately skips grants and changes ownership, so its success proves data/schema recovery, not reconstruction of hosted permissions.
 
-**Hosted capture, scheduled backups, off-device storage and key custody are not yet configured by this milestone.** No claim is made that a current hosted backup exists. Supabase Auth identities, OAuth/provider configuration, database login roles/passwords, platform settings, and other schemas are outside this application-schema archive. The membership records retain Auth UUIDs, but a new Supabase project requires explicit identity recovery/mapping and configuration validation before reopening writes. Browser-local drafts/previews require their own in-app exports.
+**The original milestone did not establish hosted capture, scheduling, off-device storage or key custody.** Their current status must be verified separately; the repair review could not inspect the signed-out dashboard. No claim is made that provider backups are absent or that a current recoverable hosted backup exists. Supabase Auth identities, OAuth/provider configuration, database login roles/passwords, platform settings, and other schemas are outside this application-schema archive. The membership records retain Auth UUIDs, but a new Supabase project requires explicit identity recovery/mapping and configuration validation before reopening writes. Browser-local drafts/previews require their own in-app exports.
+
+The separate restored-database test now verifies access through the restricted application role using the original account UUID, denial for a revoked UUID and a different UUID with the same email, and safe scorer write/retry/stale-revision behavior. This proves restored application identity mappings and grants; it does not recover external Auth accounts or prove key custody.
+
+## Hosted evidence required before recovery acceptance
+
+Record the existing backup's timestamp, source project, retention window, migration baseline and available restore target. Confirm operator access and separately held key custody without putting keys in logs or Git. Rehearse into an isolated target, compare application table digests, and prove account UUID mappings, current permissions, scorer generation and private-test isolation before considering it recoverable. A new account with an old email must never inherit access automatically. Document the measured recovery point/time and any records outside the snapshot.
+
+Use existing provider/operator backups before adding infrastructure. Inspect [Supabase backup scope](https://supabase.com/docs/guides/platform/backups), including separately configured role credentials and storage objects, when assembling the complete recovery checklist. Do not initiate a hosted restore or change a paid backup setting without its separate authorization.
 
 ## Operator capture
 

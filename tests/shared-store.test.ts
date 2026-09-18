@@ -726,7 +726,7 @@ describe("shared history refresh", () => {
     expect(store.getSnapshot().data.activeGameId).toBe("older-game");
   });
 
-  it("retains a stale draft and blocks scoring instead of silently erasing letters", async () => {
+  it("retains a stale draft and blocks only that game instead of silently erasing letters", async () => {
     await seed(local({ "game-1": draft() }));
     const store = create();
     await store.load();
@@ -743,7 +743,8 @@ describe("shared history refresh", () => {
     if (!result.ok) throw new Error(result.error.message);
     fetchMock.mockResolvedValueOnce(response(state([result.game])));
     await store.refresh!();
-    expect(store.getSnapshot().status).toBe("error");
+    expect(store.getSnapshot().status).toBe("ready");
+    expect(store.getSnapshot().draftConflicts).toEqual(["game-1"]);
     expect(store.getSnapshot().data.drafts["game-1"]).toEqual(draft());
     expect(store.canScore!("game-1")).toBe(false);
     expect((await stored()).drafts).toEqual({ "game-1": draft() });

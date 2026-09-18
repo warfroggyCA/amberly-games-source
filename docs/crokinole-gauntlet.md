@@ -1,6 +1,6 @@
 # Crokinole implementation and Gauntlet record
 
-Status: local implementation and integrated Gauntlet verification complete on 2026-09-17; not published and no hosted migration applied.
+Historical milestone status at the time of this record: local implementation and integrated Gauntlet verification completed on 2026-09-17, before publication/hosted migration. See the [release ledger](release-status.md) for subsequent deployment evidence and repairs; this line is not the current release state.
 
 Baseline: `8a1bfdb8941d7729d4013617284381180882f596` on `polish-watch-sharing`. Implementation branch: `codex/crokinole-shared-hub`.
 

@@ -16,6 +16,7 @@ import {
 } from "../../domain/crokinole";
 import type { CrokinoleDefaults } from "../../domain/crokinole-defaults";
 import { CrokinoleRules } from "./CrokinoleRules";
+import { CrokinoleChanges } from "./CrokinoleChanges";
 import type { SavedPlayer } from "../../lib/preview-store";
 import { Modal } from "../Modal";
 import { PlayerAvatar } from "../PlayerAvatar";
@@ -34,6 +35,7 @@ export type CrokinoleAppProps = {
   defaults?: CrokinoleDefaults;
   onAddPlayer?: () => void;
   players: SavedPlayer[];
+  actorNames?: Record<string, string>;
   palette: PieceColour[];
   match: CrokinoleGame | null;
   canScore: boolean;
@@ -105,6 +107,16 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
   const leaders = match
     ? participants.filter((p) => match.totals[p.id] === maximum)
     : [];
+  const matchId = match?.definition.id;
+  useEffect(() => {
+    if (!matchId) return;
+    // Setup can end below the fold. Enter each match at its scoreboard, while
+    // ordinary score updates and polling preserve the reader's scroll position.
+    const frame = requestAnimationFrame(() =>
+      window.scrollTo({ top: 0, behavior: "instant" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [matchId]);
   useEffect(() => {
     if (match && match.rounds.length > previousRoundCount.current)
       matrix.current?.scrollTo({
@@ -370,22 +382,26 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
         />
       ) : (
         <>
-          <span className="eyebrow">
-            {match.definition.format === "free_for_all"
-              ? "Family Free-for-All"
-              : match.definition.format === "doubles"
-                ? "Doubles"
-                : "Singles"}
-            {match.definition.mode === "practice" ? " · Private test" : ""}
-          </span>
-          <h1>Crokinole</h1>
-          <CrokinoleRules mode={match.definition.scoringMode} />
-          <p className="crokinole-subtitle">
-            {SCORING_LABELS[match.definition.scoringMode]} ·{" "}
-            {match.definition.endCondition.type === "target"
-              ? `First to ${match.definition.endCondition.target}`
-              : `${match.definition.endCondition.rounds} rounds`}
-          </p>
+          <div className="crokinole-match-heading">
+            <div>
+              <span className="eyebrow">
+                {match.definition.format === "free_for_all"
+                  ? "Family Free-for-All"
+                  : match.definition.format === "doubles"
+                    ? "Doubles"
+                    : "Singles"}
+                {match.definition.mode === "practice" ? " · Private test" : ""}
+              </span>
+              <h1>Crokinole</h1>
+            </div>
+            <CrokinoleRules mode={match.definition.scoringMode} />
+            <p className="crokinole-subtitle">
+              {SCORING_LABELS[match.definition.scoringMode]} ·{" "}
+              {match.definition.endCondition.type === "target"
+                ? `First to ${match.definition.endCondition.target}`
+                : `${match.definition.endCondition.rounds} rounds`}
+            </p>
+          </div>
           <ResultBadge
             result={
               match.status === "completed" && match.result
@@ -596,6 +612,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
               finishes.
             </p>
           )}
+          <CrokinoleChanges match={match} actorNames={props.actorNames} />
           {canScore && (
             <div className="crokinole-actions crokinole-sticky-actions">
               {match.status === "active" && (

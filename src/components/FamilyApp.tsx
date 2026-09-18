@@ -48,6 +48,7 @@ function FamilyWorkspace({
   );
   const [admin, setAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const busy = useRef(false);
   const joinId = useRef<string | null>(null);
@@ -89,11 +90,12 @@ function FamilyWorkspace({
         return;
       refreshing = true;
       void store.refresh!()
-        .catch((e) =>
-          setError(
+        .then(() => setRefreshError(null))
+        .catch((e) => {
+          setRefreshError(
             e instanceof Error ? e.message : "Shared view could not refresh.",
-          ),
-        )
+          );
+        })
         .finally(() => {
           refreshing = false;
         });
@@ -113,9 +115,9 @@ function FamilyWorkspace({
     try {
       await operation();
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "This action could not complete.",
-      );
+      const message =
+        e instanceof Error ? e.message : "This action could not complete.";
+      setError(store.getSnapshot().error === message ? null : message);
     } finally {
       busy.current = false;
       setWorking(false);
@@ -309,9 +311,9 @@ function FamilyWorkspace({
   );
   return (
     <>
-      {error && (
+      {(error || refreshError) && (
         <p className="error-banner" role="alert">
-          {error}
+          {error ?? refreshError}
         </p>
       )}
       {state.unresolved && (

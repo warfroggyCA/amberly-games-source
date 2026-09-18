@@ -37,7 +37,9 @@ export function PlayerSetup({
   onSharedModeChange,
   canAddPlayers = true,
   allowPractice = true,
+  initialSetup,
 }: {
+  initialSetup?: { seats: string[]; first: string; direction: Direction };
   equipment?: Equipment;
   canAddPlayers?: boolean;
   allowPractice?: boolean;
@@ -62,9 +64,20 @@ export function PlayerSetup({
   const [equipmentRevision] = useState(equipment.revision);
   const chosenSet = equipment.sets.find((set) => set.id === tileSetId);
   const chosenTotal = chosenSet ? tileTotal(chosenSet.counts) : 100;
-  const [seats, setSeats] = useState(["", "", "", ""]);
-  const [first, setFirst] = useState("");
-  const [direction, setDirection] = useState<Direction>("clockwise");
+  const [seats, setSeats] = useState(() =>
+    Array.from({ length: 4 }, (_, index) => {
+      const playerId = initialSetup?.seats[index];
+      return players.some((player) => player.id === playerId) ? playerId! : "";
+    }),
+  );
+  const [first, setFirst] = useState(() =>
+    initialSetup && seats.includes(initialSetup.first)
+      ? initialSetup.first
+      : "",
+  );
+  const [direction, setDirection] = useState<Direction>(
+    initialSetup?.direction ?? "clockwise",
+  );
   const [picked, setPicked] = useState("");
   const [name, setName] = useState("");
   const [recent, setRecent] = useState<SavedPlayer[]>([]);

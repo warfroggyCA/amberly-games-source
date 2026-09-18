@@ -367,8 +367,9 @@ export function createCrokinoleRepository(
             };
           }
         }
-        if (op.type === "save-palette" || op.type === "save-defaults")
-          permit(who, "manageEquipment");
+        // Confirm an already committed settings action even if the active
+        // member can no longer edit equipment. These settings remain readable
+        // to family members; replay never grants permission for a new write.
         return { ...response, draft: undefined, replayed: true };
       }
       if (!enabled())

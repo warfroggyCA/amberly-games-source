@@ -28,6 +28,7 @@ import { CrokinoleApp } from "./crokinole/CrokinoleApp";
 import { CrokinoleDefaultsSettings } from "./crokinole/CrokinoleDefaultsSettings";
 import { ColourSettings } from "./crokinole/ColourSettings";
 import { TileSetSettings } from "./TileSetSettings";
+import { playerDisplayName } from "../lib/player-profile";
 import { Modal } from "./Modal";
 import { SwipeToDelete } from "./SwipeToDelete";
 import "./family-hub.css";
@@ -123,7 +124,7 @@ export function FamilyHub({
   useEffect(() => {
     const guard = async () => {
       await store.flush();
-      if (store.getSnapshot().pending)
+      if (store.getSnapshot().pending && !store.getSnapshot().accessLost)
         throw new Error(
           "Confirm the Crokinole saved action before signing out.",
         );
@@ -448,12 +449,20 @@ export function FamilyHub({
             )}
             <button
               className="button light"
-              disabled={locked}
+              disabled={
+                state.busy ||
+                working ||
+                state.displaced ||
+                (state.pending && !state.accessLost)
+              }
               onClick={() =>
                 void store
                   .flush()
                   .then(() => {
-                    if (store.getSnapshot().pending)
+                    if (
+                      store.getSnapshot().pending &&
+                      !store.getSnapshot().accessLost
+                    )
                       throw new Error(
                         "Confirm the saved action before signing out.",
                       );
@@ -540,6 +549,12 @@ export function FamilyHub({
               defaults={state.palette?.defaults}
               familyId={shared.family.id}
               players={shared.players}
+              actorNames={Object.fromEntries(
+                shared.players.flatMap((player) => {
+                  const actorId = shared.playerAccess[player.id]?.userId;
+                  return actorId ? [[actorId, playerDisplayName(player)]] : [];
+                }),
+              )}
               palette={state.palette?.colours ?? []}
               match={game}
               canScore={

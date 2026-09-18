@@ -83,9 +83,10 @@ test("draft survives refresh; distant entry is blocked and on-tile backspace wor
   await enter(page, "H8", "CAT");
   await page.getByTestId("cell-M13").click();
   await expect(
-    page.getByRole("dialog", { name: "Finish this word first" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Keep editing", exact: true }).click();
+    page.getByRole("region", { name: "Board workspace" }).getByRole("alert"),
+  ).toContainText("Finish this word first");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Dismiss entry message" }).click();
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })

@@ -6,6 +6,8 @@ The hosted family app is [Amberly Games](https://amberly-games-preview.vercel.ap
 
 ## Source and release status
 
+Use the [release ledger](docs/release-status.md) for independently observed deployment state, the current repair candidate, and remaining acceptance gates.
+
 The public source repository is `warfroggyCA/amberly-games-source`. It starts from a sanitized source snapshot; earlier operator notes, personal media and source history remain in a separate private archive. The reliability milestone is included, but source publication does not deploy the hosted app. Consult [release instructions](docs/releasing.md) before deploying.
 
 ## Fresh checkout

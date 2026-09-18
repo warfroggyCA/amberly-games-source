@@ -68,6 +68,7 @@ import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { TabletopIcon } from "./TabletopIcon";
 import { CountCheck, CountCorrectionHistory } from "./CountCheck";
+import { DraftConflictNotice } from "./DraftConflictNotice";
 
 type View = "Home" | "Play" | "Records" | "History" | "Players";
 type Action<T = GameCommand> = T extends GameCommand
@@ -126,6 +127,7 @@ export function ScorerApp({
     | "settings"
     | "game-menu"
     | "setup"
+    | "rematch"
     | "end"
     | "assist"
     | "exchange"
@@ -193,7 +195,12 @@ export function ScorerApp({
       await updatePreview(change);
       return true;
     } catch (e) {
-      setError(errorText(e));
+      const message = errorText(e);
+      // Shared save failures belong to the store, which also owns their retry.
+      // A second local copy would survive a successful retry from FamilyApp.
+      setError(
+        shared && store.getSnapshot().error === message ? null : message,
+      );
       return false;
     } finally {
       busyRef.current = false;
@@ -760,9 +767,79 @@ export function ScorerApp({
       )
     );
   }
+  const playAgain = view === "Play" &&
+    game?.status === "finalized" &&
+    canStart && (
+      <button
+        className="button light"
+        disabled={busy || !!state.unresolved}
+        onClick={() => {
+          setCreationMode(
+            state.shared?.gameAccess[game.id]?.mode ?? "confirmed",
+          );
+          setError(null);
+          setModal("rematch");
+        }}
+      >
+        Play again
+      </button>
+    );
+  const draftRecovery = view === "Play" &&
+    game &&
+    state.draftConflicts?.includes(game.id) &&
+    store.discardDraftConflict && (
+      <DraftConflictNotice
+        key={game.id}
+        gameId={game.id}
+        revision={game.revision}
+        draft={state.data.drafts[game.id]}
+        pending={!!state.unresolved}
+        onDiscard={store.discardDraftConflict}
+        onExport={store.exportWorkspace}
+      />
+    );
+  const setupDialog = (modal === "setup" || modal === "rematch") && (
+    <PlayerSetup
+      initialSetup={
+        modal === "rematch" && game
+          ? {
+              seats: Array.from(
+                { length: 4 },
+                (_, seat) =>
+                  game.players.find((player) => player.seat === seat)?.id ?? "",
+              ),
+              first: game.definition.firstPlayerId,
+              direction: game.direction,
+            }
+          : undefined
+      }
+      equipment={state.data.equipment ?? EMPTY_EQUIPMENT}
+      sharedMode={
+        shared
+          ? state.shared?.member.role === "superadmin"
+            ? creationMode
+            : "confirmed"
+          : undefined
+      }
+      onSharedModeChange={setCreationMode}
+      players={state.data.players}
+      busy={busy || !canStart}
+      canAddPlayers={allowed("addPlayers")}
+      allowPractice={!shared || state.shared?.member.role === "superadmin"}
+      onAdd={addPlayer}
+      onStart={startGame}
+      onClose={() => {
+        setModal(null);
+        if (initialNewGame) onHome?.();
+      }}
+      error={error}
+    />
+  );
   if (shared && view === "Play" && game && readOnly)
     return (
-      <div className="app-shell spectator-shell">
+      <div
+        className={`app-shell ${draftRecovery ? "draft-recovery-shell" : "spectator-shell"}`}
+      >
         <AmberlyHeader
           onHome={goHome}
           onMenu={() => setModal("game-menu")}
@@ -780,16 +857,19 @@ export function ScorerApp({
               {error ?? state.error}
             </p>
           )}
+          {playAgain}
+          {draftRecovery}
           <SpectatorGame
             game={game}
             profiles={state.data.players}
             liveDraft={livePreview.draft}
-            toolsTarget={viewerTools}
+            toolsTarget={draftRecovery ? undefined : viewerTools}
             assisted={!!game.assistance}
             confirmation={renderGameStatus?.(game)}
           />
         </main>
         {renderMenu()}
+        {setupDialog}
       </div>
     );
   return (
@@ -1080,6 +1160,8 @@ export function ScorerApp({
                 onHistory={() => setView("History")}
               />
             )}
+            {playAgain}
+            {draftRecovery}
             {view === "Play" &&
               (!game ? (
                 <div className="empty-state">
@@ -1585,30 +1667,7 @@ export function ScorerApp({
           )}
         </Modal>
       )}
-      {modal === "setup" && (
-        <PlayerSetup
-          equipment={state.data.equipment ?? EMPTY_EQUIPMENT}
-          sharedMode={
-            shared
-              ? state.shared?.member.role === "superadmin"
-                ? creationMode
-                : "confirmed"
-              : undefined
-          }
-          onSharedModeChange={setCreationMode}
-          players={state.data.players}
-          busy={busy || !canStart}
-          canAddPlayers={allowed("addPlayers")}
-          allowPractice={!shared || state.shared?.member.role === "superadmin"}
-          onAdd={addPlayer}
-          onStart={startGame}
-          onClose={() => {
-            setModal(null);
-            if (initialNewGame) onHome?.();
-          }}
-          error={error}
-        />
-      )}
+      {setupDialog}
       {modal === "extra-tiles" && game && extraTiles && (
         <ExtraTiles
           game={game}
