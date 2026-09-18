@@ -44,6 +44,7 @@ export type CrokinoleSnapshot = {
   error: string | null;
   storageError: boolean;
   recoveryNeeded: boolean;
+  accessLost: boolean;
   displaced: boolean;
   creationEnabled: boolean;
   nextCursor: string | null;
@@ -60,6 +61,7 @@ const initial = (): CrokinoleSnapshot => ({
   error: null,
   storageError: false,
   recoveryNeeded: false,
+  accessLost: false,
   displaced: false,
   creationEnabled: false,
   nextCursor: null,
@@ -302,7 +304,7 @@ export function createCrokinoleStore(
   let draftDone: Promise<void> | null = null;
   let revoked = false;
   const pausedSync = new Set<string>();
-  let refreshAfterFailure: string | null = null;
+  let refreshAfterFailure: { gameId?: string } | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let channel: BroadcastChannel | null = null;
   const key = `${familyId}:${userId}`;
@@ -545,6 +547,7 @@ export function createCrokinoleStore(
         revoked = true;
         clearTimeout(timer);
         publish({
+          accessLost: true,
           status: "error",
           games: [],
           access: {},
@@ -693,7 +696,11 @@ export function createCrokinoleStore(
       access,
       drafts: workspace.drafts,
       conflicts,
-      palette: result.palette ?? state.palette,
+      palette:
+        result.palette &&
+        result.palette.revision >= (state.palette?.revision ?? 0)
+          ? result.palette
+          : state.palette,
       pending: false,
       storageError: false,
       error: null,
@@ -713,9 +720,13 @@ export function createCrokinoleStore(
       // A displaced tab must never apply a late acknowledgment over its new owner.
       await applyResult(result, mutation);
     } catch (e) {
+      const permissionDenied =
+        e instanceof FamilyRequestError &&
+        e.status === 403 &&
+        e.code === "PERMISSION_DENIED";
       const definite =
         e instanceof FamilyRequestError &&
-        [400, 404, 409, 413, 422].includes(e.status);
+        ([400, 404, 409, 413, 422].includes(e.status) || permissionDenied);
       if (definite) {
         for (;;) {
           const before = workspace;
@@ -728,14 +739,29 @@ export function createCrokinoleStore(
         if ("gameId" in mutation.operation) {
           pausedSync.add(mutation.operation.gameId);
           if (e instanceof FamilyRequestError && e.status === 409)
-            refreshAfterFailure = mutation.operation.gameId;
+            refreshAfterFailure = { gameId: mutation.operation.gameId };
         }
+        // The repository confirms committed requests before checking write
+        // capabilities. A capability denial therefore leaves this request
+        // uncommitted; retain its text and refresh viewing access separately.
+        if (permissionDenied)
+          refreshAfterFailure = {
+            gameId:
+              "gameId" in mutation.operation
+                ? mutation.operation.gameId
+                : undefined,
+          };
         publish({ pending: false });
       }
-      if (e instanceof FamilyRequestError && [401, 403].includes(e.status)) {
+      if (
+        e instanceof FamilyRequestError &&
+        [401, 403].includes(e.status) &&
+        !permissionDenied
+      ) {
         revoked = true;
         clearTimeout(timer);
         publish({
+          accessLost: true,
           games: [],
           access: {},
           drafts: {},
@@ -790,9 +816,9 @@ export function createCrokinoleStore(
       }
       publish({ busy: false });
       if (refreshAfterFailure) {
-        const id = refreshAfterFailure;
+        const { gameId } = refreshAfterFailure;
         refreshAfterFailure = null;
-        await refresh(id);
+        await refresh(gameId);
       }
       if (
         !workspace.pending &&
@@ -962,6 +988,7 @@ export function createCrokinoleStore(
       ) {
         revoked = true;
         publish({
+          accessLost: true,
           games: [],
           access: {},
           drafts: {},
@@ -1034,9 +1061,9 @@ export function createCrokinoleStore(
         working = false;
         publish({ busy: false });
         if (refreshAfterFailure) {
-          const id = refreshAfterFailure;
+          const { gameId } = refreshAfterFailure;
           refreshAfterFailure = null;
-          await refresh(id);
+          await refresh(gameId);
         }
       }
     },

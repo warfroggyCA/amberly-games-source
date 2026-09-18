@@ -256,3 +256,22 @@
     animation: none;
   }
 }
+.draft-conflict-notice {
+  background: var(--surface);
+  position: relative;
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+}
+.draft-conflict-notice ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  padding-inline-start: 1.5rem;
+}
+.draft-conflict-notice .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

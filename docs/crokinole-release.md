@@ -1,5 +1,7 @@
 # Shared Crokinole release notes and operator sequence
 
+This is the original rollout procedure. For current observed deployment and candidate status, consult the [release ledger](release-status.md). Do not reapply migrations based on this historical sequence.
+
 This feature adds Crokinole to the existing Amberly family. It reuses accounts, roster IDs and member permission switches. There is no new sign-in provider or service.
 
 ## Local implementation
@@ -37,4 +39,4 @@ Combined JSON archives are useful for inspection, but are not a replacement for 
 
 ## Release status
 
-Local implementation and automated verification are complete. See `crokinole-gauntlet.md` for counts, review evidence and limitations. No hosted migration, release, production repair or physical-device acceptance is implied by this document.
+The original local implementation and automated verification were completed in the milestone recorded in `crokinole-gauntlet.md`. Subsequent deployment evidence and Gauntlet repairs are recorded separately in the [release ledger](release-status.md). This historical document does not establish physical-device acceptance.

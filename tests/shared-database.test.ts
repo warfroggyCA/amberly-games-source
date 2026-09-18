@@ -1,4 +1,6 @@
 import { crokinoleDatabaseCases } from "./crokinole-database-cases";
+import { gameSummaryDatabaseCases } from "./game-summary-database-cases";
+import { crokinolePermissionDatabaseCases } from "./crokinole-permission-database-cases";
 import {
   MEMBER_PERMISSIONS,
   type MemberPermissions,
@@ -135,6 +137,8 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   crokinoleDatabaseCases(owner, runtime);
+  gameSummaryDatabaseCases(owner, runtime);
+  crokinolePermissionDatabaseCases(owner, runtime);
   beforeAll(async () => {
     const migrationDirectory = new URL(
       "../supabase/migrations/",
@@ -2684,6 +2688,19 @@ suite("isolated real PostgreSQL shared family repository", () => {
     ).toThrow();
   }, 60000);
   it("restores an isolated logical backup into a separate database with identical permanent rows", async () => {
+    const identity = await fixture();
+    const activeGame = (await identity.create()).game!;
+    const requestId = randomUUID();
+    const savedPass = pass(activeGame.id);
+    await identity.mutate(savedPass, identity.admin, requestId);
+    await identity.mutate({
+      type: "update-member",
+      userId: identity.guest.userId,
+      role: "member",
+      active: false,
+      playerId: "ben",
+      reason: "Revoked before backup",
+    });
     const binary = process.env.SCRABBLE_PG_BIN!,
       directory = process.env.SCRABBLE_TEST_DIRECTORY!,
       backup = join(directory, "family-test.dump");
@@ -2716,6 +2733,12 @@ suite("isolated real PostgreSQL shared family repository", () => {
       username: "scrabble_test_owner",
       onnotice: () => undefined,
     });
+    const restoredRuntime = postgres({
+      host: socket!,
+      database: "scrabble_restore_test",
+      username: "scrabble_test_login",
+      onnotice: () => undefined,
+    });
     try {
       for (const table of [
         "game_definitions",
@@ -2737,7 +2760,53 @@ suite("isolated real PostgreSQL shared family repository", () => {
         );
         expect(after[0].data).toEqual(before[0].data);
       }
+      const restoredRepository = createSharedRepository(restoredRuntime, {
+        defaultLexicon: testLexicon,
+        resolveLexicon: () => testLexicon,
+      });
+      const state = await restoredRepository.readState(
+        identity.admin,
+        identity.familyId,
+        { gameId: activeGame.id },
+      );
+      expect(state.member.playerId).toBe("ada");
+      expect(state.gameAccess[activeGame.id].scorerUserId).toBe(
+        identity.admin.userId,
+      );
+      expect(state.games[0].revision).toBe(1);
+      await code(
+        restoredRepository.readState(identity.guest, identity.familyId),
+        "NOT_A_MEMBER",
+      );
+      await code(
+        restoredRepository.readState(
+          { ...identity.admin, userId: randomUUID() },
+          identity.familyId,
+        ),
+        "NOT_A_MEMBER",
+      );
+      const retry = await restoredRepository.mutate(
+        identity.admin,
+        identity.familyId,
+        { requestId, operation: savedPass },
+      );
+      expect(retry.replayed).toBe(true);
+      expect(retry.game!.revision).toBe(1);
+      const continued = await restoredRepository.mutate(
+        identity.admin,
+        identity.familyId,
+        { requestId: randomUUID(), operation: pass(activeGame.id, 1) },
+      );
+      expect(continued.game!.revision).toBe(2);
+      await code(
+        restoredRepository.mutate(identity.admin, identity.familyId, {
+          requestId: randomUUID(),
+          operation: pass(activeGame.id, 1),
+        }),
+        "REVISION_CONFLICT",
+      );
     } finally {
+      await restoredRuntime.end();
       await restored.end();
     }
   }, 20000);
