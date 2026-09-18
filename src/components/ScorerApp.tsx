@@ -195,7 +195,12 @@ export function ScorerApp({
       await updatePreview(change);
       return true;
     } catch (e) {
-      setError(errorText(e));
+      const message = errorText(e);
+      // Shared save failures belong to the store, which also owns their retry.
+      // A second local copy would survive a successful retry from FamilyApp.
+      setError(
+        shared && store.getSnapshot().error === message ? null : message,
+      );
       return false;
     } finally {
       busyRef.current = false;

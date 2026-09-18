@@ -2,7 +2,18 @@
 
 This is the release ledger. Older milestone documents describe what was known at that milestone; they are not the current deployment record.
 
-## Last independently observed hosted release
+## Current observed Preview and keyboard/recovery candidate
+
+Observed September 18, 2026 after physical iPhone testing:
+
+- Preview alias still resolves to Ready deployment `dpl_2cwWQsau9YTfsZb2r6mTr3WGpSsk`, previously released from `6e98a3ac6f419fa26cec42e39b4308f6b6761935`. Crokinole is enabled in Preview configuration.
+- This candidate fixes confirmed native-keyboard obstruction and obsolete connection warnings after a successfully retried Scrabble turn. It changes presentation and recovery messages only; no migration or historical rewrite is needed.
+- Before publication: production build and 28 focused browser checks passed. New keyboard regression failed on the previous build; final simulated portrait, landscape, panning, rotation and keyboard-close checks passed. These are browser simulations, not acceptance on an installed iPhone.
+- User authorized Preview publication and physical retest. Exact-commit CI and the repository release gate remain required before alias promotion. No main-branch merge or Vercel Production promotion is part of this release.
+- Rollback target for this candidate is `amberly-games-ihfarm6ay-dougs-projects-e9ca299b.vercel.app`. Retain all drafts and game history.
+- Physical iPad remains deferred. Managed hosted backups are unavailable on the current plan; complete operator backup/restore evidence remains pending access and durable archive/key custody.
+
+## Historical baseline observed before the first repairs
 
 Observed during the September 17–18, 2026 adversarial Gauntlet:
 

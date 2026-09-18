@@ -1,6 +1,6 @@
 /* A live game uses the available window, including any shared-account toolbar. */
 body:has(> .game-screen) {
-  height: 100dvh;
+  height: var(--usable-game-height, 100dvh);
   display: flex;
   flex-direction: column;
   overflow: hidden;

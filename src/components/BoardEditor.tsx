@@ -31,6 +31,33 @@ import "./tile-appearance.css";
 import { extendLexicon } from "../domain/verified-words";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function revealEntry(workspace: HTMLElement | null, fitScreen: boolean) {
+  const tile = workspace?.querySelector<HTMLElement>('[aria-selected="true"]');
+  const scroller = workspace?.querySelector<HTMLElement>(".board-scroll");
+  if (!tile) return;
+  if (!fitScreen || !scroller) {
+    tile.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return;
+  }
+  // Scroll only the board. Scrolling ancestors can pan iOS's visual viewport
+  // while its keyboard is opening and move the entire entry bar out of reach.
+  const bounds = scroller.getBoundingClientRect();
+  const cell = tile.getBoundingClientRect();
+  const margin = cell.width + 4;
+  const left =
+    cell.left < bounds.left + margin
+      ? cell.left - bounds.left - margin
+      : cell.right > bounds.right - margin
+        ? cell.right - bounds.right + margin
+        : 0;
+  scroller.scrollBy({
+    left,
+    top: (cell.top + cell.bottom - bounds.top - bounds.bottom) / 2,
+    behavior: "instant",
+  });
+}
+
 export function BoardEditor({
   game,
   savedDraft,
@@ -204,12 +231,10 @@ export function BoardEditor({
   useEffect(() => {
     if (!focused || blank || review) return;
     const frame = requestAnimationFrame(() =>
-      workspace.current
-        ?.querySelector('[aria-selected="true"]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" }),
+      revealEntry(workspace.current, fitScreen),
     );
     return () => cancelAnimationFrame(frame);
-  }, [focused, draft.row, draft.col, zoom, blank, review]);
+  }, [focused, draft.row, draft.col, zoom, blank, review, fitScreen]);
   useEffect(() => {
     const dialog = workspace.current;
     return () => {
@@ -238,15 +263,12 @@ export function BoardEditor({
         "keyboard-open",
         window.innerHeight - viewport.height > 120,
       );
-      const nextDimensions = `${viewport.width}:${viewport.height}`;
+      const nextDimensions = `${viewport.width}:${viewport.height}:${viewport.offsetTop}`;
       if (nextDimensions !== dimensions) {
         dimensions = nextDimensions;
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
-          if (focusedRef.current)
-            workspace.current
-              ?.querySelector('[aria-selected="true"]')
-              ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+          if (focusedRef.current) revealEntry(workspace.current, true);
         });
       }
     };
