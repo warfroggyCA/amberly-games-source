@@ -235,18 +235,14 @@ export function SpectatorGame({
                 ? LEADER_LABELS[displayCrown.reason]
                 : "Leader";
             return (
-              <button
+              <div
                 key={player.id}
                 className={`spectator-seat spectator-seat-${player.seat} ${isCurrent ? "is-current" : ""} ${isSelected ? "is-selected" : ""}`}
                 data-turn-player={player.id}
                 data-turn-seat={player.seat}
-                aria-pressed={isSelected}
-                aria-label={`${player.name}, ${displayScores[player.id]} points${isCurrent ? ", playing now" : ""}${isLeader ? `, ${leaderLabel.toLowerCase()}` : ""}. Highlight their words`}
-                onClick={() => pickPlayer(player.id)}
               >
                 <span
                   className={`spectator-player-initial seat-colour-${player.seat}`}
-                  aria-hidden="true"
                 >
                   <PlayerAvatar
                     name={player.name}
@@ -256,7 +252,13 @@ export function SpectatorGame({
                   />
                   {isLeader && <CrownIcon />}
                 </span>
-                <span className="spectator-seat-copy">
+                <button
+                  type="button"
+                  className="spectator-seat-copy"
+                  aria-pressed={isSelected}
+                  aria-label={`${player.name}, ${displayScores[player.id]} points${isCurrent ? ", playing now" : ""}${isLeader ? `, ${leaderLabel.toLowerCase()}` : ""}. Highlight their words`}
+                  onClick={() => pickPlayer(player.id)}
+                >
                   <strong className="spectator-seat-name" title={player.name}>
                     <PlayerName
                       player={player}
@@ -275,8 +277,8 @@ export function SpectatorGame({
                   <small className="spectator-seat-turn" aria-hidden="true">
                     {isCurrent ? "Playing now" : "\u00a0"}
                   </small>
-                </span>
-              </button>
+                </button>
+              </div>
             );
           })}
           <div className="board-workspace spectator-board">

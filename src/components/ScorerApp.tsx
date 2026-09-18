@@ -1100,6 +1100,7 @@ export function ScorerApp({
               ) : readOnly ? (
                 <SpectatorGame
                   game={game}
+                  profiles={state.data.players}
                   liveDraft={livePreview.draft}
                   confirmation={renderGameStatus?.(game)}
                 />

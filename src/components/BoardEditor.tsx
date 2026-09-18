@@ -704,10 +704,7 @@ export function BoardEditor({
                 aria-label={`${p.name}, ${displayedScores[p.id]} points${p.id === displayCurrentPlayerId && game.status === "active" ? ", current player" : ""}`}
               >
                 <span className="board-seat-avatar">
-                  <span
-                    className={`avatar colour-${p.seat}`}
-                    aria-hidden="true"
-                  >
+                  <span className={`avatar colour-${p.seat}`}>
                     <PlayerAvatar
                       name={p.name}
                       photoDataUrl={

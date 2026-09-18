@@ -202,3 +202,86 @@ test("both game cards offer Start game and no Resume without an underway game", 
     ).toHaveCount(0);
   }
 });
+
+test("profile photos enlarge from players and from a round draft without losing input", async ({
+  page,
+}, testInfo) => {
+  const fixture = await installFixture(page);
+  fixture.family.players[0].photoDataUrl = photo;
+  await page.goto("/family/players");
+  const opener = page.getByRole("button", {
+    name: "View Doug’s profile photo",
+  });
+  await opener.click();
+  const viewer = page.getByRole("dialog", { name: "Doug", exact: true });
+  await expect(viewer.getByAltText("Doug’s profile photo")).toBeVisible();
+  await fitsWidth(page);
+  await page.screenshot({ path: testInfo.outputPath("enlarged-profile.png") });
+  await viewer.getByRole("button", { name: "Close dialog" }).click();
+  await expect(opener).toBeFocused();
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Add Round 1", exact: true }).click();
+  await page.getByLabel("Doug round total", { exact: true }).fill("25");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "View Doug’s profile photo" })
+    .click();
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
+  await expect(
+    page.getByLabel("Doug round total", { exact: true }),
+  ).toHaveValue("25");
+  expect(fixture.game().rounds).toHaveLength(0);
+});
+
+test("Scrabble viewer photo is separate from highlighting a player's words", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  const { createGame } = await import("../../src/domain/game");
+  const { testLexicon } = await import("../../src/lib/test-lexicon");
+  const created = createGame({
+    id: "photo-viewer",
+    players: [
+      { id: "doug", name: "Doug", seat: 0 },
+      { id: "erin", name: "Erin", seat: 2 },
+    ],
+    firstPlayerId: "doug",
+    direction: "clockwise",
+    lexicon: testLexicon,
+  });
+  if (!created.ok) throw Error(created.error.message);
+  fixture.family.players[0].photoDataUrl = photo;
+  fixture.family.games.push(created.game);
+  fixture.family.gameAccess[created.game.id] = {
+    scorerUserId: "another-scorer",
+    deviceId: "another-device",
+    generation: 1,
+    mode: "confirmed",
+    recordsEligible: true,
+    protests: [],
+    canScore: false,
+    approvals: [],
+  };
+  await page.goto("/family");
+  await page
+    .getByRole("button", { name: "View current game", exact: true })
+    .click();
+  const highlight = page.getByRole("button", {
+    name: /Doug.*Highlight their words/,
+  });
+  await highlight.click();
+  await expect(highlight).toHaveAttribute("aria-pressed", "true");
+  const opener = page.getByRole("button", {
+    name: "View Doug’s profile photo",
+  });
+  await opener.click();
+  const viewer = page.getByRole("dialog", { name: "Doug", exact: true });
+  await expect(viewer.getByAltText("Doug’s profile photo")).toBeVisible();
+  await viewer.getByRole("button", { name: "Close dialog" }).click();
+  await expect(highlight).toHaveAttribute("aria-pressed", "true");
+  await highlight.click();
+  await expect(highlight).toHaveAttribute("aria-pressed", "false");
+});
