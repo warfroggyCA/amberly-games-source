@@ -6,6 +6,7 @@ import {
   prepareProfilePhoto,
   type PlayerProfileFields,
 } from "../lib/player-profile";
+import { ProfilePhotoFramer } from "./ProfilePhotoFramer";
 import { Modal } from "./Modal";
 import "./player-profile.css";
 
@@ -13,12 +14,16 @@ export function PlayerProfileEditor({
   player,
   onSave,
   onClose,
+  onboarding = false,
 }: {
   player: PlayerProfileFields & { id: string };
   onSave: (updates: PlayerProfileFields) => Promise<boolean>;
   onClose: () => void;
+  onboarding?: boolean;
 }) {
   const [name, setName] = useState(player.name);
+  const [nickname, setNickname] = useState(player.nickname ?? "");
+  const [framing, setFraming] = useState<File | null>(null);
   const [bio, setBio] = useState(player.bio ?? "");
   const [photo, setPhoto] = useState(player.photoDataUrl);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +51,8 @@ export function PlayerProfileEditor({
     setProcessing(true);
     setError(null);
     try {
-      const result = await prepareProfilePhoto(file, abort.signal);
-      if (mounted.current && version === request.current) setPhoto(result);
+      await prepareProfilePhoto(file, abort.signal);
+      if (mounted.current && version === request.current) setFraming(file);
     } catch (e) {
       if (mounted.current && version === request.current)
         setError(
@@ -65,16 +70,23 @@ export function PlayerProfileEditor({
     controller.current?.abort();
     controller.current = null;
     setProcessing(false);
+    setFraming(null);
     setPhoto(undefined);
     setError(null);
   }
   const updates: PlayerProfileFields = {
     name: name.trim(),
+    ...(nickname.trim() ? { nickname: nickname.trim() } : {}),
     ...(bio.trim() ? { bio: bio.trim() } : {}),
     ...(photo ? { photoDataUrl: photo } : {}),
   };
   async function save() {
-    if (savingRef.current || processing || !isValidPlayerProfile(updates))
+    if (
+      savingRef.current ||
+      processing ||
+      framing ||
+      !isValidPlayerProfile(updates)
+    )
       return;
     savingRef.current = true;
     setSaving(true);
@@ -82,8 +94,9 @@ export function PlayerProfileEditor({
     try {
       const success = await onSave(updates);
       if (mounted.current) {
-        if (success) onClose();
-        else
+        if (success) {
+          if (!onboarding) onClose();
+        } else
           setError(
             "Your changes could not be saved. They are still here; please try again.",
           );
@@ -100,118 +113,170 @@ export function PlayerProfileEditor({
       if (mounted.current) setSaving(false);
     }
   }
-  return (
-    <Modal title="Edit player profile" onClose={onClose}>
-      <form
-        className="player-profile-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void save();
-        }}
-      >
-        <p className="muted">
-          Add a familiar face and something worth knowing. Profiles are saved in
-          this browser; family accounts are not connected yet.
-        </p>
-        <div className="profile-photo-editor">
-          {photo ? (
-            <Image
-              unoptimized
-              className="profile-photo-preview"
-              src={photo}
-              alt="Selected profile photo"
-              width={96}
-              height={96}
-            />
-          ) : (
-            <span
-              className="profile-photo-placeholder"
-              aria-label="No profile photo"
-            >
-              {name.trim().slice(0, 1).toUpperCase() || "?"}
-            </span>
-          )}
-          <div>
-            <label className="field">
-              Profile photo
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={saving}
-                aria-describedby={hint}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  e.target.value = "";
-                  if (file) void choose(file);
-                }}
-              />
-            </label>
-            <small id={hint}>
-              JPEG, PNG or WebP · up to 8 MB. Stored as a small photo on this
-              device.
-            </small>
-            {(photo || processing) && (
-              <button
-                className="text-button"
-                type="button"
-                disabled={saving}
-                onClick={removePhoto}
-              >
-                Remove photo
-              </button>
-            )}
-          </div>
-        </div>
-        {processing && <p role="status">Preparing photo…</p>}
-        <label className="field">
-          Name
-          <input
-            required
-            maxLength={60}
-            value={name}
-            disabled={saving}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="off"
+  if (framing)
+    return (
+      <Modal title="Edit player profile" onClose={() => setFraming(null)}>
+        <ProfilePhotoFramer
+          file={framing}
+          onCancel={() => setFraming(null)}
+          onApply={(result) => {
+            setPhoto(result);
+            setFraming(null);
+          }}
+        />
+      </Modal>
+    );
+  const form = (
+    <form
+      className="player-profile-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+    >
+      <p className="muted">
+        Make yourself at home with a photo, nickname and a little about you.
+      </p>
+      <div className="profile-photo-editor">
+        {photo ? (
+          <Image
+            unoptimized
+            className="profile-photo-preview"
+            src={photo}
+            alt="Selected profile photo"
+            width={96}
+            height={96}
           />
-        </label>
-        <label className="field">
-          About this player
-          <textarea
-            rows={3}
-            maxLength={240}
-            value={bio}
-            disabled={saving}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Favourite word, hobbies, or a little family trivia…"
-          />
-          <small>{bio.length}/240 characters</small>
-        </label>
-        <p className="muted">
-          Name changes apply to the player profile and future games. Names
-          recorded in existing games stay as they were.
-        </p>
-        {error && (
-          <p className="inline-message" role="alert">
-            {error}
-          </p>
+        ) : (
+          <span
+            className="profile-photo-placeholder"
+            aria-label="No profile photo"
+          >
+            {name.trim().slice(0, 1).toUpperCase() || "?"}
+          </span>
         )}
-        <div className="dialog-actions">
-          <button
-            type="button"
-            className="button light"
-            disabled={saving}
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            className="button primary"
-            disabled={saving || processing || !isValidPlayerProfile(updates)}
-          >
-            {saving ? "Saving…" : "Save profile"}
-          </button>
+        <div>
+          <label className="field">
+            Profile photo
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={saving || !!framing}
+              aria-describedby={hint}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void choose(file);
+              }}
+            />
+          </label>
+          <small id={hint}>
+            JPEG, PNG or WebP · up to 8 MB. Resized for your player profile.
+          </small>
+          {(photo || processing) && (
+            <button
+              className="text-button"
+              type="button"
+              disabled={saving}
+              onClick={removePhoto}
+            >
+              Remove photo
+            </button>
+          )}
         </div>
-      </form>
+      </div>
+      {photo && !framing && (
+        <button
+          type="button"
+          className="text-button"
+          disabled={saving || processing}
+          onClick={() => {
+            const bytes = Uint8Array.from(atob(photo.slice(23)), (c) =>
+              c.charCodeAt(0),
+            );
+            setFraming(
+              new File([bytes], "profile.jpg", { type: "image/jpeg" }),
+            );
+          }}
+        >
+          Adjust photo
+        </button>
+      )}
+      {processing && <p role="status">Preparing photo…</p>}
+      <label className="field">
+        Real name
+        <input
+          required
+          maxLength={60}
+          value={name}
+          disabled={saving}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="off"
+        />
+      </label>
+      <label className="field">
+        Nickname (optional)
+        <input
+          maxLength={60}
+          value={nickname}
+          disabled={saving}
+          onChange={(e) => setNickname(e.target.value)}
+          autoComplete="off"
+        />
+        <small>
+          Shown as your player name. Your real name remains available on hover.
+        </small>
+      </label>
+      <label className="field">
+        About this player
+        <textarea
+          rows={3}
+          maxLength={240}
+          value={bio}
+          disabled={saving}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="Favourite word, hobbies, or a little family trivia…"
+        />
+        <small>{bio.length}/240 characters</small>
+      </label>
+      <p className="muted">
+        Name changes apply to the player profile and future games. Names
+        recorded in existing games stay as they were.
+      </p>
+      {error && (
+        <p className="inline-message" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="dialog-actions">
+        <button
+          type="button"
+          className="button light"
+          disabled={saving}
+          onClick={onClose}
+        >
+          {onboarding ? "Sign out" : "Cancel"}
+        </button>
+        <button
+          className="button primary"
+          disabled={
+            saving || processing || !!framing || !isValidPlayerProfile(updates)
+          }
+        >
+          {saving
+            ? "Saving…"
+            : onboarding
+              ? "Save & go to games"
+              : "Save profile"}
+        </button>
+      </div>
+    </form>
+  );
+  return onboarding ? (
+    form
+  ) : (
+    <Modal title="Edit player profile" onClose={onClose}>
+      {form}
     </Modal>
   );
 }

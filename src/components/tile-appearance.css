@@ -1,28 +1,29 @@
-/* Cool, pale ordinary squares separate the board from the warm wooden tiles. */
+/* The ivory field separates the board from the mahogany tiles. */
 .board-workspace .square.plain {
-  background: #f5f6f4;
+  background: var(--board-ivory);
 }
 
 /* Scale every board tile from its own size, before and after recording. */
 .board-workspace .square .letter-tile {
   container-type: inline-size;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
 }
 
 /* Drafts keep their entry outline while sharing the same letter/value sizing. */
 .board-workspace .square.fresh .letter-tile {
-  background: #ead5a9;
-  border: 1px solid #ad8a52;
-  border-bottom: 2px solid #927043;
+  background: var(--tile-material);
+  border: 1px solid;
+  border-bottom-width: 2px;
+  border-color: var(--tile-edge);
   border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 #fff5d9,
-    inset 1px 0 0 #f7e5bf;
-  outline: 1.5px solid #27654e;
+  box-shadow: var(--tile-shadow);
+  outline: 1.5px solid #82c99d;
   outline-offset: -1.5px;
-  color: #27271f;
+  color: var(--tile-ink);
 }
 .board-workspace .square .letter-tile b {
-  font-size: clamp(10px, 52cqi, 28px);
+  font-size: clamp(10px, var(--tile-letter-size), 28px);
   font-weight: 700;
   line-height: 1;
   transform: translate(-5%, -6%);
@@ -47,7 +48,7 @@
   border-bottom-color: #245c91;
   outline: 1.5px solid #2467a7;
   outline-offset: -1.5px;
-  box-shadow: inset 0 1px 0 #f5fbff;
+  box-shadow: var(--tile-shadow);
 }
 .letter-tile.blank-tile b {
   color: #075096;

@@ -58,12 +58,13 @@
   left: 50%;
   z-index: 15;
   width: min(460px, calc(100% - 16px));
-  max-height: min(330px, 44dvh);
+  max-height: min(420px, 55dvh);
   overflow: auto;
   transform: translateX(-50%);
-  padding: 14px 16px;
-  background: #fcf9ef;
-  border: 1px solid #ad9568;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--board-brass);
   border-radius: 8px;
   box-shadow: 0 6px 24px #31261726;
 }
@@ -72,24 +73,36 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
 }
 .spectator-word-detail-heading h3 {
   margin: 0;
-  font-size: 22px;
+  font-size: 20px;
   color: var(--forest);
 }
-.spectator-word-detail-heading .text-button {
-  min-height: 44px;
-  margin-top: -8px;
+.spectator-word-detail-heading .icon-button {
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  margin-top: -5px;
 }
-.spectator-word-detail-meta {
-  margin: 0 0 10px;
-  font-size: 12px;
-  color: var(--muted);
+.spectator-word-detail .review-tile-strip {
+  --review-space: 52px;
 }
 @media (orientation: landscape) and (max-height: 520px) {
   .spectator-word-detail {
+    left: auto;
+    right: 8px;
     bottom: 8px;
-    max-height: calc(100% - 16px);
+    width: min(360px, 45vw);
+    max-height: calc(100% - 72px);
+    transform: none;
+    padding: 14px;
+  }
+  .spectator-word-detail .review-tile-strip {
+    --review-space: 46px;
+  }
+  .spectator-word-detail .review-word {
+    padding-block: 10px 14px;
   }
 }

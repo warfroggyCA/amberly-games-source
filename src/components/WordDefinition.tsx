@@ -80,8 +80,9 @@ export function WordDefinition({ word }: { word: string }) {
         href={officialWordUrl(word)}
         target="_blank"
         rel="noopener noreferrer"
+        aria-label={`Look up ${word} on Merriam-Webster`}
       >
-        Look up {word} on Merriam-Webster ↗
+        Merriam-Webster <span aria-hidden="true">↗</span>
       </a>
     </div>
   );

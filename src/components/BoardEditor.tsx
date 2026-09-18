@@ -1,4 +1,6 @@
 "use client";
+import { PlayerName } from "./PlayerName";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { useEffect, useId, useRef, useState } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
 import { calculateDraftScore, scoreMove } from "../domain/scoring";
@@ -16,7 +18,7 @@ import {
 } from "../lib/board-entry";
 import { draftInventory } from "../lib/draft-inventory";
 import { spectatorWords } from "../lib/spectator-plays";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { ReviewWord } from "./ReviewWord";
 import { Modal } from "./Modal";
 import { TabletopIcon } from "./TabletopIcon";
@@ -702,23 +704,14 @@ export function BoardEditor({
                 aria-label={`${p.name}, ${displayedScores[p.id]} points${p.id === displayCurrentPlayerId && game.status === "active" ? ", current player" : ""}`}
               >
                 <span className="board-seat-avatar">
-                  <span
-                    className={`avatar colour-${p.seat}`}
-                    aria-hidden="true"
-                  >
-                    {profiles.find((profile) => profile.id === p.id)
-                      ?.photoDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          profiles.find((profile) => profile.id === p.id)!
-                            .photoDataUrl
-                        }
-                        alt=""
-                      />
-                    ) : (
-                      Array.from(p.name)[0]?.toUpperCase()
-                    )}
+                  <span className={`avatar colour-${p.seat}`}>
+                    <PlayerAvatar
+                      name={p.name}
+                      photoDataUrl={
+                        profiles.find((profile) => profile.id === p.id)
+                          ?.photoDataUrl
+                      }
+                    />
                   </span>
                   {leaders.includes(p.id) && (
                     <span
@@ -733,7 +726,15 @@ export function BoardEditor({
                 </span>
                 <span className="board-seat-details">
                   <span className="board-seat-summary">
-                    <strong title={p.name}>{p.name}</strong>
+                    <strong>
+                      <PlayerName
+                        player={p}
+                        profile={profiles.find(
+                          (profile) => profile.id === p.id,
+                        )}
+                        useNickname={game.status === "active"}
+                      />
+                    </strong>
                     <b className="board-seat-score" data-turn-score={p.id}>
                       {displayedScores[p.id]}
                       <span className="sr-only"> points</span>
@@ -1333,25 +1334,32 @@ export function BoardEditor({
         </Modal>
       )}
       {inspectCell && (
-        <Modal title="Played words" onClose={() => setInspectCell(null)}>
+        <Modal
+          title="Word details"
+          className="played-words-modal"
+          onClose={() => setInspectCell(null)}
+        >
           {inspectedWords.map((word) => (
-            <section className="recorded-word-detail" key={word.id}>
-              <h3>
-                {word.word} <small>· {word.score} points</small>
-              </h3>
-              <p>
-                {game.players.find((p) => p.id === word.playerId)?.name ??
-                  "Player"}{" "}
-                · Round {word.round}
-                {word.source === "assisted" ? " · Assisted play" : ""}
-              </p>
-              <WordDefinition word={word.word} />
-            </section>
+            <PlayedWordDetails
+              key={word.id}
+              word={word}
+              board={game.board}
+              placements={
+                game.turns.find((turn) => turn.id === word.turnId)
+                  ?.placements ?? []
+              }
+              playerName={
+                game.players.find((p) => p.id === word.playerId)?.name ??
+                "Player"
+              }
+              round={word.round}
+              source={word.source}
+            />
           ))}
           {!disabled && (
             <div className="dialog-actions">
               <button
-                className="button light"
+                className="button primary"
                 onClick={() => {
                   const cell = inspectCell;
                   setInspectCell(null);

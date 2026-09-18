@@ -1,0 +1,196 @@
+.permissions-person {
+  padding: 0 0 1.2rem;
+  border-bottom: 1px solid var(--line, #ccc4b0);
+}
+.permissions-person h3 {
+  margin: 0.3rem 0;
+  font-size: 1.7rem;
+}
+.permissions-person p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.member-permissions fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.permissions-identity {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.permission-group {
+  margin-top: 1.7rem;
+}
+.permission-group h4 {
+  color: #1b4d3c;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 2px solid #b88c45;
+  margin: 0;
+  padding: 0 0 0.6rem;
+}
+.permission-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid #ded7c7;
+  cursor: pointer;
+}
+.permission-switch > span {
+  min-width: 0;
+}
+.permission-switch strong {
+  display: block;
+  color: #203e32;
+  font-size: 1rem;
+}
+.permission-switch small {
+  display: block;
+  color: #62695e;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  margin-top: 0.2rem;
+}
+.permission-switch input[role="switch"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 44px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  position: relative;
+  cursor: pointer;
+  box-shadow: none;
+}
+.permission-switch input[role="switch"]::before {
+  content: "";
+  position: absolute;
+  inset: 7px 0;
+  border-radius: 20px;
+  background: #c3c5bb;
+  border: 1px solid #969c8d;
+  transition: background 0.15s;
+}
+.permission-switch input[role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fffdf6;
+  box-shadow: 0 1px 3px #0003;
+  transition: transform 0.15s;
+}
+.permission-switch input:checked::before {
+  background: #20583f;
+  border-color: #143f2c;
+}
+.permission-switch input:checked::after {
+  transform: translateX(22px);
+}
+.permission-switch input:focus-visible {
+  outline: 3px solid #bb8b32;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.permission-switch input:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.permissions-note {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: #656b5d;
+}
+.permissions-actions {
+  position: sticky;
+  bottom: -1px;
+  background: var(--paper);
+  box-shadow: 0 24px 0 var(--paper);
+  padding: 1rem 0 0.25rem;
+}
+.game-delete-action {
+  margin-top: 0.7rem;
+}
+.game-list-item {
+  position: relative;
+}
+.game-list-item > button {
+  width: 100%;
+}
+.game-list-item .game-delete-action {
+  text-align: right;
+  margin: -0.1rem 0 1rem;
+}
+.practice-delete-confirm {
+  text-align: left;
+}
+.practice-delete-confirm strong {
+  display: block;
+  margin: 1rem 0;
+}
+@media (max-width: 540px) {
+  .permissions-identity {
+    grid-template-columns: 1fr;
+  }
+  .permission-switch {
+    gap: 0.9rem;
+  }
+  .permissions-actions {
+    flex-wrap: wrap;
+  }
+  .permissions-actions .button {
+    flex: 1;
+    min-width: 130px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .permission-switch input::before,
+  .permission-switch input::after {
+    transition: none !important;
+  }
+}
+
+.permissions-account-details {
+  border-bottom: 1px solid var(--line);
+}
+.permissions-account-details summary {
+  padding: 1rem 0;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--forest);
+  font-size: 0.9rem;
+}
+.permissions-account-details summary span {
+  float: right;
+  font-weight: 600;
+}
+.member-permissions-dialog .modal-heading {
+  margin-bottom: 1rem;
+}
+@media (max-width: 540px) {
+  .member-permissions-dialog .modal-heading h2 {
+    font-size: 1.6rem;
+  }
+  .member-permissions-dialog .permissions-person {
+    padding-bottom: 0.8rem;
+  }
+  .member-permissions-dialog .permissions-person h3 {
+    font-size: 1.35rem;
+  }
+  .member-permissions-dialog .permission-group {
+    margin-top: 1.2rem;
+  }
+}

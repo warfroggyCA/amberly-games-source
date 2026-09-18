@@ -46,6 +46,7 @@ Browser tests own port 4319 and fresh browser contexts. They refuse to reuse an 
 - New games use `amberly-family-v1-2121ea84c411`, a record-eligible reference. Original beta references remain registered with their original test status; nothing promotes or rewrites old history.
 - Only shared family games without unresolved/upheld concerns appear in the family record book. Personal word records use finalized human turns. Assisted moves, solo practice and custom sets remain excluded as defined by the domain rules. Wins and clutch awards additionally require a normal unassisted ending.
 - A spectator’s live draft is provisional, expires automatically, and never changes confirmed scores.
+- Superadmins configure [member permissions and private tests](docs/member-permissions.md). Shared practice games are superadmin-only; removing one preserves original evidence. Confirmed game history remains protected.
 
 ## Recovery and operations
 

@@ -10,6 +10,24 @@
   --installed-top-clearance: 0px;
   --game-bottom-clearance: max(12px, env(safe-area-inset-bottom, 0px));
   --table-scene: url("/tabletop/table-bottles-v4.webp");
+  /* One material palette for boards, menus, racks and body-portal animations. */
+  --tile: #633e2c;
+  --tile-ink: #fff6df;
+  /* Matte faces and quiet edges keep small ivory letters clear on phones. */
+  --tile-material: var(--tile);
+  --tile-edge: #805b45 #583522 #422719 #714a34;
+  --tile-shadow: inset 0 -1px 0 #24130b45, 0 1px 1px #24171055;
+  --tile-letter-size: 62cqi;
+  --board-ivory: #f5f2e9;
+  --board-brass: #a58c59;
+  --board-tw: #956774;
+  --board-dw: #cfa1a4;
+  --board-tl: #5e7592;
+  --board-dl: #aabbd0;
+  --board-premium-ink: #fffaf0;
+  --board-dw-ink: #43272d;
+  --board-dl-ink: #1e334a;
+  --board-frame-image: url("/tabletop/board-frame-mahogany-v1.webp");
 }
 body {
   min-height: 100dvh;
@@ -38,9 +56,10 @@ body {
   font-size: 27px;
 }
 .app-shell .brand .brand-tile {
-  background: #f1dfb5 url("/tabletop/tile.webp") center / 108% 108%;
-  border-color: #b49663;
-  box-shadow: 0 2px 2px #5141272b;
+  background: var(--tile-material);
+  color: var(--tile-ink);
+  border-color: var(--tile-edge);
+  box-shadow: var(--tile-shadow);
 }
 .app-shell:not(.game-screen):not(.spectator-shell) > main {
   padding: 24px;
@@ -77,10 +96,10 @@ body {
   border-radius: 8px;
 }
 .app-shell .button.primary:not(:disabled):active,
-.app-shell .tabletop-tool:not(:disabled):active {
+:is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):active {
   transform: translateY(1px);
 }
-.app-shell .tabletop-tool {
+:is(.app-shell, .family-hub) .tabletop-tool {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -96,10 +115,10 @@ body {
   background: #fffcf480;
   box-shadow: 0 2px 3px #51412714;
 }
-.app-shell .tabletop-tool:not(:disabled):hover {
+:is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):hover {
   background: #fffcf4;
 }
-.app-shell .tabletop-menu-button {
+:is(.app-shell, .family-hub) .tabletop-menu-button {
   border-color: transparent;
   background: transparent;
   box-shadow: none;
@@ -154,55 +173,53 @@ body {
   background: #f0eadf var(--table-scene) center / cover;
 }
 .app-shell .board-frame {
-  background: #a77136;
-  border-color: #b78245;
-  /* Nine-slice only uses the rails. The generated center is never painted. */
-  border-image: url("/tabletop/board-frame-v3.webp") 70 / 1 / 0 stretch;
-  border-radius: 8px;
+  background: #45261d;
+  border-color: #633b29;
+  /* Nine-slice uses only the mahogany rails, never the generated center. */
+  border-image: var(--board-frame-image) 7% / 1 / 0 stretch;
+  border-radius: 4px;
   box-shadow:
-    0 1px 1px #66401580,
-    0 4px 3px #51321c38,
-    0 9px 15px #57391f36;
+    0 1px 1px #361b1580,
+    0 4px 3px #39241b38,
+    0 9px 15px #39241b36;
 }
 .app-shell .board-grid {
-  background: #b4b6a8;
+  background: var(--board-brass);
   box-shadow:
-    0 0 0 1px #543815a6,
-    inset 0 1px 3px #39290d40;
+    0 0 0 1px #d5bf80,
+    0 0 0 2px #302724;
 }
 .app-shell .board-workspace .square.plain {
-  background: linear-gradient(145deg, #ffffff70, #b8b7ab14), #f4f5f1;
+  background: linear-gradient(145deg, #ffffff50, #d3c9b512), var(--board-ivory);
 }
 .app-shell .board-workspace .square.tw {
-  background: linear-gradient(145deg, #ffbaa530, #b5514712), #ca7865;
+  background: var(--board-tw);
 }
 .app-shell .board-workspace .square.dw {
-  background: linear-gradient(145deg, #ffe3d54a, #b7836c12), #e1ac9e;
+  background: var(--board-dw);
 }
 .app-shell .board-workspace .square.dl {
-  background: linear-gradient(145deg, #d5f4f748, #459bba12), #a5ccd2;
+  background: var(--board-dl);
 }
 .app-shell .board-workspace .square.tl {
-  background: linear-gradient(145deg, #b4e6e838, #26789112), #5a9fa7;
+  background: var(--board-tl);
 }
 .app-shell .letter-tile,
 .app-shell .board-workspace .square.fresh .letter-tile {
-  background:
-    linear-gradient(140deg, #fff3cf26, #b17b391c),
-    #efd9ad url("/tabletop/tile.webp") center / 108% 108%;
-  border-color: #dcc18b #b18a52 #896033 #c6a36b;
+  background: var(--tile-material);
+  border-color: var(--tile-edge);
   border-radius: 9%;
-  box-shadow:
-    inset 0 1px 0 #fff6db,
-    inset 1px 0 0 #ffeac6a6,
-    inset 0 -1px 0 #9e754044,
-    inset -1px 0 0 #80552338,
-    0 2px 1px #68461e6b,
-    0 3px 4px #49301242;
-  color: #272416;
+  box-shadow: var(--tile-shadow);
+  color: var(--tile-ink);
+}
+.app-shell .board-workspace .square.fresh .letter-tile:not(.blank-tile) {
+  outline-color: #82c99d;
+}
+.app-shell .letter-tile .blank-label {
+  color: inherit;
 }
 .app-shell .board-workspace .square .letter-tile b {
-  font-size: clamp(10px, 52cqi, 64px);
+  font-size: clamp(10px, var(--tile-letter-size), 64px);
   font-weight: 750;
 }
 .app-shell .board-workspace .square .letter-tile small {
@@ -212,13 +229,11 @@ body {
 }
 .app-shell .letter-tile.blank-tile,
 .app-shell .board-workspace .square.fresh .letter-tile.blank-tile {
-  background:
-    linear-gradient(#c0dfffd9, #c0dfffd9),
-    #dceeff url("/tabletop/tile.webp") center / 108% 108%;
+  background: #dceeff;
   color: #075096;
   border-color: #3d78af;
   border-bottom-color: #245c91;
-  box-shadow: inset 0 1px 0 #f5fbff;
+  box-shadow: var(--tile-shadow);
 }
 .app-shell .board-seat.is-current {
   background: #174e38;
@@ -249,16 +264,26 @@ body {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.02em;
-  text-shadow: 0 1px 0 #fff7e82b;
+  text-shadow: 0 1px 1px #17233140;
 }
-.app-shell .board-workspace .square:is(.tw, .dw) .premium-label {
-  color: #331c13;
+.app-shell .board-workspace .square:is(.tw, .dw, .tl, .dl) .premium-label {
+  color: var(--board-premium-ink);
 }
-.app-shell .board-workspace .square:is(.tl, .dl) .premium-label {
-  color: #0e3033;
+.app-shell .board-workspace .square.dw .premium-label {
+  color: var(--board-dw-ink);
+}
+.app-shell .board-workspace .square.dl .premium-label {
+  color: var(--board-dl-ink);
+}
+.app-shell .board-workspace .square.selected {
+  box-shadow: inset 0 0 0 3px #fff6df;
+}
+.app-shell .board-workspace .square.selected .direction-caret {
+  color: var(--forest);
+  background: #fff6df;
 }
 .app-shell .board-workspace .square .letter-tile b {
-  text-shadow: 0 1px 0 #fff0cb66;
+  text-shadow: 0 1px 1px #29170ecc;
 }
 .app-shell :is(.board-seat-score, .spectator-seat-score) {
   font-family: Arial, Helvetica, sans-serif;
@@ -357,7 +382,7 @@ body {
 }
 .app-shell .tile-bag-button {
   position: relative;
-  background: transparent url("/tabletop/bag-resting-v2.webp") center / contain
+  background: transparent url("/tabletop/bag-forest-v1.webp") center / contain
     no-repeat;
   width: 58px;
   height: 58px;
@@ -368,7 +393,8 @@ body {
   top: 58%;
   left: 51%;
   transform: translate(-50%, -50%) rotate(10deg);
-  color: #234838;
+  color: #fff6df;
+  text-shadow: 0 1px 2px #102c21;
   font:
     800 18px Arial,
     sans-serif;
@@ -445,7 +471,7 @@ body > .family-toolbar {
 }
 @media (prefers-reduced-motion: reduce) {
   .app-shell .button.primary:not(:disabled):active,
-  .app-shell .tabletop-tool:not(:disabled):active {
+  :is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):active {
     transform: none;
   }
 }

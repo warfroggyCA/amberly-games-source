@@ -27,14 +27,13 @@
   -webkit-backface-visibility: hidden;
   display: grid;
   place-items: center;
-  border: 1px solid #a9854f;
-  border-bottom: 2px solid #916e3a;
-  border-radius: 10%;
-  color: #27271f;
-  background: #ead5a9 url("/tabletop/tile.webp") center / 110% 110%;
-  box-shadow:
-    0 2px 3px #42280840,
-    inset 0 1px #fff3d4;
+  border: 1px solid;
+  border-bottom-width: 2px;
+  border-color: var(--tile-edge);
+  border-radius: 9%;
+  color: var(--tile-ink);
+  background: var(--tile-material);
+  box-shadow: var(--tile-shadow);
 }
 .turn-tile-front {
   transform: translateZ(1px);
@@ -44,7 +43,7 @@
 }
 .turn-tile-face b {
   font:
-    750 54cqi / 1 Arial,
+    750 var(--tile-letter-size) / 1 Arial,
     sans-serif;
   transform: translate(-5%, -6%);
 }

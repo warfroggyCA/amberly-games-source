@@ -1,7 +1,7 @@
 # Releases
 
 1. Work on a branch. Keep credentials, original/generated word data, browser profiles, backups and local provider configuration out of Git.
-2. Run `npm run check` and `npm run format:check`; push the exact commit to the private repository and open/update its pull request. The `Verify` workflow restores the checksum-pinned word asset, installs the lockfile on Node 24, audits production dependencies, and runs all checks, including real PostgreSQL and production-mode browser tests.
+2. Run `npm run check` and `npm run format:check`; push the exact commit to the public source repository and open/update its pull request. The `Verify` workflow restores the checksum-pinned word asset, installs the lockfile on Node 24, audits production dependencies, and runs all checks, including real PostgreSQL and production-mode browser tests.
 3. Run `npm run release:check`. It rejects dirty checkouts and commits without a successful matching GitHub Verify run. A new code change invalidates the previous result. Do not treat a passed unit suite as a passed database/browser suite.
 4. Review the diff and remaining boundaries, and obtain approval for publication. CI has no production database, OAuth or deployment credentials and does not deploy automatically.
 5. Deploy the reviewed commit to the existing Vercel project using the existing approved process. Preserve required private word sources for the build; do not change auth configuration or apply migrations as a side effect. Record the commit, deployment ID, URL, verification run and promotion time.
@@ -19,7 +19,7 @@ Keep the prior Ready deployment and source tag. Roll back the alias to that depl
 
 ## Database migration mapping
 
-This milestone does not require a schema migration. Hosted migration versions differ from local filenames:
+The permissions/private-test update requires the additive migration described in [member permissions](member-permissions.md). Apply it before the matching API and retain its authorization checks in any rollback build. Hosted migration versions differ from local filenames:
 
 | Local source | Hosted migration |
 | --- | --- |

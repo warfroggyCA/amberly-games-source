@@ -1,0 +1,66 @@
+.result-share-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.result-share-button svg {
+  width: 30px;
+  height: 25px;
+}
+.result-badge-modal {
+  max-width: 540px;
+}
+.result-badge {
+  overflow: hidden;
+  border-radius: 12px;
+  background: #12392b;
+  color: #fff4d5;
+  animation: badge-arrive 420ms ease-out;
+}
+.result-badge img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.result-badge-loading {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+.result-badge-loading svg {
+  width: 90px;
+  height: 75px;
+}
+.result-badge-loading p {
+  color: #fff4d5;
+}
+.result-badge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+.result-badge-hint {
+  text-align: center;
+  font-size: 0.9rem;
+}
+@keyframes badge-arrive {
+  from {
+    transform: scale(0.94) translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .result-badge {
+    animation: none;
+  }
+}

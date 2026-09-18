@@ -6,6 +6,12 @@ This document describes configuration for an independent installation. Operator-
 
 The sequence below describes the setup and access contract; completed steps are recorded in the provisioning record and must not be blindly repeated. Normal games use the approved concern/review process without participant-approval gates.
 
+## Opening screens
+
+`FamilyWelcome` gives sign-in, shared-history loading, and connection recovery the same opaque, safe-area-aware entry surface. Decorative bottles stay on the game table and cannot sit behind sign-in text. The matte PLAY rack uses the shared tile palette; its waiting motion stops for reduced-motion users. The brand and the separate “Games on this device” link both lead to `/`.
+
+This is presentation only: Google and email-code authentication, retry limits, invitations, retained-entry exports, and tab ownership keep their existing behavior. Long recovery screens scroll normally on short displays. Browser regression checks cover slow/failed session checks, Google start failures, retained email/code input, and shared-history recovery across desktop, iPhone portrait/landscape, and iPad. Physical Home Screen app verification remains separate.
+
 ## Workspaces and access
 
 | Address | Behaviour |

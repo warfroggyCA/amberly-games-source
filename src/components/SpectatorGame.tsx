@@ -1,5 +1,9 @@
 "use client";
+import { ResultBadge } from "./ResultBadge";
+import { PlayerName } from "./PlayerName";
 import "./live-draft.css";
+import { PlayerAvatar } from "./PlayerAvatar";
+import type { SavedPlayer } from "../lib/preview-store";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { currentLiveDraft, type LiveDraft } from "../lib/live-draft";
@@ -8,7 +12,7 @@ import { LETTER_VALUES, premiumAt } from "../domain/board";
 import { buildRoundRows } from "../lib/round-scores";
 import { spectatorWords, type SpectatorWord } from "../lib/spectator-plays";
 import { Modal } from "./Modal";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { CrownIcon } from "./CrownIcon";
 import { liveLeader, LEADER_LABELS } from "../lib/live-leader";
 import { TileBagButton } from "./TileBagButton";
@@ -20,12 +24,14 @@ import "./spectator-game.css";
 type Selection = { type: "player" | "word"; id: string } | null;
 export function SpectatorGame({
   game,
+  profiles = [],
   liveDraft,
   confirmation,
   toolsTarget,
   assisted = game.assisted ?? false,
 }: {
   game: SpectatorState;
+  profiles?: SavedPlayer[];
   liveDraft?: LiveDraft | null;
   confirmation?: ReactNode;
   toolsTarget?: HTMLElement | null;
@@ -183,6 +189,31 @@ export function SpectatorGame({
       ) : (
         <div className="spectator-inline-tools">{tools}</div>
       )}
+      <ResultBadge
+        key={game.id}
+        result={
+          game.result?.winnerIds.length
+            ? {
+                gameId: game.id,
+                game: "Scrabble",
+                winners: game.players
+                  .filter((p) => game.result!.winnerIds.includes(p.id))
+                  .map((p) => ({
+                    name: p.name,
+                    score: game.result!.scores[p.id],
+                  })),
+                note:
+                  game.result.reason === "early"
+                    ? "Early finish"
+                    : assisted
+                      ? "Assisted result"
+                      : game.tileSupply
+                        ? "Nonstandard tile set"
+                        : undefined,
+              }
+            : null
+        }
+      />
       <div className="spectator-stage">
         <div className="spectator-table">
           {game.players.map((player) => {
@@ -204,25 +235,38 @@ export function SpectatorGame({
                 ? LEADER_LABELS[displayCrown.reason]
                 : "Leader";
             return (
-              <button
+              <div
                 key={player.id}
                 className={`spectator-seat spectator-seat-${player.seat} ${isCurrent ? "is-current" : ""} ${isSelected ? "is-selected" : ""}`}
                 data-turn-player={player.id}
                 data-turn-seat={player.seat}
-                aria-pressed={isSelected}
-                aria-label={`${player.name}, ${displayScores[player.id]} points${isCurrent ? ", playing now" : ""}${isLeader ? `, ${leaderLabel.toLowerCase()}` : ""}. Highlight their words`}
-                onClick={() => pickPlayer(player.id)}
               >
                 <span
                   className={`spectator-player-initial seat-colour-${player.seat}`}
-                  aria-hidden="true"
                 >
-                  {player.name.charAt(0)}
+                  <PlayerAvatar
+                    name={player.name}
+                    photoDataUrl={
+                      profiles.find((p) => p.id === player.id)?.photoDataUrl
+                    }
+                  />
                   {isLeader && <CrownIcon />}
                 </span>
-                <span className="spectator-seat-copy">
+                <button
+                  type="button"
+                  className="spectator-seat-copy"
+                  aria-pressed={isSelected}
+                  aria-label={`${player.name}, ${displayScores[player.id]} points${isCurrent ? ", playing now" : ""}${isLeader ? `, ${leaderLabel.toLowerCase()}` : ""}. Highlight their words`}
+                  onClick={() => pickPlayer(player.id)}
+                >
                   <strong className="spectator-seat-name" title={player.name}>
-                    {player.name}
+                    <PlayerName
+                      player={player}
+                      profile={profiles.find(
+                        (profile) => profile.id === player.id,
+                      )}
+                      useNickname={game.status === "active"}
+                    />
                   </strong>
                   <b
                     className="spectator-seat-score"
@@ -233,8 +277,8 @@ export function SpectatorGame({
                   <small className="spectator-seat-turn" aria-hidden="true">
                     {isCurrent ? "Playing now" : "\u00a0"}
                   </small>
-                </span>
-              </button>
+                </button>
+              </div>
             );
           })}
           <div className="board-workspace spectator-board">
@@ -338,17 +382,27 @@ export function SpectatorGame({
           aria-label={`${chosenWord.word} word details`}
         >
           <div className="spectator-word-detail-heading">
-            <h3>{chosenWord.word}</h3>
-            <button className="text-button" onClick={() => setSelection(null)}>
-              Clear
+            <h3>Word details</h3>
+            <button
+              className="icon-button"
+              aria-label="Clear word selection"
+              onClick={() => setSelection(null)}
+            >
+              ×
             </button>
           </div>
-          <p className="spectator-word-detail-meta">
-            {nameOf(chosenWord.playerId)} · {chosenWord.score} points · Round{" "}
-            {chosenWord.round}
-            {chosenWord.source === "assisted" ? " · Assisted play" : ""}
-          </p>
-          <WordDefinition key={chosenWord.id} word={chosenWord.word} />
+          <PlayedWordDetails
+            key={chosenWord.id}
+            word={chosenWord}
+            board={game.board}
+            placements={
+              game.turns.find((turn) => turn.id === chosenWord.turnId)
+                ?.placements ?? []
+            }
+            playerName={nameOf(chosenWord.playerId)}
+            round={chosenWord.round}
+            source={chosenWord.source}
+          />
         </aside>
       )}
       <div className="spectator-selection" aria-live="polite">

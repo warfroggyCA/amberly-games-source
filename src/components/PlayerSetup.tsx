@@ -1,4 +1,6 @@
 "use client";
+import { playerDisplayName } from "../lib/player-profile";
+import { PlayerName } from "./PlayerName";
 import { useRef, useState, type PointerEvent } from "react";
 import {
   EMPTY_EQUIPMENT,
@@ -33,8 +35,12 @@ export function PlayerSetup({
   error,
   sharedMode,
   onSharedModeChange,
+  canAddPlayers = true,
+  allowPractice = true,
 }: {
   equipment?: Equipment;
+  canAddPlayers?: boolean;
+  allowPractice?: boolean;
   sharedMode?: "confirmed" | "practice";
   onSharedModeChange?: (mode: "confirmed" | "practice") => void;
   players: SavedPlayer[];
@@ -90,8 +96,10 @@ export function PlayerSetup({
     firstIndex < 0
       ? ordered
       : [...ordered.slice(firstIndex), ...ordered.slice(0, firstIndex)];
-  const playerName = (playerId: string) =>
-    roster.find((player) => player.id === playerId)?.name ?? "Player";
+  const playerName = (playerId: string) => {
+    const player = roster.find((player) => player.id === playerId);
+    return player ? playerDisplayName(player) : "Player";
+  };
 
   function seatPlayer(index: number, playerId: string) {
     if (disabled) return;
@@ -239,7 +247,9 @@ export function PlayerSetup({
                       )}
                     </span>
                     <span>
-                      <strong>{player.name}</strong>
+                      <strong>
+                        <PlayerName player={player} profile={player} />
+                      </strong>
                       <small>
                         {seat >= 0 ? `${SEATS[seat]} seat` : "Ready to join"}
                       </small>
@@ -256,69 +266,71 @@ export function PlayerSetup({
                 </p>
               )}
             </div>
-            <form
-              className="setup-add-player"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (disabled || operation.current || !name.trim()) return;
-                operation.current = true;
-                setWorking(true);
-                setLocalError(null);
-                const enteredName = name.trim();
-                try {
-                  const playerId = await onAdd(enteredName);
-                  if (playerId) {
-                    setRecent((current) => [
-                      ...current.filter((player) => player.id !== playerId),
-                      { id: playerId, name: enteredName },
-                    ]);
-                    const next = [...seats];
-                    const empty = next.indexOf("");
-                    if (empty >= 0) {
-                      next[empty] = playerId;
-                      setSeats(next);
-                      setFirst((current) => current || playerId);
+            {canAddPlayers && (
+              <form
+                className="setup-add-player"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (disabled || operation.current || !name.trim()) return;
+                  operation.current = true;
+                  setWorking(true);
+                  setLocalError(null);
+                  const enteredName = name.trim();
+                  try {
+                    const playerId = await onAdd(enteredName);
+                    if (playerId) {
+                      setRecent((current) => [
+                        ...current.filter((player) => player.id !== playerId),
+                        { id: playerId, name: enteredName },
+                      ]);
+                      const next = [...seats];
+                      const empty = next.indexOf("");
+                      if (empty >= 0) {
+                        next[empty] = playerId;
+                        setSeats(next);
+                        setFirst((current) => current || playerId);
+                      }
+                      setName("");
+                      setPicked("");
+                      setAnnouncement(
+                        `${enteredName} added to your roster${empty >= 0 ? ` and placed in the ${SEATS[empty].toLowerCase()} seat` : ". All four seats are occupied; the new player is ready for another game"}.`,
+                      );
                     }
-                    setName("");
-                    setPicked("");
-                    setAnnouncement(
-                      `${enteredName} added to your roster${empty >= 0 ? ` and placed in the ${SEATS[empty].toLowerCase()} seat` : ". All four seats are occupied; the new player is ready for another game"}.`,
+                  } catch (failure) {
+                    setLocalError(
+                      failure instanceof Error
+                        ? failure.message
+                        : "The player could not be added. Your name entry has been kept.",
                     );
+                  } finally {
+                    operation.current = false;
+                    setWorking(false);
                   }
-                } catch (failure) {
-                  setLocalError(
-                    failure instanceof Error
-                      ? failure.message
-                      : "The player could not be added. Your name entry has been kept.",
-                  );
-                } finally {
-                  operation.current = false;
-                  setWorking(false);
-                }
-              }}
-            >
-              <label htmlFor="setup-player-name">Add someone new</label>
-              <div>
-                <input
-                  id="setup-player-name"
-                  aria-label="Player name"
-                  value={name}
-                  disabled={disabled}
-                  maxLength={60}
-                  required
-                  autoComplete="off"
-                  placeholder="e.g. Doug"
-                  onChange={(event) => setName(event.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="button primary"
-                  disabled={disabled || !name.trim()}
-                >
-                  {working ? "Saving…" : "Add player"}
-                </button>
-              </div>
-            </form>
+                }}
+              >
+                <label htmlFor="setup-player-name">Add someone new</label>
+                <div>
+                  <input
+                    id="setup-player-name"
+                    aria-label="Player name"
+                    value={name}
+                    disabled={disabled}
+                    maxLength={60}
+                    required
+                    autoComplete="off"
+                    placeholder="e.g. Doug"
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={disabled || !name.trim()}
+                  >
+                    {working ? "Saving…" : "Add player"}
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
           <section
             className="setup-table-section"
@@ -484,7 +496,7 @@ export function PlayerSetup({
             {localError || error}
           </p>
         )}
-        {sharedMode && (
+        {sharedMode && allowPractice && (
           <label className="field">
             Game type
             <select
@@ -497,7 +509,7 @@ export function PlayerSetup({
               disabled={disabled}
             >
               <option value="confirmed">Family game</option>
-              <option value="practice">Practice game — no records</option>
+              <option value="practice">Private test — superadmins only</option>
             </select>
             <small>
               Only the scorer needs to sign in. Other players can play without
@@ -510,9 +522,13 @@ export function PlayerSetup({
           {lexiconDetails(defaultLexicon).shortLabel} ·{" "}
           {defaultLexicon.words.length.toLocaleString("en-US")} words ·{" "}
           {chosenTotal} tiles ·{" "}
-          {sharedMode ? "saved to shared history" : "saved on this device"}.
-          Solo practice and custom tile quantities stay outside standard family
-          records.
+          {sharedMode === "practice"
+            ? "private to superadmins"
+            : sharedMode
+              ? "saved to shared history"
+              : "saved on this device"}
+          . Solo practice and custom tile quantities stay outside standard
+          family records.
         </p>
         <div className="dialog-actions">
           <button type="button" className="button light" onClick={onClose}>

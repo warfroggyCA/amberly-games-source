@@ -200,6 +200,15 @@ body:has(> .spectator-shell) > .error-banner {
   padding: 10px 8px;
 }
 .spectator-seat-copy {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font: inherit;
+  min-height: 44px;
+  min-width: 44px;
+  box-shadow: none;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -243,7 +252,7 @@ body:has(> .spectator-shell) > .error-banner {
   outline: 2px solid #b88b34;
   outline-offset: 3px;
 }
-.spectator-seat:focus-visible {
+.spectator-seat:focus-within {
   outline: 3px solid #a27120;
   outline-offset: 4px;
 }
@@ -755,5 +764,5 @@ body:has(> .spectator-shell) > .error-banner {
 
 /* Equal rim widths keep the outside of the viewer board exactly square. */
 body .app-shell.spectator-shell .spectator-game .spectator-board .board-frame {
-  border-width: clamp(6px, calc(var(--spectator-board-size) * 0.022), 16px);
+  border-width: clamp(5px, calc(var(--spectator-board-size) * 0.013), 10px);
 }

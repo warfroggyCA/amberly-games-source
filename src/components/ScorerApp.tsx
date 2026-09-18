@@ -1,6 +1,13 @@
 "use client";
+import { playerDisplayName } from "../lib/player-profile";
+import { PlayerName } from "./PlayerName";
+import {
+  hasPermission,
+  type MemberPermission,
+} from "../lib/member-permissions";
 import "./live-draft.css";
 import {
+  Fragment,
   useEffect,
   useRef,
   useState,
@@ -39,7 +46,7 @@ import { TileBagButton } from "./TileBagButton";
 import { ExtraTiles } from "./ExtraTiles";
 import { WinnerBanner } from "./WinnerBanner";
 import { WordReference } from "./WordReference";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { OfficialWordSearch } from "./OfficialWordSearch";
 import { PlayerProfileEditor } from "./PlayerProfileEditor";
 import {
@@ -57,7 +64,8 @@ import "./game-screen.css";
 import { GameScorePanel, useNarrowGameScreen } from "./GameScorePanel";
 import { SpectatorGame } from "./SpectatorGame";
 import { useLiveDraft, type LiveContext } from "./useLiveDraft";
-import { BrandWordmark } from "./BrandWordmark";
+import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { TabletopIcon } from "./TabletopIcon";
 import { CountCheck, CountCorrectionHistory } from "./CountCheck";
 
@@ -69,8 +77,6 @@ const NAV: View[] = ["Home", "Play", "Records", "History", "Players"];
 const id = () => crypto.randomUUID();
 const nameOf = (game: GameState, playerId: string) =>
   game.players.find((p) => p.id === playerId)?.name ?? "Player";
-const initials = (name: string) =>
-  Array.from(name.trim())[0]?.toUpperCase() ?? "?";
 const errorText = (error: unknown) =>
   error instanceof Error
     ? error.message
@@ -79,15 +85,25 @@ const errorText = (error: unknown) =>
 export function ScorerApp({
   store = localScorerStore,
   renderGameStatus,
+  renderGameItem,
   accountControls,
   shareControl,
   liveContext,
+  initialView = "Home",
+  initialNewGame = false,
+  onHome,
+  onNavigate,
 }: {
   store?: ScorerStore;
+  initialView?: View;
+  initialNewGame?: boolean;
+  onHome?: () => void;
+  onNavigate?: (path: string) => void;
   liveContext?: LiveContext;
   accountControls?: ReactNode;
   shareControl?: ReactNode;
   renderGameStatus?: (game: GameState) => ReactNode;
+  renderGameItem?: (game: GameState, content: ReactNode) => ReactNode;
 } = {}) {
   const {
     subscribe,
@@ -99,10 +115,13 @@ export function ScorerApp({
   } = store;
   const shared = store.mode === "shared";
   const state = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const allowed = (key: MemberPermission) =>
+    !shared || hasPermission(state.shared?.member, key);
+  const canStart = allowed("startGames") && allowed("scoreGames");
   const [creationMode, setCreationMode] = useState<"confirmed" | "practice">(
     "confirmed",
   );
-  const [view, setView] = useState<View>("Home");
+  const [view, setView] = useState<View>(initialView);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -116,7 +135,7 @@ export function ScorerApp({
     | "counts"
     | "extra-tiles"
     | null
-  >(null);
+  >(initialNewGame && canStart ? "setup" : null);
   const [countOrigin, setCountOrigin] = useState<"bag" | "end" | "assist">(
     "bag",
   );
@@ -250,6 +269,10 @@ export function ScorerApp({
     if (target?.pendingEnd && !target.assistance) openEnding(target);
   }
   function goHome() {
+    if (onHome) {
+      onHome();
+      return;
+    }
     setView("Home");
     setModal(null);
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -297,12 +320,20 @@ export function ScorerApp({
     tileSetId: string | null,
     equipmentRevision: number,
   ) {
-    store.setCreationMode?.(creationMode);
+    store.setCreationMode?.(
+      state.shared?.member.role === "superadmin" ? creationMode : "confirmed",
+    );
     const success = await mutate((data) => {
       const players = seats.flatMap((playerId, seat) => {
         const p = data.players.find((p) => p.id === playerId);
         return p
-          ? [{ id: p.id, name: p.name, seat: seat as 0 | 1 | 2 | 3 }]
+          ? [
+              {
+                id: p.id,
+                name: playerDisplayName(p),
+                seat: seat as 0 | 1 | 2 | 3,
+              },
+            ]
           : [];
       });
       const equipment = data.equipment ?? EMPTY_EQUIPMENT;
@@ -336,6 +367,7 @@ export function ScorerApp({
     if (success) {
       setModal(null);
       setView("Play");
+      if (initialNewGame) onNavigate?.("/family/scrabble?view=play");
     }
   }
   async function autoFinish(all: boolean) {
@@ -587,7 +619,12 @@ export function ScorerApp({
       <TileSetSettings
         store={store}
         equipment={state.data.equipment}
-        disabled={busy || !!state.pending || !!state.unresolved}
+        disabled={
+          busy ||
+          !!state.pending ||
+          !!state.unresolved ||
+          !allowed("manageEquipment")
+        }
         onClose={() => setModal("game-menu")}
       />
     ) : (
@@ -597,15 +634,30 @@ export function ScorerApp({
           className="tabletop-menu"
           onClose={() => setModal(null)}
         >
+          {onNavigate && (
+            <AmberlyNavigation
+              onNavigate={(path) => {
+                setModal(null);
+                onNavigate(path);
+              }}
+            />
+          )}
           <nav className="game-menu-nav" aria-label="Game navigation">
-            {NAV.map((item) => (
+            {NAV.filter(
+              (item) =>
+                !onNavigate ||
+                item === "Play" ||
+                item === "Records" ||
+                item === "History",
+            ).map((item) => (
               <button
                 className="button light"
                 key={item}
                 aria-current={view === item ? "page" : undefined}
                 onClick={() => {
                   setModal(null);
-                  setView(item);
+                  if (item === "Home" && onHome) onHome();
+                  else setView(item);
                 }}
               >
                 <TabletopIcon
@@ -621,16 +673,19 @@ export function ScorerApp({
                             : "players"
                   }
                 />
-                {item}
+                {onNavigate && item === "History" ? "Scrabble history" : item}
               </button>
             ))}
-            <button
-              className="button light"
-              onClick={() => setModal("settings")}
-            >
-              <TabletopIcon name="settings" />
-              Settings
-            </button>
+            {!onNavigate && (
+              <button
+                className="button light"
+                disabled={!allowed("manageEquipment")}
+                onClick={() => setModal("settings")}
+              >
+                <TabletopIcon name="settings" />
+                Settings
+              </button>
+            )}
           </nav>
           {(error || state.error) && (
             <p className="error-banner" role="alert">
@@ -708,31 +763,17 @@ export function ScorerApp({
   if (shared && view === "Play" && game && readOnly)
     return (
       <div className="app-shell spectator-shell">
-        <header className="site-header">
-          <button
-            className="tabletop-tool tabletop-menu-button"
-            onClick={() => setModal("game-menu")}
-            aria-label="Open game menu"
-            title="Game menu"
-          >
-            <TabletopIcon name="menu" />
-          </button>
-          <a
-            className="brand"
-            href="/family"
-            aria-label="Amberly Games — Home"
-            onClick={(event) => {
-              event.preventDefault();
-              goHome();
-            }}
-          >
-            <BrandWordmark />
-          </a>
+        <AmberlyHeader
+          onHome={goHome}
+          onMenu={() => setModal("game-menu")}
+          menuOpen={modal === "game-menu"}
+          menuLabel="Open game menu"
+        >
           <div className="spectator-header-actions">
             {shareControl}
             <div className="spectator-header-tools" ref={setViewerTools} />
           </div>
-        </header>
+        </AmberlyHeader>
         <main>
           {(error || state.error) && (
             <p className="error-banner" role="alert">
@@ -741,6 +782,7 @@ export function ScorerApp({
           )}
           <SpectatorGame
             game={game}
+            profiles={state.data.players}
             liveDraft={livePreview.draft}
             toolsTarget={viewerTools}
             assisted={!!game.assistance}
@@ -757,28 +799,13 @@ export function ScorerApp({
           Viewer preview reconnecting · your entry is retained
         </span>
       )}
-      <header className="site-header">
-        <button
-          className="tabletop-tool tabletop-menu-button"
-          onClick={() => setModal("game-menu")}
-          aria-label="Open game menu"
-          title="Game menu"
-          aria-haspopup="dialog"
-          aria-expanded={modal === "game-menu"}
-        >
-          <TabletopIcon name="menu" />
-        </button>
-        <a
-          className="brand"
-          href={shared ? "/family" : "/"}
-          aria-label="Amberly Games — Home"
-          onClick={(event) => {
-            event.preventDefault();
-            goHome();
-          }}
-        >
-          <BrandWordmark />
-        </a>
+      <AmberlyHeader
+        homeHref={shared ? "/family" : "/"}
+        onHome={goHome}
+        onMenu={() => setModal("game-menu")}
+        menuOpen={modal === "game-menu"}
+        menuLabel="Open game menu"
+      >
         {fitGame && gameActions}
         {!fitGame && (
           <span className="local-label">
@@ -786,7 +813,7 @@ export function ScorerApp({
             {shared ? "Shared games" : "Local preview"}
           </span>
         )}
-      </header>
+      </AmberlyHeader>
       <main>
         {notice && (
           <p className="inline-message" role="status">
@@ -854,6 +881,7 @@ export function ScorerApp({
                     <div className="home-actions">
                       <button
                         className="button primary"
+                        disabled={!canStart}
                         onClick={() => setModal("setup")}
                       >
                         {shared ? "New game" : "New preview game"}{" "}
@@ -886,15 +914,14 @@ export function ScorerApp({
                     {state.data.players.map((p, i) => (
                       <div key={p.id}>
                         <span className={`avatar colour-${i % 4}`}>
-                          {p.photoDataUrl ? (
-                            // Local resized image data; no remote image request.
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.photoDataUrl} alt="" />
-                          ) : (
-                            initials(p.name)
-                          )}
+                          <PlayerAvatar
+                            name={p.name}
+                            photoDataUrl={p.photoDataUrl}
+                          />
                         </span>
-                        <strong>{p.name}</strong>
+                        <strong>
+                          <PlayerName player={p} profile={p} />
+                        </strong>
                         <span className="muted">
                           {
                             state.data.games.filter((g) =>
@@ -936,6 +963,7 @@ export function ScorerApp({
                   gameAccess={state.shared?.gameAccess}
                   games={state.data.games.slice(-3).reverse()}
                   onOpen={openGame}
+                  renderItem={renderGameItem}
                 />
               </>
             )}
@@ -950,21 +978,26 @@ export function ScorerApp({
                       : "These preview profiles stay on this device."}
                   </p>
                 </div>
-                <AddPlayer onAdd={addPlayer} busy={busy} />
+                {allowed("addPlayers") ? (
+                  <AddPlayer onAdd={addPlayer} busy={busy} />
+                ) : (
+                  <p className="muted">
+                    Adding players is disabled for your account.
+                  </p>
+                )}
                 <div className="players-list">
                   {state.data.players.map((p, i) => (
                     <div key={p.id}>
                       <span className={`avatar colour-${i % 4}`}>
-                        {p.photoDataUrl ? (
-                          // Local resized image data; no remote image request.
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.photoDataUrl} alt="" />
-                        ) : (
-                          initials(p.name)
-                        )}
+                        <PlayerAvatar
+                          name={p.name}
+                          photoDataUrl={p.photoDataUrl}
+                        />
                       </span>
                       <div>
-                        <h3>{p.name}</h3>
+                        <h3>
+                          <PlayerName player={p} profile={p} />
+                        </h3>
                         <p>
                           {
                             state.data.games.filter((g) =>
@@ -1001,6 +1034,7 @@ export function ScorerApp({
                   </p>
                 </div>
                 <GameList
+                  renderItem={renderGameItem}
                   gameAccess={state.shared?.gameAccess}
                   games={[...state.data.games].reverse()}
                   onOpen={openGame}
@@ -1017,7 +1051,7 @@ export function ScorerApp({
                     Load earlier games
                   </button>
                 )}
-                {(!shared || state.shared?.member.role === "superadmin") && (
+                {allowed("exportHistory") && (
                   <button
                     className="button light"
                     onClick={() =>
@@ -1057,6 +1091,7 @@ export function ScorerApp({
                   </p>
                   <button
                     className="button primary"
+                    disabled={!canStart}
                     onClick={() => setModal("setup")}
                   >
                     {shared ? "New game" : "New preview game"}
@@ -1065,6 +1100,7 @@ export function ScorerApp({
               ) : readOnly ? (
                 <SpectatorGame
                   game={game}
+                  profiles={state.data.players}
                   liveDraft={livePreview.draft}
                   confirmation={renderGameStatus?.(game)}
                 />
@@ -1552,13 +1588,24 @@ export function ScorerApp({
       {modal === "setup" && (
         <PlayerSetup
           equipment={state.data.equipment ?? EMPTY_EQUIPMENT}
-          sharedMode={shared ? creationMode : undefined}
+          sharedMode={
+            shared
+              ? state.shared?.member.role === "superadmin"
+                ? creationMode
+                : "confirmed"
+              : undefined
+          }
           onSharedModeChange={setCreationMode}
           players={state.data.players}
-          busy={busy}
+          busy={busy || !canStart}
+          canAddPlayers={allowed("addPlayers")}
+          allowPractice={!shared || state.shared?.member.role === "superadmin"}
           onAdd={addPlayer}
           onStart={startGame}
-          onClose={() => setModal(null)}
+          onClose={() => {
+            setModal(null);
+            if (initialNewGame) onHome?.();
+          }}
           error={error}
         />
       )}
@@ -1792,10 +1839,15 @@ export function ScorerApp({
               aria-label="Word meanings"
             >
               {selectedTurn.words.map((word) => (
-                <div key={`${word.row}-${word.col}-${word.direction}`}>
-                  <h3>{word.word}</h3>
-                  <WordDefinition word={word.word} />
-                </div>
+                <PlayedWordDetails
+                  key={`${word.row}-${word.col}-${word.direction}`}
+                  word={word}
+                  board={game.board}
+                  placements={selectedTurn.placements}
+                  playerName={nameOf(game, selectedTurn.playerId)}
+                  round={selectedTurn.round}
+                  source={selectedTurn.source}
+                />
               ))}
             </section>
           )}
@@ -1846,54 +1898,71 @@ function GameList({
   games,
   gameAccess,
   onOpen,
+  renderItem,
 }: {
+  renderItem?: (game: GameState, content: ReactNode) => ReactNode;
   games: GameState[];
   gameAccess?: Record<string, GameAccess>;
   onOpen: (id: string) => Promise<void>;
 }) {
   return games.length ? (
     <div className="game-list">
-      {games.map((g) => (
-        <button key={g.id} onClick={() => void onOpen(g.id)}>
-          <span className="game-date">
-            {new Date(g.definition.createdAt).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-          <span>
-            <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
-            <small>
-              {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
-              {g.status === "finalized"
-                ? g.result?.reason === "early"
-                  ? "Ended early"
-                  : "Finalized"
-                : g.status === "paused"
-                  ? "Paused"
-                  : "In progress"}{" "}
-              · {lexiconDetails(g.lexicon).historyLabel}
-            </small>
-            {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
-              <small className="game-review-label">
-                Concern awaiting review
-              </small>
-            ) : gameAccess?.[g.id]?.protests.some(
-                (p) => p.resolution?.outcome === "upheld",
-              ) ? (
-              <small className="game-review-label">
-                Concern upheld · excluded from records
-              </small>
-            ) : null}
-          </span>
-          <span className="game-list-score">
-            {g.players
-              .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
-              .join(" / ")}
-          </span>
-          <span aria-hidden="true">→</span>
-        </button>
-      ))}
+      {games.map((g) => {
+        const content = (
+          <div className="game-list-item">
+            <button onClick={() => void onOpen(g.id)}>
+              <span className="game-date">
+                {new Date(g.definition.createdAt).toLocaleDateString(
+                  undefined,
+                  {
+                    month: "short",
+                    day: "numeric",
+                  },
+                )}
+              </span>
+              <span>
+                <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
+                <small>
+                  {gameAccess?.[g.id]?.mode === "practice"
+                    ? "Private test · "
+                    : ""}
+                  {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
+                  {g.status === "finalized"
+                    ? g.result?.reason === "early"
+                      ? "Ended early"
+                      : "Finalized"
+                    : g.status === "paused"
+                      ? "Paused"
+                      : "In progress"}{" "}
+                  · {lexiconDetails(g.lexicon).historyLabel}
+                </small>
+                {gameAccess?.[g.id]?.protests.some((p) => !p.resolution) ? (
+                  <small className="game-review-label">
+                    Concern awaiting review
+                  </small>
+                ) : gameAccess?.[g.id]?.protests.some(
+                    (p) => p.resolution?.outcome === "upheld",
+                  ) ? (
+                  <small className="game-review-label">
+                    Concern upheld · excluded from records
+                  </small>
+                ) : null}
+              </span>
+              <span className="game-list-score">
+                {g.players
+                  .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
+                  .join(" / ")}
+              </span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        );
+        return (
+          <Fragment key={g.id}>
+            {renderItem ? renderItem(g, content) : content}
+          </Fragment>
+        );
+      })}
     </div>
   ) : (
     <div className="empty-inline">
