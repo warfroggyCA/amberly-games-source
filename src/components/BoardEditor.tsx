@@ -1471,8 +1471,7 @@ export function BoardEditor({
               </div>
             </div>
             <p className="review-tile-key">
-              Outlined tiles are new. Faded multipliers marked “used” do not
-              score again.
+              Outlined tiles are new. Tags show multipliers applied this turn.
             </p>
             {recordError && (
               <p role="alert" className="inline-message">
