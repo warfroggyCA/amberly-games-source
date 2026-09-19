@@ -2,9 +2,9 @@
   position: fixed;
   /* Above the existing score-pop animation; native dialogs remain on top. */
   z-index: 5100;
-  top: calc(env(safe-area-inset-top) + 82px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: var(--bingo-y, 50%);
+  left: var(--bingo-x, 50%);
+  transform: translate(-50%, -50%);
   width: min(640px, calc(100% - 32px));
   padding: 22px 30px 20px;
   color: #fff9e9;
@@ -22,7 +22,7 @@
     inset 0 0 0 5px #bc985a80;
   pointer-events: none;
   isolation: isolate;
-  animation: bingo-arrive 440ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: bingo-arrive 950ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .bingo-banner::before,
 .bingo-banner::after {
@@ -83,7 +83,7 @@
     serif;
   rotate: -4deg;
   animation: bingo-tile-pop 520ms cubic-bezier(0.2, 1.5, 0.4, 1) both;
-  animation-delay: calc(var(--tile) * 55ms);
+  animation-delay: calc(180ms + var(--tile) * 65ms);
 }
 .bingo-celebration-tile:nth-child(even) {
   rotate: 4deg;
@@ -122,6 +122,7 @@
   );
   box-shadow: 0 5px 15px #001e2280;
   rotate: 8deg;
+  animation: bingo-medal-arrive 650ms 350ms cubic-bezier(0.2, 1.5, 0.4, 1) both;
 }
 .bingo-banner-medal span {
   font:
@@ -192,15 +193,35 @@
   animation-delay: calc(var(--spark) * 65ms);
 }
 @keyframes bingo-arrive {
-  from {
+  0% {
     opacity: 0;
-    translate: 0 -16px;
-    scale: 0.96;
+    translate: 0 90px;
+    scale: 0.45;
+    rotate: -7deg;
   }
-  to {
+  65% {
+    opacity: 1;
+    translate: 0 -8px;
+    scale: 1.035;
+    rotate: 1deg;
+  }
+  100% {
     opacity: 1;
     translate: 0 0;
     scale: 1;
+    rotate: 0deg;
+  }
+}
+@keyframes bingo-medal-arrive {
+  from {
+    opacity: 0;
+    scale: 0.3;
+    rotate: -35deg;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    rotate: 8deg;
   }
 }
 @keyframes bingo-tile-pop {
@@ -277,7 +298,6 @@
 }
 @media (max-height: 500px) and (min-width: 601px) {
   .bingo-banner {
-    top: calc(env(safe-area-inset-top) + 8px);
     padding: 12px 28px;
   }
   .bingo-banner-kicker {
@@ -304,6 +324,7 @@
 @media (prefers-reduced-motion: reduce) {
   .bingo-banner,
   .bingo-celebration-tile,
+  .bingo-banner-medal,
   .bingo-sparkles span {
     animation: none;
   }

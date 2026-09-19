@@ -65,12 +65,42 @@ test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async (
   await expect(banner).toContainText("70 points · includes the 50-point bonus");
   const box = await banner.boundingBox();
   const viewport = page.viewportSize()!;
+  const board = await page
+    .getByRole("grid", { name: "Scrabble board, 15 by 15", exact: true })
+    .boundingBox();
+  expect(
+    Math.abs(box!.x + box!.width / 2 - (board!.x + board!.width / 2)),
+  ).toBeLessThan(2);
+  expect(
+    Math.abs(box!.y + box!.height / 2 - (board!.y + board!.height / 2)),
+  ).toBeLessThan(2);
   expect(box!.x).toBeGreaterThanOrEqual(0);
   expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
   expect(box!.y + box!.height).toBeLessThan(viewport.height);
   await page.screenshot({ path: info.outputPath("bingo.png") });
   await banner.screenshot({ path: info.outputPath("banner.png") });
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(banner).toHaveCSS("animation-name", "bingo-arrive");
+  await expect(banner).toHaveCSS("animation-duration", "0.95s");
+  // Inspect a real intermediate frame, rather than only the settled decoration.
+  await banner.evaluate((element) => {
+    for (const animation of element.getAnimations({ subtree: true })) {
+      animation.pause();
+      animation.currentTime = 180;
+    }
+  });
+  const arriving = await banner.boundingBox();
+  expect(arriving!.width).toBeLessThan(box!.width);
+  await page.screenshot({ path: info.outputPath("bingo-mid-arrival.png") });
+  await banner.evaluate((element) => {
+    element
+      .getAnimations({ subtree: true })
+      .forEach((animation) => animation.play());
+  });
+  await expect(banner.locator(".bingo-banner-medal")).toHaveCSS(
+    "animation-name",
+    "bingo-medal-arrive",
+  );
   await expect(banner.locator(".bingo-celebration-tile").first()).toHaveCSS(
     "animation-name",
     "bingo-tile-pop",
@@ -79,6 +109,8 @@ test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async (
     "opacity",
     "1",
   );
+  await expect(banner).toHaveCSS("rotate", "0deg");
+  await page.screenshot({ path: info.outputPath("bingo-motion-settled.png") });
   await page.getByRole("button", { name: "Dismiss bingo celebration" }).click();
   await expect(banner).toHaveCount(0);
   await page.reload();
@@ -105,6 +137,17 @@ test("viewer celebrates once, removes an undone bingo, and never replays on refr
   await expect(banner).toHaveCount(0);
   game = played;
   await expect(banner).toContainText("70 points");
+  // A live viewer rotating while the banner is visible must keep it on the board.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(async () => {
+    const board = await page.getByRole("grid").boundingBox();
+    const box = await banner.boundingBox();
+    expect(
+      Math.abs(box!.y + box!.height / 2 - (board!.y + board!.height / 2)),
+    ).toBeLessThan(2);
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(390);
+  }).toPass();
   game = empty;
   await expect(banner).toHaveCount(0);
   game = played;

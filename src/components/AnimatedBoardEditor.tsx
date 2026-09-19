@@ -10,7 +10,7 @@ export function AnimatedBoardEditor(props: ComponentProps<typeof BoardEditor>) {
   const playback = useTurnPlayback(props.game);
   return (
     <div className="animated-board-editor" ref={root}>
-      <BingoBanner game={props.game} />
+      <BingoBanner game={props.game} containerRef={root} />
       <BoardEditor
         {...props}
         key={`${props.game.id}-${props.game.revision}`}

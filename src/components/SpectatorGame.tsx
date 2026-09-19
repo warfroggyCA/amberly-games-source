@@ -185,7 +185,7 @@ export function SpectatorGame({
       className="spectator-game"
       aria-label="Live game viewer"
     >
-      <BingoBanner game={game} />
+      <BingoBanner game={game} containerRef={stageRef} />
       {toolsTarget ? (
         createPortal(tools, toolsTarget)
       ) : (

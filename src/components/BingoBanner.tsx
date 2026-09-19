@@ -1,5 +1,12 @@
 "use client";
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import type { GameState, GameTurn } from "../domain/game";
 import { newlyObservedPlay } from "../lib/spectator-plays";
@@ -8,7 +15,14 @@ import "./bingo-banner.css";
 type BingoGame = Pick<GameState, "id" | "turns" | "players" | "status">;
 
 /** Celebrate committed arrivals only; drafts, refreshes and retries do not replay. */
-export function BingoBanner({ game }: { game: BingoGame }) {
+export function BingoBanner({
+  game,
+  containerRef,
+}: {
+  game: BingoGame;
+  containerRef: RefObject<HTMLElement | null>;
+}) {
+  const bannerRef = useRef<HTMLElement>(null);
   const [state, setState] = useState(() => ({
     game,
     seen: new Set(game.turns.map((turn) => turn.id)),
@@ -42,11 +56,58 @@ export function BingoBanner({ game }: { game: BingoGame }) {
     );
     return () => window.clearTimeout(timer);
   }, [turn]);
+  useLayoutEffect(() => {
+    if (!turn) return;
+    const banner = bannerRef.current;
+    const board = containerRef.current?.querySelector(".board-grid");
+    if (!banner || !board) return;
+    // Keep the portal above score animations, but anchor it to this board.
+    const place = () => {
+      const rect = board.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const left = viewport?.offsetLeft ?? 0;
+      const top = viewport?.offsetTop ?? 0;
+      const width = viewport?.width ?? window.innerWidth;
+      const height = viewport?.height ?? window.innerHeight;
+      const halfWidth = banner.offsetWidth / 2;
+      const halfHeight = banner.offsetHeight / 2;
+      const x = Math.max(
+        left + halfWidth + 8,
+        Math.min(rect.left + rect.width / 2, left + width - halfWidth - 8),
+      );
+      const y = Math.max(
+        top + halfHeight + 8,
+        Math.min(rect.top + rect.height / 2, top + height - halfHeight - 8),
+      );
+      banner.style.setProperty("--bingo-x", `${x}px`);
+      banner.style.setProperty("--bingo-y", `${y}px`);
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(board);
+    observer.observe(banner);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    window.visualViewport?.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("scroll", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      window.visualViewport?.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("scroll", place);
+    };
+  }, [turn, containerRef]);
   if (!turn) return null;
   const player =
     game.players.find((p) => p.id === turn.playerId)?.name ?? "Player";
   return createPortal(
-    <aside className="bingo-banner" aria-label="Bingo celebration">
+    <aside
+      key={turn.id}
+      ref={bannerRef}
+      className="bingo-banner"
+      aria-label="Bingo celebration"
+    >
       <div className="bingo-sparkles" aria-hidden="true">
         {Array.from({ length: 14 }, (_, index) => (
           <span key={index} style={{ "--spark": index } as CSSProperties}>
