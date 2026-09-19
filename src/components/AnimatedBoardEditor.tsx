@@ -1,4 +1,5 @@
 "use client";
+import { BingoBanner } from "./BingoBanner";
 import { useRef, type ComponentProps } from "react";
 import { BoardEditor } from "./BoardEditor";
 import { TurnAnimation, useTurnPlayback } from "./TurnAnimation";
@@ -9,6 +10,7 @@ export function AnimatedBoardEditor(props: ComponentProps<typeof BoardEditor>) {
   const playback = useTurnPlayback(props.game);
   return (
     <div className="animated-board-editor" ref={root}>
+      <BingoBanner game={props.game} />
       <BoardEditor
         {...props}
         key={`${props.game.id}-${props.game.revision}`}
