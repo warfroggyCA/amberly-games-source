@@ -329,6 +329,13 @@ test("an empty ended-early match resumes only through the explicit action", asyn
   ).toBeVisible();
   expect(fixture.game().status).toBe("active");
   expect(fixture.game().events.at(-1)!.command.type).toBe("resume");
+  await page.locator("summary").filter({ hasText: "Changes (2)" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Game resumed", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".crokinole-change-list > li").first(),
+  ).toContainText("Ended early · no winner");
   await fitsWidth(page);
 });
 
@@ -351,6 +358,14 @@ test("undoing an ended-early round retains stopped status and the restored draft
   ).toBeVisible();
   expect(fixture.game().status).toBe("ended_early");
   expect(fixture.game().events.at(-1)!.command.type).toBe("undo_round_v2");
+  await page.locator("summary").filter({ hasText: "Changes (2)" }).click();
+  const amendment = page.locator(".crokinole-change-list > li").first();
+  await expect(
+    amendment.getByRole("heading", { name: "Round 1 undone", exact: true }),
+  ).toBeVisible();
+  await expect(amendment).toContainText(
+    "Result after: Ended early · no winner",
+  );
   await expect(
     page.getByRole("button", { name: "Save round", exact: true }),
   ).toHaveCount(0);

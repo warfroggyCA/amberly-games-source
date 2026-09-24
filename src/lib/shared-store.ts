@@ -778,21 +778,24 @@ export function createSharedStore(userId: string): SharedScorerStore {
       wantedActive && visibleIds.has(wantedActive)
         ? wantedActive
         : (games.at(-1)?.id ?? null);
-    const stale = Object.entries(workspace.drafts).some(
-      ([gameId, draft]) =>
-        draft.placements.length > 0 &&
-        games.some(
-          (g) =>
-            g.id === gameId &&
-            (g.revision !== draft.revision ||
-              draft.placements.some((p) => g.board[p.row][p.col] !== null)),
-        ),
-    );
+    const draftConflicts = Object.entries(workspace.drafts)
+      .filter(
+        ([gameId, draft]) =>
+          draft.placements.length > 0 &&
+          games.some(
+            (g) =>
+              g.id === gameId &&
+              (g.revision !== draft.revision ||
+                draft.placements.some((p) => g.board[p.row][p.col] !== null)),
+          ),
+      )
+      .map(([gameId]) => gameId);
     publish({
       ...snapshot,
-      // A pending acknowledgement may itself explain a newer server revision;
-      // keep its retry control available while scoring remains locked.
-      status: stale && !workspace.pending ? "error" : "ready",
+      // Draft conflicts belong to a game, not the whole family workspace.
+      // Pending acknowledgements still lock writes until their outcome is known.
+      status: "ready",
+      draftConflicts,
       shared: meta,
       data: {
         ...snapshot.data,
@@ -804,9 +807,7 @@ export function createSharedStore(userId: string): SharedScorerStore {
         drafts: workspace.drafts,
       },
       unresolved: !!workspace.pending,
-      error: stale
-        ? "This game changed while an entry was saved on this device. Your letters are retained. Export the retained entry before reviewing the updated game."
-        : null,
+      error: null,
     });
   }
   async function receive(pending: Pending) {
@@ -816,7 +817,11 @@ export function createSharedStore(userId: string): SharedScorerStore {
     );
     const shared = snapshot.shared!;
     const drafts = { ...pending.drafts };
-    if (result.game && drafts[result.game.id])
+    if (
+      pending.mutation.operation.type === "game-commands" &&
+      result.game &&
+      drafts[result.game.id]
+    )
       drafts[result.game.id] = {
         ...drafts[result.game.id],
         revision: result.game.revision,
@@ -1189,6 +1194,12 @@ export function createSharedStore(userId: string): SharedScorerStore {
         if (snapshot.status !== "ready" || !snapshot.shared)
           throw new Error("Shared history is not ready.");
         const next = change(snapshot.data);
+        for (const gameId of snapshot.draftConflicts ?? []) {
+          if (!same(next.drafts[gameId], workspace.drafts[gameId]))
+            throw new Error(
+              "Review and explicitly discard the retained draft before changing this game's entry.",
+            );
+        }
         if (
           !validDrafts(next.drafts) ||
           !(next.activeGameId === null || id(next.activeGameId))
@@ -1203,6 +1214,12 @@ export function createSharedStore(userId: string): SharedScorerStore {
           deviceId,
           creationMode,
         );
+        if (
+          operation &&
+          "gameId" in operation &&
+          snapshot.draftConflicts?.includes(operation.gameId)
+        )
+          throw new Error("Resolve this game's retained draft before scoring.");
         if (!operation) {
           if (workspace.pending && !same(next.drafts, workspace.drafts))
             throw new Error(
@@ -1239,6 +1256,32 @@ export function createSharedStore(userId: string): SharedScorerStore {
     retry: () =>
       enqueue(async () => {
         if (workspace.pending) await send(workspace.pending);
+      }),
+    discardDraftConflict: (gameId, expectedRevision) =>
+      enqueue(async () => {
+        if (
+          snapshot.status !== "ready" ||
+          !snapshot.shared ||
+          workspace.pending
+        )
+          throw new Error(
+            "Confirm the saved action before resolving this draft.",
+          );
+        const game = snapshot.data.games.find((value) => value.id === gameId);
+        if (!game || game.revision !== expectedRevision)
+          throw new Error(
+            "The game changed again. Review its latest state before discarding the draft.",
+          );
+        if (!snapshot.draftConflicts?.includes(gameId))
+          throw new Error(
+            "This draft no longer needs recovery. Review the current game.",
+          );
+        const drafts = { ...workspace.drafts };
+        delete drafts[gameId];
+        // Only the explicitly chosen local entry is removed, after a durable
+        // writer-fenced checkpoint; saved game history is never changed here.
+        await save({ ...workspace, drafts });
+        install(snapshot.shared, true, true);
       }),
     refresh,
     openGame: (gameId) =>
@@ -1284,7 +1327,8 @@ export function createSharedStore(userId: string): SharedScorerStore {
         access.canScore === true &&
         hasPermission(snapshot.shared?.member, "scoreGames") &&
         access.scorerUserId === userId &&
-        !snapshot.unresolved
+        !snapshot.unresolved &&
+        !snapshot.draftConflicts?.includes(gameId)
       );
     },
     canEditPlayer: (playerId) =>

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
 import type { Board, Placement, ScoredWord } from "../domain/types";
 import "./review-word.css";
@@ -22,6 +23,7 @@ export function ReviewWord({
   return (
     <section
       className="review-word"
+      style={{ "--review-letter-count": word.word.length } as CSSProperties}
       aria-label={`${word.word}, ${word.score} points`}
     >
       <ol
@@ -35,9 +37,9 @@ export function ReviewWord({
           const tile = board[row][col];
           if (!tile) return null;
           const fresh = placements.some((p) => p.row === row && p.col === col);
-          const premium = premiumAt(row, col);
+          const premium = fresh ? premiumAt(row, col) : null;
           const points = tile.blank ? 0 : LETTER_VALUES[tile.letter];
-          const label = `${tile.letter}${tile.blank ? " blank" : ""}, ${points} tile point${points === 1 ? "" : "s"}, ${fresh ? "new tile" : "already on board"}${premium ? `, ${PREMIUM_NAMES[premium]} ${fresh ? "applies" : "already used"}` : ""}`;
+          const label = `${tile.letter}${tile.blank ? " blank" : ""}, ${points} tile point${points === 1 ? "" : "s"}, ${fresh ? "new tile" : "already on board"}${premium ? `, ${PREMIUM_NAMES[premium]} applies` : ""}`;
           return (
             <li
               key={`${row}:${col}`}
@@ -55,7 +57,6 @@ export function ReviewWord({
               {premium && (
                 <span className="review-premium" aria-hidden="true">
                   {premium}
-                  {!fresh && <small>used</small>}
                 </span>
               )}
             </li>

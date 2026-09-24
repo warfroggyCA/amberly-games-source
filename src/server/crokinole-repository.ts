@@ -396,8 +396,8 @@ export function createCrokinoleRepository(
                 };
               }
             }
-            if (op.type === "save-palette" || op.type === "save-defaults")
-              permit(who, "manageEquipment");
+            // A committed settings retry stays readable after edit permission is revoked.
+            // New writes still require manageEquipment below.
             return { ...response, draft: undefined, replayed: true };
           }
           if (!enabled())

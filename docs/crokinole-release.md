@@ -1,5 +1,7 @@
 # Shared Crokinole release notes and operator sequence
 
+This is the original rollout procedure. For current observed deployment and candidate status, consult the [release ledger](release-status.md). Do not reapply migrations based on this historical sequence.
+
 This feature adds Crokinole to the existing Amberly family. It reuses accounts, roster IDs and member permission switches. There is no new sign-in provider or service.
 
 ## Local implementation
@@ -18,7 +20,7 @@ No Crokinole anonymous watch links, per-shot data, new ratings or rankings are i
 
 1. Complete local and CI checks against the final candidate. Record exact commit and test evidence.
 2. Review current hosted migration history and restricted runtime grants. Local migration version names are not proof of the hosted baseline.
-3. With hosted-change authorization, capture a current encrypted backup using the existing operator workflow; rehearse restoration to an isolated database and compare table digests.
+3. With hosted-change authorization, capture a current backup using the owner-approved operator workflow; rehearse restoration to an isolated database and compare table digests.
 4. Apply the reviewed missing migrations in the complete ordered [application schema list](releasing.md#complete-ordered-application-schema), including defaults, player nicknames, invitation onboarding and integrity guards. Reconcile provider timestamps against actual schema; do not run a blind migration push.
 5. Publish the matching application with `AMBERLY_CROKINOLE_ENABLED=false` first. Verify existing Scrabble and sign-in behaviour. Do not use real family matches as synthetic test fixtures.
 6. Enable `AMBERLY_CROKINOLE_ENABLED=true` for the family hub and Crokinole writes after checking schema compatibility.
@@ -33,11 +35,11 @@ The five new tables are inside the existing private `scrabble` schema so the ful
 
 The Crokinole IndexedDB workspace is separate from Scrabble, keyed by family and verified account. Local storage failure must leave visible input available and block unsafe progression. A network timeout retains the same request ID for retry. Cross-device differences require an explicit choice; they are never silently merged.
 
-Combined JSON archives are useful for inspection, but are not a replacement for the encrypted full database backup. They include game-specific sections and preserve the legacy Scrabble export contract. Each game collection uses its own authorized repeatable-read snapshot; the combined JSON is not a single atomic disaster-recovery snapshot across both games.
+Combined JSON archives are useful for inspection, but are not a replacement for the full database backup. They include game-specific sections and preserve the legacy Scrabble export contract. Each game collection uses its own authorized repeatable-read snapshot; the combined JSON is not a single atomic disaster-recovery snapshot across both games.
 
 ## Release status
 
-Local implementation and automated verification are complete. See `crokinole-gauntlet.md` for counts, review evidence and limitations. No hosted migration, release, production repair or physical-device acceptance is implied by this document.
+The original local implementation and automated verification were completed in the milestone recorded in `crokinole-gauntlet.md`. Subsequent deployment evidence and Gauntlet repairs are recorded separately in the [release ledger](release-status.md). This historical document does not establish physical-device acceptance.
 
 ## Review fixes (local candidate)
 

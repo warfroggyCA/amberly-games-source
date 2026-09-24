@@ -1,6 +1,6 @@
-# Code-review fixes — local candidate
+# Code-review fixes — release candidate
 
-Source: consolidated X10 checkout, `codex/crokinole-shared-hub`, based on `631fe08`. These changes are local and uncommitted. No hosted migration, production data repair or deployment was performed.
+Source: consolidated X10 checkout, `codex/review-integrity-fixes`. Initial fixes were based on `631fe08`; release preparation discovered and incorporated the newer deployed `f4d55c8` revision from `codex/gauntlet-repairs`, preserving its recovery, keyboard, history and bingo changes. The release candidate also teaches the change-history view about the new amendment and Resume events. User authorized release; exact-commit CI, a fresh operator backup, the additive migration and alias promotion remain required.
 
 | Review item | Resolution |
 | --- | --- |
@@ -13,9 +13,13 @@ Source: consolidated X10 checkout, `codex/crokinole-shared-hub`, based on `631fe
 | R2: rollout flag | Direct saved-game/history access intentionally remains available. Scoring, creation, equipment changes and administration controls now consistently reflect paused Crokinole writes. |
 | R3: optional account header | Family, Crokinole and combined-history routes now require the expected-account header and reject missing/mismatched accounts before repository access. |
 | R4: command uniqueness | A generated command ID and per-match unique constraint supplement existing request idempotency and transaction locking. |
-| R5: hosted/physical evidence | Remains a release-verification task, not a local code defect. Hosted migration state, actual login grants, off-device backup custody and physical iPhone/iPad acceptance were not verified here. |
+| R5: hosted/physical evidence | Release preflight verified all hosted prerequisites, restricted runtime/login grants, all 24 tables under RLS, and matching Crokinole heads/journals. Fresh operator backup, migration, alias publication and physical/off-device acceptance remain separate gates; see the release ledger. |
 
-## Validation
+## Reconciled release validation
+
+After incorporating the complete deployed `f4d55c8` branch: **857 unit tests and 83 PostgreSQL tests passed**, along with build/TypeScript, lint, formatting and credential preflight. The integrated production HTTP/browser/database journey passed, including actual SSR renewal against its local Auth fixture and required-account rejection checks. Browser verification and exact-commit CI are recorded in the release evidence and pull request after completion.
+
+## Initial isolated fix validation
 
 - Node 24: **840 unit tests passed**. The PostgreSQL group is skipped in this invocation and run separately.
 - Disposable PostgreSQL 17: **73 tests passed**, including real scoring, concurrent requests, SQL-level permission/tampering checks, incomplete-schema rejection and two backup/restore checks.
@@ -27,4 +31,4 @@ Source: consolidated X10 checkout, `codex/crokinole-shared-hub`, based on `631fe
 
 Follow [releasing.md](releasing.md#complete-ordered-application-schema). Reconcile the hosted schema and approved backup first, then apply the reviewed missing migrations, including `20260923235027_review_integrity_guards.sql`, before deploying this build. Do not deploy this application ahead of that migration: its compatibility guard deliberately fails closed.
 
-Existing history is retained. After new amendment/resume events are recorded, any rollback build must understand those event types and retain the additive integrity protections. Exact-commit GitHub Verify and release approval remain outstanding; local checks do not satisfy that release gate.
+Existing history is retained. After new amendment/resume events are recorded, any rollback build must understand those event types and retain the additive integrity protections. Exact-commit GitHub Verify remains outstanding; local checks do not satisfy that release gate.

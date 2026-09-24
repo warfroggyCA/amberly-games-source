@@ -1,4 +1,5 @@
 "use client";
+import { BingoBanner } from "./BingoBanner";
 import { ResultBadge } from "./ResultBadge";
 import { PlayerName } from "./PlayerName";
 import "./live-draft.css";
@@ -184,6 +185,7 @@ export function SpectatorGame({
       className="spectator-game"
       aria-label="Live game viewer"
     >
+      <BingoBanner game={game} containerRef={stageRef} />
       {toolsTarget ? (
         createPortal(tools, toolsTarget)
       ) : (

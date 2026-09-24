@@ -102,7 +102,9 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
           const rows = await tx`
           with games as (
             select 'scrabble'::text game_type,d.game_id,d.created_at,h.state->>'status' status,
-              h.state->'players' participants,h.state->'scores' totals,coalesce(h.state->'result'->'winnerIds','[]'::jsonb) winner_ids,
+              h.state->'players' participants,
+              case when h.state->>'status'='finalized' then h.state->'result'->'scores' else h.state->'scores' end totals,
+              coalesce(h.state->'result'->'winnerIds','[]'::jsonb) winner_ids,
               d.mode,h.scorer_user_id,h.revision
             from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
             where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)

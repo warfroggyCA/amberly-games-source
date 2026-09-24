@@ -31,6 +31,48 @@ import "./tile-appearance.css";
 import { extendLexicon } from "../domain/verified-words";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function revealEntry(
+  workspace: HTMLElement | null,
+  fitScreen: boolean,
+  draft: Draft,
+) {
+  const tile = workspace?.querySelector<HTMLElement>('[aria-selected="true"]');
+  const scroller = workspace?.querySelector<HTMLElement>(".board-scroll");
+  if (!tile) return;
+  if (!fitScreen || !scroller) {
+    tile.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return;
+  }
+  // Scroll only the board. Scrolling ancestors can pan iOS's visual viewport
+  // while its keyboard is opening and move the entire entry bar out of reach.
+  const bounds = scroller.getBoundingClientRect();
+  const cell = tile.getBoundingClientRect();
+  const fresh = Array.from(
+    workspace!.querySelectorAll<HTMLElement>(".square.fresh"),
+    (element) => element.getBoundingClientRect(),
+  );
+  // Keep the entered letters and one preceding square for an existing prefix.
+  // If a long word cannot fit, follow its end without shrinking the touch targets.
+  const wordTop =
+    Math.min(cell.top, ...fresh.map((rect) => rect.top)) -
+    (draft.direction === "down" ? cell.height : 0);
+  const wordBottom = Math.max(cell.bottom, ...fresh.map((rect) => rect.bottom));
+  const targetTop = Math.max(wordTop, wordBottom - bounds.height + 4);
+  const margin = cell.width + 4;
+  const left =
+    cell.left < bounds.left + margin
+      ? cell.left - bounds.left - margin
+      : cell.right > bounds.right - margin
+        ? cell.right - bounds.right + margin
+        : 0;
+  scroller.scrollBy({
+    left,
+    top: (targetTop + wordBottom - bounds.top - bounds.bottom) / 2,
+    behavior: "instant",
+  });
+}
+
 export function BoardEditor({
   game,
   savedDraft,
@@ -91,10 +133,6 @@ export function BoardEditor({
   const [entryOptions, setEntryOptions] = useState(false);
   const [review, setReview] = useState(false);
   const [inspectCell, setInspectCell] = useState<{
-    row: number;
-    col: number;
-  } | null>(null);
-  const [blockedSquare, setBlockedSquare] = useState<{
     row: number;
     col: number;
   } | null>(null);
@@ -204,12 +242,10 @@ export function BoardEditor({
   useEffect(() => {
     if (!focused || blank || review) return;
     const frame = requestAnimationFrame(() =>
-      workspace.current
-        ?.querySelector('[aria-selected="true"]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" }),
+      revealEntry(workspace.current, fitScreen, current.current),
     );
     return () => cancelAnimationFrame(frame);
-  }, [focused, draft.row, draft.col, zoom, blank, review]);
+  }, [focused, draft.row, draft.col, zoom, blank, review, fitScreen]);
   useEffect(() => {
     const dialog = workspace.current;
     return () => {
@@ -238,15 +274,13 @@ export function BoardEditor({
         "keyboard-open",
         window.innerHeight - viewport.height > 120,
       );
-      const nextDimensions = `${viewport.width}:${viewport.height}`;
+      const nextDimensions = `${viewport.width}:${viewport.height}:${viewport.offsetTop}`;
       if (nextDimensions !== dimensions) {
         dimensions = nextDimensions;
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           if (focusedRef.current)
-            workspace.current
-              ?.querySelector('[aria-selected="true"]')
-              ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            revealEntry(workspace.current, true, current.current);
         });
       }
     };
@@ -435,8 +469,10 @@ export function BoardEditor({
     if (disabled) return;
     const d = current.current;
     if (!canSelectDraftSquare(d, game.board, row, col)) {
-      input.current?.blur();
-      setBlockedSquare({ row, col });
+      setMessage(
+        `Finish this word first. Your letters are kept. Review this turn, or ${fitScreen ? "clear letters in Letter tools" : "use Clear letters"} before starting elsewhere.`,
+      );
+      focusInput();
       return;
     }
     change({
@@ -451,7 +487,7 @@ export function BoardEditor({
     enterFocus();
   }
   function insert(text: string, asBlank = false) {
-    if (disabled || blockedSquare) return;
+    if (disabled) return;
     const result = insertLetters(
       current.current,
       game.board,
@@ -960,52 +996,47 @@ export function BoardEditor({
             </div>
           </div>
         </div>
-        {focused &&
-          lastPlacement &&
-          !review &&
-          !blank &&
-          !inspectCell &&
-          !blockedSquare && (
-            <div
-              ref={scoreBubble}
-              className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
-              aria-label={
-                shortageLabel ??
-                `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
-              }
-              role="status"
-              aria-live="polite"
-            >
-              {exhaustedTile ? (
-                <>
-                  <strong>{shortageLabel}</strong>
-                  <div className="tile-inventory-actions">
-                    {canUseBlank && (
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={useBlankForExhaustedTile}
-                      >
-                        Use a blank
-                      </button>
-                    )}
+        {focused && lastPlacement && !review && !blank && !inspectCell && (
+          <div
+            ref={scoreBubble}
+            className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
+            aria-label={
+              shortageLabel ??
+              `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
+            }
+            role="status"
+            aria-live="polite"
+          >
+            {exhaustedTile ? (
+              <>
+                <strong>{shortageLabel}</strong>
+                <div className="tile-inventory-actions">
+                  {canUseBlank && (
                     <button
                       type="button"
                       disabled={disabled}
-                      onClick={finishEntry}
+                      onClick={useBlankForExhaustedTile}
                     >
-                      Check tiles
+                      Use a blank
                     </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <strong>{potentialScore ?? "—"}</strong>
-                  <span>{preview?.ok ? "pts" : "pts · check"}</span>
-                </>
-              )}
-            </div>
-          )}
+                  )}
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={finishEntry}
+                  >
+                    Check tiles
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <strong>{potentialScore ?? "—"}</strong>
+                <span>{preview?.ok ? "pts" : "pts · check"}</span>
+              </>
+            )}
+          </div>
+        )}
         {fitScreen ? (
           <footer className="persistent-entry-bar">
             <span
@@ -1126,7 +1157,10 @@ export function BoardEditor({
                 <button
                   className="icon-button"
                   aria-label="Dismiss entry message"
-                  onClick={() => setMessage(null)}
+                  onClick={() => {
+                    setMessage(null);
+                    focusInput();
+                  }}
                 >
                   ×
                 </button>
@@ -1213,67 +1247,6 @@ export function BoardEditor({
           </footer>
         )}
       </dialog>
-      {blockedSquare && (
-        <Modal
-          title="Finish this word first"
-          onClose={() => {
-            setBlockedSquare(null);
-            requestAnimationFrame(focusInput);
-          }}
-        >
-          <p>
-            Your letters are still on the board. Review this turn, or clear them
-            before starting somewhere else.
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button primary"
-              disabled={disabled}
-              onClick={() => {
-                setBlockedSquare(null);
-                finishEntry();
-              }}
-            >
-              Review current turn
-            </button>
-            <button
-              className="button light"
-              disabled={disabled}
-              onClick={() => {
-                const target = blockedSquare;
-                change({
-                  ...current.current,
-                  placements: [],
-                  row: target.row,
-                  col: target.col,
-                  atEdge: false,
-                  direction: manualDirection
-                    ? current.current.direction
-                    : inferDirection(
-                        game.board,
-                        target.row,
-                        target.col,
-                        current.current.direction,
-                      ),
-                });
-                setBlockedSquare(null);
-                requestAnimationFrame(enterFocus);
-              }}
-            >
-              Clear letters and start here
-            </button>
-            <button
-              className="text-button"
-              onClick={() => {
-                setBlockedSquare(null);
-                requestAnimationFrame(focusInput);
-              }}
-            >
-              Keep editing
-            </button>
-          </div>
-        </Modal>
-      )}
       {entryOptions && (
         <Modal title="Letter tools" onClose={() => setEntryOptions(false)}>
           {tools}
@@ -1373,55 +1346,61 @@ export function BoardEditor({
         </Modal>
       )}
       {review && preview && !preview.ok && (
-        <Modal title="Review this turn" onClose={returnToLetters}>
-          <p>This turn needs a correction before it can be recorded.</p>
-          <div
-            className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
-            role={inventoryWarning ? "alert" : "status"}
-          >
-            <span>
-              {formedWords.length === 0 &&
-              preview &&
-              !preview.ok &&
-              preview.error.words?.length ? (
-                <strong className="entry-rejected-words">
-                  Check the complete word
-                  {preview.error.words.length > 1 ? "s" : ""}:{" "}
-                  {preview.error.words.join(", ")}
-                </strong>
-              ) : null}
-              {shortages.length > 0 ? (
-                <>
-                  {shortages.map(({ letter, count }) => (
-                    <strong className="inventory-shortfall" key={letter}>
-                      {letter === "?" ? "Blank" : letter}: this play needs{" "}
-                      {count} more physical {letter === "?" ? "blank" : letter}{" "}
-                      tile
-                      {count === 1 ? "" : "s"} than this set contains.
-                    </strong>
-                  ))}
-                  <small className="inventory-blank-note">
-                    If a letter is an actual blank tile, enter it with Blank or
-                    Space. A blank uses the blank supply, not the letter it
-                    represents.
-                  </small>
-                </>
-              ) : (
-                validationMessage
+        <Modal
+          title="Review this turn"
+          className="turn-review-modal"
+          onClose={returnToLetters}
+        >
+          <div className="turn-review-content">
+            <p>This turn needs a correction before it can be recorded.</p>
+            <div
+              className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
+              role={inventoryWarning ? "alert" : "status"}
+            >
+              <span>
+                {formedWords.length === 0 &&
+                preview &&
+                !preview.ok &&
+                preview.error.words?.length ? (
+                  <strong className="entry-rejected-words">
+                    Check the complete word
+                    {preview.error.words.length > 1 ? "s" : ""}:{" "}
+                    {preview.error.words.join(", ")}
+                  </strong>
+                ) : null}
+                {shortages.length > 0 ? (
+                  <>
+                    {shortages.map(({ letter, count }) => (
+                      <strong className="inventory-shortfall" key={letter}>
+                        {letter === "?" ? "Blank" : letter}: this play needs{" "}
+                        {count} more physical{" "}
+                        {letter === "?" ? "blank" : letter} tile
+                        {count === 1 ? "" : "s"} than this set contains.
+                      </strong>
+                    ))}
+                    <small className="inventory-blank-note">
+                      If a letter is an actual blank tile, enter it with Blank
+                      or Space. A blank uses the blank supply, not the letter it
+                      represents.
+                    </small>
+                  </>
+                ) : (
+                  validationMessage
+                )}
+              </span>
+              {inventoryWarning && onRequestExtraTiles && (
+                <button
+                  className="button light"
+                  onClick={() => {
+                    setReview(false);
+                    exitFocus();
+                    onRequestExtraTiles(current.current.placements);
+                  }}
+                >
+                  Use anyway…
+                </button>
               )}
-            </span>
-            {inventoryWarning && onRequestExtraTiles && (
-              <button
-                className="button light"
-                onClick={() => {
-                  setReview(false);
-                  exitFocus();
-                  onRequestExtraTiles(current.current.placements);
-                }}
-              >
-                Use anyway…
-              </button>
-            )}
+            </div>
           </div>
           <div className="dialog-actions">
             {canUseBlank && (
@@ -1462,43 +1441,45 @@ export function BoardEditor({
       {review && preview?.ok && (
         <Modal
           title="Review this turn"
+          className="turn-review-modal"
           onClose={() => {
             if (!recordingRef.current) returnToLetters();
           }}
         >
-          <p className="muted">
-            {player.name} · Checked against {wordReference.shortLabel}
-          </p>
-          <div className="score-breakdown">
-            {preview.words.map((w) => (
-              <ReviewWord
-                key={`${w.row}-${w.col}-${w.direction}`}
-                word={w}
-                board={preview.board}
-                placements={preview.placements}
-              />
-            ))}
-            {preview.bingo > 0 && (
-              <div>
-                <strong>Seven-tile bonus</strong>
-                <span>+{preview.bingo}</span>
-              </div>
-            )}
-            <div className="total">
-              <strong>Turn total</strong>
-              <strong>{preview.score}</strong>
-            </div>
-          </div>
-          <p className="review-tile-key">
-            Outlined tiles are new. Faded multipliers marked “used” do not score
-            again.
-          </p>
-          {recordError && (
-            <p role="alert" className="inline-message">
-              This turn could not be saved. Your letters are retained. Keep
-              editing to see the recovery message.
+          <div className="turn-review-content">
+            <p className="muted">
+              {player.name} · Checked against {wordReference.shortLabel}
             </p>
-          )}
+            <div className="score-breakdown">
+              {preview.words.map((w) => (
+                <ReviewWord
+                  key={`${w.row}-${w.col}-${w.direction}`}
+                  word={w}
+                  board={preview.board}
+                  placements={preview.placements}
+                />
+              ))}
+              {preview.bingo > 0 && (
+                <div>
+                  <strong>Seven-tile bonus</strong>
+                  <span>+{preview.bingo}</span>
+                </div>
+              )}
+              <div className="total">
+                <strong>Turn total</strong>
+                <strong>{preview.score}</strong>
+              </div>
+            </div>
+            <p className="review-tile-key">
+              Outlined tiles are new. Tags show multipliers applied this turn.
+            </p>
+            {recordError && (
+              <p role="alert" className="inline-message">
+                This turn could not be saved. Your letters are retained. Keep
+                editing to see the recovery message.
+              </p>
+            )}
+          </div>
           <div className="dialog-actions">
             <button
               className="button light"

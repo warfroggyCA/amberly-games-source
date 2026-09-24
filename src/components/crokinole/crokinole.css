@@ -571,3 +571,128 @@
 .hub-in-game .crokinole-matrix {
   margin: 8px 0 16px;
 }
+
+.crokinole-changes {
+  border-top: 1px solid var(--line);
+  margin: 20px 0;
+  overflow-wrap: anywhere;
+}
+.crokinole-changes summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+.crokinole-change-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.crokinole-change-list > li {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.crokinole-change-list h3 {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+.crokinole-change-meta {
+  color: var(--muted);
+  font-size: 14px;
+}
+.crokinole-change-list p {
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.crokinole-change-table table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 650px;
+  table-layout: fixed;
+  margin: 12px 0;
+}
+.crokinole-change-table caption {
+  text-align: left;
+  font-size: 14px;
+  padding-bottom: 8px;
+}
+.crokinole-change-table th,
+.crokinole-change-table td {
+  font-size: 16px;
+  padding: 8px 6px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border-bottom: 1px solid var(--line);
+}
+.crokinole-change-table th:first-child {
+  width: 56%;
+  text-align: left;
+  padding-left: 0;
+}
+.crokinole-change-originals ul {
+  padding-left: 24px;
+  line-height: 1.6;
+}
+
+/* On a short table-side screen, keep the score and round action together. */
+@media (max-height: 500px) and (min-width: 651px) {
+  .hub-in-game:has(.crokinole) .hub-header {
+    margin-bottom: 0;
+    padding-block: 4px;
+  }
+  .hub-in-game .crokinole {
+    padding-top: 4px;
+  }
+  .crokinole-match-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 16px;
+    align-items: center;
+  }
+  .crokinole-match-heading > div:first-child {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+  }
+  .crokinole .crokinole-match-heading h1 {
+    order: -1;
+    font-size: 26px;
+    margin: 0;
+  }
+  .crokinole-match-heading .eyebrow {
+    font-size: 12px;
+  }
+  .crokinole-match-heading > .crokinole-options {
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .crokinole-match-heading > .crokinole-options[open] {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+  .crokinole-match-heading > .crokinole-subtitle {
+    grid-column: 1 / -1;
+    margin: 0 0 4px;
+    font-size: 14px;
+  }
+  .hub-in-game .crokinole-standings {
+    margin: 4px 0;
+    gap: 0 16px;
+  }
+  .hub-in-game .crokinole-standing {
+    padding: 8px 0;
+  }
+  .crokinole-standing .crokinole-total {
+    font-size: 32px;
+  }
+  .crokinole-standing .crokinole-disc {
+    width: 32px;
+    height: 32px;
+  }
+  .crokinole-sticky-actions {
+    margin-top: 8px;
+    padding-block: 8px;
+  }
+}

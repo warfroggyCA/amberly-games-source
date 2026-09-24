@@ -90,10 +90,6 @@
   font-weight: 800;
   line-height: 1.2;
 }
-.review-premium small {
-  font-size: 8px;
-  font-weight: 500;
-}
 .review-word-score {
   display: flex;
   flex-direction: column;
@@ -109,7 +105,7 @@
   margin-top: 5px;
 }
 .review-tile-key {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
@@ -132,4 +128,75 @@
   .review-word-score small {
     margin-top: 0;
   }
+}
+
+/* Full words get the full dialog width; long words wrap rather than hide tiles. */
+.turn-review-content .review-word {
+  container-type: inline-size;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.turn-review-content .review-tile-strip {
+  --review-space: clamp(
+    32px,
+    calc(
+      (100cqi - 4px - (var(--review-letter-count) - 1) * 4px) /
+        var(--review-letter-count)
+    ),
+    64px
+  );
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow-x: visible;
+}
+.turn-review-content .review-tile-space {
+  height: calc(var(--review-space) + 16px);
+  background: transparent;
+}
+.turn-review-content .review-tile-strip .letter-tile {
+  width: var(--review-space);
+  height: var(--review-space);
+  margin: 16px 0 0;
+}
+.turn-review-content .review-premium {
+  top: 18px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -100%);
+  z-index: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  line-height: 1;
+  background: var(--board-ivory);
+}
+.turn-review-content .tw .review-premium {
+  background: var(--board-tw);
+}
+.turn-review-content .dw .review-premium {
+  background: var(--board-dw);
+}
+.turn-review-content .dl .review-premium {
+  background: var(--board-dl);
+}
+.turn-review-content .tl .review-premium {
+  background: var(--board-tl);
+}
+
+.turn-review-content .review-word-score {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 22px;
+}
+.turn-review-content .review-word-score small {
+  margin-top: 0;
 }
