@@ -1,0 +1,122 @@
+.family-welcome-rack {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 5px;
+  width: min(100%, 306px);
+  padding: 0 16px 10px;
+  margin: 0 auto 30px;
+}
+.family-welcome-rack::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 12px;
+  background: #563322;
+  border-radius: 3px 3px 5px 5px;
+  border-bottom: 4px solid #3e2418;
+  box-shadow: 0 5px 7px #38271b22;
+}
+.family-welcome-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border: 2px solid;
+  border-color: var(--tile-edge);
+  border-radius: 5px;
+  background: var(--tile-material);
+  box-shadow: var(--tile-shadow);
+  color: var(--tile-ink);
+  font:
+    700 38px/1 Arial,
+    Helvetica,
+    sans-serif;
+  transform: rotate(var(--tile-lean, 0deg));
+}
+.family-welcome-tile:nth-child(1) {
+  --tile-lean: -7deg;
+}
+.family-welcome-tile:nth-child(2) {
+  --tile-lean: 3deg;
+  animation-delay: 140ms;
+}
+.family-welcome-tile:nth-child(3) {
+  --tile-lean: -3deg;
+  animation-delay: 280ms;
+}
+.family-welcome-tile:nth-child(4) {
+  --tile-lean: 6deg;
+  animation-delay: 420ms;
+}
+.family-welcome-tile b {
+  transform: translate(-1px, -2px);
+}
+.family-welcome-tile small {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  font-size: 12px;
+}
+.family-welcome-rack.is-loading .family-welcome-tile {
+  animation-name: family-tile-wait;
+  animation-duration: 2.8s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+@keyframes family-tile-wait {
+  0%,
+  28%,
+  100% {
+    transform: translateY(0) rotate(var(--tile-lean));
+  }
+  14% {
+    transform: translateY(-7px) rotate(0deg);
+  }
+}
+
+.hub-play-toggle {
+  display: block;
+  flex: 0 0 auto;
+  padding: 12px 0 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.hub-play-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 5px;
+}
+.hub-play-toggle .family-welcome-rack {
+  width: 164px;
+  gap: 4px;
+  padding: 0 8px 7px;
+  margin: 0;
+}
+.hub-play-toggle .family-welcome-tile {
+  width: 32px;
+  font-size: 22px;
+  border-width: 1px;
+  border-radius: 3px;
+}
+.hub-play-toggle .family-welcome-tile small {
+  font-size: 7px;
+  right: 3px;
+  bottom: 2px;
+}
+.hub-play-toggle .family-welcome-rack::after {
+  height: 8px;
+  border-bottom-width: 3px;
+}
+.hub-play-toggle .family-welcome-rack.is-loading .family-welcome-tile {
+  animation-duration: 4.8s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .family-welcome-rack.is-loading .family-welcome-tile {
+    animation: none;
+  }
+}

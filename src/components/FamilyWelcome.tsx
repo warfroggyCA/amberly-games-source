@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { PlayTiles } from "./PlayTiles";
 import { BrandWordmark } from "./BrandWordmark";
 import "./family-access.css";
 
@@ -33,22 +34,7 @@ export function FamilyWelcome({
           className="family-access-card"
           aria-labelledby="family-access-title"
         >
-          <div
-            className={`family-welcome-rack${loading ? " is-loading" : ""}`}
-            aria-hidden="true"
-          >
-            {[
-              ["P", 3],
-              ["L", 1],
-              ["A", 1],
-              ["Y", 4],
-            ].map(([letter, points]) => (
-              <span className="family-welcome-tile" key={letter}>
-                <b>{letter}</b>
-                <small>{points}</small>
-              </span>
-            ))}
-          </div>
+          <PlayTiles loading={loading} />
           <span className="family-welcome-caption">
             A little friendly competition
           </span>

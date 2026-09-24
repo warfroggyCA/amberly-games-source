@@ -379,3 +379,31 @@ test("superadmin removes a regular Crokinole game without becoming scorer", asyn
   await expect(page).toHaveURL(/\/family$/);
   expect(fixture.shared.games).toHaveLength(0);
 });
+
+test("Home PLAY tiles repeat, pause and respect reduced motion", async ({
+  page,
+}, testInfo) => {
+  await installFixture(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/family");
+  const toggle = page.getByRole("button", { name: "Pause PLAY animation" });
+  const tile = toggle.locator(".family-welcome-tile").first();
+  await expect(toggle).toBeVisible();
+  await expect(tile).toHaveCSS("animation-name", "family-tile-wait");
+  await expect(tile).toHaveCSS("animation-duration", "4.8s");
+  await toggle.click();
+  await expect(
+    page.getByRole("button", { name: "Resume PLAY animation" }),
+  ).toBeVisible();
+  await expect(
+    page.locator(".hub-play-toggle .family-welcome-tile").first(),
+  ).toHaveCSS("animation-name", "none");
+  await page.getByRole("button", { name: "Resume PLAY animation" }).click();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(tile).toHaveCSS("animation-name", "none");
+  await fitsWidth(page);
+  await page.screenshot({
+    path: testInfo.outputPath("home-play.png"),
+    fullPage: true,
+  });
+});

@@ -30,6 +30,7 @@ import { ColourSettings } from "./crokinole/ColourSettings";
 import { TileSetSettings } from "./TileSetSettings";
 import { playerDisplayName } from "../lib/player-profile";
 import { Modal } from "./Modal";
+import { PlayTiles } from "./PlayTiles";
 import { SwipeToDelete } from "./SwipeToDelete";
 import "./family-hub.css";
 
@@ -804,7 +805,10 @@ export function FamilyHub({
         </main>
       ) : (
         <main className="hub-content">
-          <h1>What are we playing?</h1>
+          <div className="hub-home-heading">
+            <h1>What are we playing?</h1>
+            <PlayTiles compact loading />
+          </div>
           <div className="hub-games">
             <section className="hub-game">
               <div className="hub-board-art hub-scrabble" aria-hidden="true">

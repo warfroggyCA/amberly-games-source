@@ -299,3 +299,33 @@
     text-align: right;
   }
 }
+
+.hub-home-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.hub-home-heading h1 {
+  margin: 0;
+}
+
+@media (max-width: 650px) {
+  .hub-home-heading h1 {
+    font-size: 28px;
+  }
+  .hub-play-toggle .family-welcome-rack {
+    width: 124px;
+    gap: 3px;
+  }
+  .hub-play-toggle .family-welcome-tile {
+    width: 24px;
+    font-size: 17px;
+  }
+  .hub-play-toggle .family-welcome-tile small {
+    font-size: 6px;
+    right: 2px;
+    bottom: 1px;
+  }
+}
