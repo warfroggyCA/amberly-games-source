@@ -24,6 +24,8 @@ export interface SearchOptions {
   /** Maximum trie-search states; an exhausted budget never certifies a pass. */
   maxNodes?: number;
   signal?: AbortSignal;
+  /** Trusted in-process observer, once per unique legal move. Partial until complete. */
+  onMove?: (move: ScoredMove) => void;
 }
 interface SearchProgress {
   moves: ScoredMove[];
@@ -145,6 +147,8 @@ function search(
 ): MoveSearchResult | MoveExistenceResult {
   if (typeof options !== "object" || options === null)
     return invalid("Search options must be an object.");
+  if (options.onMove !== undefined && typeof options.onMove !== "function")
+    return invalid("The move observer must be a function.");
   if (!isBoard(board))
     return invalid("Expected a 15 by 15 board of valid tiles or null.");
   let unplayed: Record<string, number>;
@@ -386,6 +390,7 @@ function search(
       witness = candidate;
       return;
     }
+    options.onMove?.(candidate);
     // Keep memory proportional to requested output, while counting every unique move.
     if (
       best.length < limit ||
@@ -441,6 +446,9 @@ function search(
     if (placements.length === rack.length) return;
     const touches = !opening && anchors[row][col];
     for (const [letter, child] of current.children) {
+      // An unavailable physical letter cannot extend this branch. Avoid cross
+      // checks for it; blanks still permit every represented letter.
+      if (!(counts.get(letter) ?? 0) && !(counts.get("?") ?? 0)) continue;
       if (!crossAllowed(row, col, letter, dr, dc)) continue;
       // Branch for both physical choices. Spending a blank in a different square
       // can change premiums even when the displayed word is identical.

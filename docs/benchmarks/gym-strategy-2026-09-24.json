@@ -1,0 +1,218 @@
+{
+  "reference": "amberly-family-v1-2121ea84c411",
+  "node": "v24.18.0",
+  "count": 20,
+  "completed": 20,
+  "rows": [
+    {
+      "seed": "gym-feasibility-v1-0",
+      "status": "complete",
+      "generationMs": 1444.733459,
+      "setupTurns": 4,
+      "moves": 127,
+      "maximum": 38,
+      "rootCandidates": 16,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15078.351084,
+        "completedContinuations": 4
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-1",
+      "status": "complete",
+      "generationMs": 321.7574170000007,
+      "setupTurns": 6,
+      "moves": 449,
+      "maximum": 27,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-2",
+      "status": "complete",
+      "generationMs": 4136.533083000002,
+      "setupTurns": 8,
+      "moves": 623,
+      "maximum": 40,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-3",
+      "status": "complete",
+      "generationMs": 2605.363541999999,
+      "setupTurns": 8,
+      "moves": 553,
+      "maximum": 34,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-4",
+      "status": "complete",
+      "generationMs": 1283.238959000002,
+      "setupTurns": 8,
+      "moves": 257,
+      "maximum": 47,
+      "rootCandidates": 16,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15011.364375000001,
+        "completedContinuations": 37
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-5",
+      "status": "complete",
+      "generationMs": 157.93812500000058,
+      "setupTurns": 4,
+      "moves": 341,
+      "maximum": 34,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-6",
+      "status": "complete",
+      "generationMs": 229.1677090000012,
+      "setupTurns": 4,
+      "moves": 326,
+      "maximum": 34,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-7",
+      "status": "complete",
+      "generationMs": 319.6804160000029,
+      "setupTurns": 6,
+      "moves": 398,
+      "maximum": 33,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-8",
+      "status": "complete",
+      "generationMs": 147.25291599999764,
+      "setupTurns": 8,
+      "moves": 614,
+      "maximum": 46,
+      "rootCandidates": 17,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15122.361124999996,
+        "completedContinuations": 27
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-9",
+      "status": "complete",
+      "generationMs": 110.55995800000528,
+      "setupTurns": 4,
+      "moves": 2450,
+      "maximum": 80,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-10",
+      "status": "complete",
+      "generationMs": 63.21633300000394,
+      "setupTurns": 8,
+      "moves": 93,
+      "maximum": 20,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-11",
+      "status": "complete",
+      "generationMs": 93.310166999996,
+      "setupTurns": 10,
+      "moves": 178,
+      "maximum": 28,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-12",
+      "status": "complete",
+      "generationMs": 96.85454200000095,
+      "setupTurns": 4,
+      "moves": 419,
+      "maximum": 32,
+      "rootCandidates": 16,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15034.770749999996,
+        "completedContinuations": 22
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-13",
+      "status": "complete",
+      "generationMs": 65.1262080000015,
+      "setupTurns": 8,
+      "moves": 79,
+      "maximum": 29,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-14",
+      "status": "complete",
+      "generationMs": 155.31366600000183,
+      "setupTurns": 8,
+      "moves": 748,
+      "maximum": 39,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-15",
+      "status": "complete",
+      "generationMs": 573.580667000002,
+      "setupTurns": 10,
+      "moves": 2634,
+      "maximum": 79,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-16",
+      "status": "complete",
+      "generationMs": 767.096624999991,
+      "setupTurns": 8,
+      "moves": 642,
+      "maximum": 60,
+      "rootCandidates": 18,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15038.457500000004,
+        "completedContinuations": 59
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-17",
+      "status": "complete",
+      "generationMs": 52.1444160000101,
+      "setupTurns": 4,
+      "moves": 185,
+      "maximum": 28,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-18",
+      "status": "complete",
+      "generationMs": 122.39445799999521,
+      "setupTurns": 10,
+      "moves": 391,
+      "maximum": 86,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-19",
+      "status": "complete",
+      "generationMs": 124.17050000000745,
+      "setupTurns": 10,
+      "moves": 306,
+      "maximum": 44,
+      "rootCandidates": 16
+    }
+  ]
+}

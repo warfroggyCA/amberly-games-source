@@ -1,3 +1,4 @@
+import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { createCrokinoleRepository } from "../src/server/crokinole-repository";
 import { crokinoleDatabaseCases } from "./crokinole-database-cases";
 import { gameSummaryDatabaseCases } from "./game-summary-database-cases";
@@ -137,6 +138,7 @@ const code = (value: Promise<unknown>, expected: string) =>
   expect(value).rejects.toMatchObject({ code: expected });
 
 suite("isolated real PostgreSQL shared family repository", () => {
+  gymHistoryDatabaseCases(owner, runtime);
   crokinoleDatabaseCases(owner, runtime);
   gameSummaryDatabaseCases(owner, runtime);
   crokinolePermissionDatabaseCases(owner, runtime);

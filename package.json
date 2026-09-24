@@ -12,6 +12,7 @@
     "pretest": "npm run lexicon:prepare",
     "pretypecheck": "npm run lexicon:prepare",
     "dev": "next dev --hostname 127.0.0.1",
+    "gym:preview": "npm run lexicon:prepare && node scripts/start-gym-preview.mjs",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",

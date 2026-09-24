@@ -21,7 +21,13 @@ import type { FamilyMember, SharedOperation } from "../lib/shared-contract";
 import type { GameState } from "../domain/game";
 import "./family-shared.css";
 
-export function FamilyApp({ hubEnabled = false }: { hubEnabled?: boolean }) {
+export function FamilyApp({
+  hubEnabled = false,
+  gymEnabled = false,
+}: {
+  hubEnabled?: boolean;
+  gymEnabled?: boolean;
+}) {
   const path = usePathname();
   // The rollout flag changes the landing page. Direct routes retain access to
   // saved history; the repository flag separately gates every Crokinole write.
@@ -29,7 +35,12 @@ export function FamilyApp({ hubEnabled = false }: { hubEnabled?: boolean }) {
   return (
     <FamilyAccess>
       {(user) => (
-        <FamilyWorkspace key={user.id} user={user} hubEnabled={showHub} />
+        <FamilyWorkspace
+          key={user.id}
+          user={user}
+          hubEnabled={showHub}
+          gymEnabled={gymEnabled}
+        />
       )}
     </FamilyAccess>
   );
@@ -37,9 +48,11 @@ export function FamilyApp({ hubEnabled = false }: { hubEnabled?: boolean }) {
 function FamilyWorkspace({
   user,
   hubEnabled,
+  gymEnabled,
 }: {
   user: FamilyUser;
   hubEnabled: boolean;
+  gymEnabled: boolean;
 }) {
   const router = useRouter();
   const [store] = useState(() => createSharedStore(user.id));
@@ -341,6 +354,7 @@ function FamilyWorkspace({
       )}
       {hubEnabled ? (
         <FamilyHub
+          gymEnabled={gymEnabled}
           signOutGuardRef={hubSignOutGuard}
           sharedStore={store}
           shared={state.shared!}

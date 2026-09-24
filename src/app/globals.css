@@ -1972,8 +1972,9 @@ footer {
     padding: 12px 14px;
   }
 }
+/* Gym exposes its own explicit motion setting; other game screens follow the OS. */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *:not(.gym-lab *) {
     scroll-behavior: auto !important;
     animation: none !important;
     transition: none !important;

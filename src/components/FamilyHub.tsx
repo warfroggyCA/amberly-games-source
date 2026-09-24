@@ -1,4 +1,5 @@
 "use client";
+import { GymEntryCard } from "./GymEntryCard";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
 import {
   useEffect,
@@ -35,6 +36,7 @@ import { SwipeToDelete } from "./SwipeToDelete";
 import "./family-hub.css";
 
 export function FamilyHub({
+  gymEnabled = false,
   sharedStore,
   shared,
   userId,
@@ -43,6 +45,7 @@ export function FamilyHub({
   onSignOut,
   signOutGuardRef,
 }: {
+  gymEnabled?: boolean;
   sharedStore: SharedScorerStore;
   shared: SharedState;
   userId: string;
@@ -904,6 +907,11 @@ export function FamilyHub({
                 </div>
               </div>
             </section>
+            {gymEnabled && (
+              <GymEntryCard
+                onOpen={() => void navigate("/gym-lab?from=family")}
+              />
+            )}
           </div>
           {visibleGames.length > 0 && (
             <>

@@ -1,0 +1,914 @@
+{
+  "reference": "amberly-family-v1-2121ea84c411",
+  "node": "v24.18.0",
+  "count": 100,
+  "completed": 100,
+  "rows": [
+    {
+      "seed": "gym-feasibility-v1-0",
+      "status": "complete",
+      "generationMs": 140.22641700000003,
+      "setupTurns": 4,
+      "moves": 127,
+      "maximum": 38,
+      "rootCandidates": 16,
+      "strategy": {
+        "status": "unavailable",
+        "reason": "Analysis reached its time budget.",
+        "elapsedMs": 15007.5665,
+        "completedContinuations": 31
+      }
+    },
+    {
+      "seed": "gym-feasibility-v1-1",
+      "status": "complete",
+      "generationMs": 92.94316599999911,
+      "setupTurns": 6,
+      "moves": 449,
+      "maximum": 27,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-2",
+      "status": "complete",
+      "generationMs": 522.7377090000009,
+      "setupTurns": 8,
+      "moves": 623,
+      "maximum": 40,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-3",
+      "status": "complete",
+      "generationMs": 484.6821660000023,
+      "setupTurns": 8,
+      "moves": 553,
+      "maximum": 34,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-4",
+      "status": "complete",
+      "generationMs": 329.42412500000137,
+      "setupTurns": 8,
+      "moves": 257,
+      "maximum": 47,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-5",
+      "status": "complete",
+      "generationMs": 128.1205000000009,
+      "setupTurns": 4,
+      "moves": 341,
+      "maximum": 34,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-6",
+      "status": "complete",
+      "generationMs": 182.5453750000015,
+      "setupTurns": 4,
+      "moves": 326,
+      "maximum": 34,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-7",
+      "status": "complete",
+      "generationMs": 191.29391599999872,
+      "setupTurns": 6,
+      "moves": 398,
+      "maximum": 33,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-8",
+      "status": "complete",
+      "generationMs": 118.08774999999878,
+      "setupTurns": 8,
+      "moves": 614,
+      "maximum": 46,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-9",
+      "status": "complete",
+      "generationMs": 110.06737500000236,
+      "setupTurns": 4,
+      "moves": 2450,
+      "maximum": 80,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-10",
+      "status": "complete",
+      "generationMs": 62.065582999999606,
+      "setupTurns": 8,
+      "moves": 93,
+      "maximum": 20,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-11",
+      "status": "complete",
+      "generationMs": 89.71837500000038,
+      "setupTurns": 10,
+      "moves": 178,
+      "maximum": 28,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-12",
+      "status": "complete",
+      "generationMs": 66.2341669999987,
+      "setupTurns": 4,
+      "moves": 419,
+      "maximum": 32,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-13",
+      "status": "complete",
+      "generationMs": 66.54329200000211,
+      "setupTurns": 8,
+      "moves": 79,
+      "maximum": 29,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-14",
+      "status": "complete",
+      "generationMs": 154.84975000000122,
+      "setupTurns": 8,
+      "moves": 748,
+      "maximum": 39,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-15",
+      "status": "complete",
+      "generationMs": 513.2112500000003,
+      "setupTurns": 10,
+      "moves": 2634,
+      "maximum": 79,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-16",
+      "status": "complete",
+      "generationMs": 765.9578330000004,
+      "setupTurns": 8,
+      "moves": 642,
+      "maximum": 60,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-17",
+      "status": "complete",
+      "generationMs": 49.21808400000009,
+      "setupTurns": 4,
+      "moves": 185,
+      "maximum": 28,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-18",
+      "status": "complete",
+      "generationMs": 127.38083299999926,
+      "setupTurns": 10,
+      "moves": 391,
+      "maximum": 86,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-19",
+      "status": "complete",
+      "generationMs": 121.95670899999823,
+      "setupTurns": 10,
+      "moves": 306,
+      "maximum": 44,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-20",
+      "status": "complete",
+      "generationMs": 281.1097919999993,
+      "setupTurns": 10,
+      "moves": 6775,
+      "maximum": 149,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-21",
+      "status": "complete",
+      "generationMs": 248.3020830000023,
+      "setupTurns": 10,
+      "moves": 517,
+      "maximum": 38,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-22",
+      "status": "complete",
+      "generationMs": 50.094959000001836,
+      "setupTurns": 4,
+      "moves": 355,
+      "maximum": 30,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-23",
+      "status": "complete",
+      "generationMs": 321.8562500000007,
+      "setupTurns": 10,
+      "moves": 370,
+      "maximum": 36,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-24",
+      "status": "complete",
+      "generationMs": 134.79833300000246,
+      "setupTurns": 10,
+      "moves": 162,
+      "maximum": 33,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-25",
+      "status": "complete",
+      "generationMs": 60.61083299999882,
+      "setupTurns": 4,
+      "moves": 354,
+      "maximum": 20,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-26",
+      "status": "complete",
+      "generationMs": 306.5940420000006,
+      "setupTurns": 6,
+      "moves": 237,
+      "maximum": 32,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-27",
+      "status": "complete",
+      "generationMs": 275.5427090000012,
+      "setupTurns": 10,
+      "moves": 392,
+      "maximum": 22,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-28",
+      "status": "complete",
+      "generationMs": 54.03120800000033,
+      "setupTurns": 4,
+      "moves": 390,
+      "maximum": 28,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-29",
+      "status": "complete",
+      "generationMs": 35.62083300000086,
+      "setupTurns": 4,
+      "moves": 182,
+      "maximum": 36,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-30",
+      "status": "complete",
+      "generationMs": 235.92954200000167,
+      "setupTurns": 10,
+      "moves": 2174,
+      "maximum": 42,
+      "rootCandidates": 23
+    },
+    {
+      "seed": "gym-feasibility-v1-31",
+      "status": "complete",
+      "generationMs": 132.6373339999991,
+      "setupTurns": 4,
+      "moves": 59,
+      "maximum": 15,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-32",
+      "status": "complete",
+      "generationMs": 88.9560829999973,
+      "setupTurns": 8,
+      "moves": 171,
+      "maximum": 36,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-33",
+      "status": "complete",
+      "generationMs": 46.37550000000192,
+      "setupTurns": 4,
+      "moves": 216,
+      "maximum": 31,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-34",
+      "status": "complete",
+      "generationMs": 58.13558399999965,
+      "setupTurns": 4,
+      "moves": 428,
+      "maximum": 28,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-35",
+      "status": "complete",
+      "generationMs": 330.2448750000003,
+      "setupTurns": 8,
+      "moves": 118,
+      "maximum": 27,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-36",
+      "status": "complete",
+      "generationMs": 306.0272920000025,
+      "setupTurns": 8,
+      "moves": 2522,
+      "maximum": 39,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-37",
+      "status": "complete",
+      "generationMs": 102.17266699999891,
+      "setupTurns": 6,
+      "moves": 71,
+      "maximum": 22,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-38",
+      "status": "complete",
+      "generationMs": 201.81029099999796,
+      "setupTurns": 10,
+      "moves": 2707,
+      "maximum": 40,
+      "rootCandidates": 21
+    },
+    {
+      "seed": "gym-feasibility-v1-39",
+      "status": "complete",
+      "generationMs": 89.00645799999984,
+      "setupTurns": 10,
+      "moves": 509,
+      "maximum": 30,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-40",
+      "status": "complete",
+      "generationMs": 109.86783300000025,
+      "setupTurns": 10,
+      "moves": 330,
+      "maximum": 26,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-41",
+      "status": "complete",
+      "generationMs": 131.3077090000006,
+      "setupTurns": 10,
+      "moves": 312,
+      "maximum": 34,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-42",
+      "status": "complete",
+      "generationMs": 75.70016599999872,
+      "setupTurns": 8,
+      "moves": 219,
+      "maximum": 21,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-43",
+      "status": "complete",
+      "generationMs": 34.91937500000131,
+      "setupTurns": 4,
+      "moves": 610,
+      "maximum": 80,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-44",
+      "status": "complete",
+      "generationMs": 412.76324999999997,
+      "setupTurns": 10,
+      "moves": 3335,
+      "maximum": 68,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-45",
+      "status": "complete",
+      "generationMs": 83.05608300000313,
+      "setupTurns": 10,
+      "moves": 439,
+      "maximum": 24,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-46",
+      "status": "complete",
+      "generationMs": 203.24991599999703,
+      "setupTurns": 10,
+      "moves": 230,
+      "maximum": 42,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-47",
+      "status": "complete",
+      "generationMs": 232.81045799999993,
+      "setupTurns": 10,
+      "moves": 244,
+      "maximum": 77,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-48",
+      "status": "complete",
+      "generationMs": 164.45566599999802,
+      "setupTurns": 8,
+      "moves": 114,
+      "maximum": 21,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-49",
+      "status": "complete",
+      "generationMs": 39.00362500000119,
+      "setupTurns": 4,
+      "moves": 117,
+      "maximum": 27,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-50",
+      "status": "complete",
+      "generationMs": 175.97379100000035,
+      "setupTurns": 10,
+      "moves": 185,
+      "maximum": 23,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-51",
+      "status": "complete",
+      "generationMs": 156.43324999999822,
+      "setupTurns": 10,
+      "moves": 333,
+      "maximum": 42,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-52",
+      "status": "complete",
+      "generationMs": 36.383583999999246,
+      "setupTurns": 4,
+      "moves": 248,
+      "maximum": 75,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-53",
+      "status": "complete",
+      "generationMs": 77.31654200000048,
+      "setupTurns": 6,
+      "moves": 1185,
+      "maximum": 51,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-54",
+      "status": "complete",
+      "generationMs": 170.50387500000215,
+      "setupTurns": 8,
+      "moves": 142,
+      "maximum": 24,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-55",
+      "status": "complete",
+      "generationMs": 249.81012499999997,
+      "setupTurns": 10,
+      "moves": 5487,
+      "maximum": 74,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-56",
+      "status": "complete",
+      "generationMs": 61.84416699999929,
+      "setupTurns": 4,
+      "moves": 823,
+      "maximum": 28,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-57",
+      "status": "complete",
+      "generationMs": 146.15566699999908,
+      "setupTurns": 8,
+      "moves": 4124,
+      "maximum": 58,
+      "rootCandidates": 22
+    },
+    {
+      "seed": "gym-feasibility-v1-58",
+      "status": "complete",
+      "generationMs": 260.4132500000014,
+      "setupTurns": 8,
+      "moves": 155,
+      "maximum": 33,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-59",
+      "status": "complete",
+      "generationMs": 447.66462500000125,
+      "setupTurns": 8,
+      "moves": 318,
+      "maximum": 21,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-60",
+      "status": "complete",
+      "generationMs": 161.60150000000067,
+      "setupTurns": 6,
+      "moves": 258,
+      "maximum": 17,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-61",
+      "status": "complete",
+      "generationMs": 34.65904199999932,
+      "setupTurns": 4,
+      "moves": 403,
+      "maximum": 40,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-62",
+      "status": "complete",
+      "generationMs": 120.59333300000071,
+      "setupTurns": 10,
+      "moves": 92,
+      "maximum": 33,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-63",
+      "status": "complete",
+      "generationMs": 98.12066699999923,
+      "setupTurns": 6,
+      "moves": 225,
+      "maximum": 42,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-64",
+      "status": "complete",
+      "generationMs": 260.12216700000135,
+      "setupTurns": 8,
+      "moves": 163,
+      "maximum": 47,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-65",
+      "status": "complete",
+      "generationMs": 140.25258300000132,
+      "setupTurns": 8,
+      "moves": 56,
+      "maximum": 24,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-66",
+      "status": "complete",
+      "generationMs": 191.63424999999916,
+      "setupTurns": 8,
+      "moves": 347,
+      "maximum": 33,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-67",
+      "status": "complete",
+      "generationMs": 196.48474999999962,
+      "setupTurns": 10,
+      "moves": 168,
+      "maximum": 40,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-68",
+      "status": "complete",
+      "generationMs": 250.75183299999844,
+      "setupTurns": 6,
+      "moves": 1028,
+      "maximum": 30,
+      "rootCandidates": 21
+    },
+    {
+      "seed": "gym-feasibility-v1-69",
+      "status": "complete",
+      "generationMs": 313.0662090000005,
+      "setupTurns": 10,
+      "moves": 3599,
+      "maximum": 41,
+      "rootCandidates": 23
+    },
+    {
+      "seed": "gym-feasibility-v1-70",
+      "status": "complete",
+      "generationMs": 75.0737079999999,
+      "setupTurns": 8,
+      "moves": 216,
+      "maximum": 36,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-71",
+      "status": "complete",
+      "generationMs": 55.567040999998426,
+      "setupTurns": 4,
+      "moves": 514,
+      "maximum": 76,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-72",
+      "status": "complete",
+      "generationMs": 89.9975830000003,
+      "setupTurns": 10,
+      "moves": 349,
+      "maximum": 40,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-73",
+      "status": "complete",
+      "generationMs": 129.92883300000176,
+      "setupTurns": 10,
+      "moves": 188,
+      "maximum": 27,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-74",
+      "status": "complete",
+      "generationMs": 239.20379200000025,
+      "setupTurns": 8,
+      "moves": 213,
+      "maximum": 39,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-75",
+      "status": "complete",
+      "generationMs": 49.47579200000109,
+      "setupTurns": 4,
+      "moves": 271,
+      "maximum": 46,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-76",
+      "status": "complete",
+      "generationMs": 35.12325000000055,
+      "setupTurns": 4,
+      "moves": 282,
+      "maximum": 32,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-77",
+      "status": "complete",
+      "generationMs": 116.6794579999987,
+      "setupTurns": 10,
+      "moves": 368,
+      "maximum": 36,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-78",
+      "status": "complete",
+      "generationMs": 184.27904099999796,
+      "setupTurns": 6,
+      "moves": 379,
+      "maximum": 44,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-79",
+      "status": "complete",
+      "generationMs": 36.056124999999156,
+      "setupTurns": 4,
+      "moves": 97,
+      "maximum": 34,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-80",
+      "status": "complete",
+      "generationMs": 277.0877079999991,
+      "setupTurns": 8,
+      "moves": 536,
+      "maximum": 37,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-81",
+      "status": "complete",
+      "generationMs": 62.82495800000106,
+      "setupTurns": 4,
+      "moves": 929,
+      "maximum": 87,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-82",
+      "status": "complete",
+      "generationMs": 126.81908300000214,
+      "setupTurns": 6,
+      "moves": 107,
+      "maximum": 24,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-83",
+      "status": "complete",
+      "generationMs": 200.68687499999942,
+      "setupTurns": 8,
+      "moves": 181,
+      "maximum": 34,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-84",
+      "status": "complete",
+      "generationMs": 61.73112499999843,
+      "setupTurns": 4,
+      "moves": 556,
+      "maximum": 74,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-85",
+      "status": "complete",
+      "generationMs": 109.94787500000166,
+      "setupTurns": 8,
+      "moves": 525,
+      "maximum": 45,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-86",
+      "status": "complete",
+      "generationMs": 77.04133400000137,
+      "setupTurns": 6,
+      "moves": 222,
+      "maximum": 41,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-87",
+      "status": "complete",
+      "generationMs": 392.33079200000066,
+      "setupTurns": 6,
+      "moves": 4285,
+      "maximum": 32,
+      "rootCandidates": 24
+    },
+    {
+      "seed": "gym-feasibility-v1-88",
+      "status": "complete",
+      "generationMs": 64.99983299999803,
+      "setupTurns": 6,
+      "moves": 355,
+      "maximum": 36,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-89",
+      "status": "complete",
+      "generationMs": 94.67941699999938,
+      "setupTurns": 6,
+      "moves": 527,
+      "maximum": 83,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-90",
+      "status": "complete",
+      "generationMs": 116.03637499999968,
+      "setupTurns": 8,
+      "moves": 137,
+      "maximum": 84,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-91",
+      "status": "complete",
+      "generationMs": 421.2657919999983,
+      "setupTurns": 8,
+      "moves": 202,
+      "maximum": 22,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-92",
+      "status": "complete",
+      "generationMs": 172.2423340000023,
+      "setupTurns": 8,
+      "moves": 3018,
+      "maximum": 69,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-93",
+      "status": "complete",
+      "generationMs": 111.1272919999974,
+      "setupTurns": 8,
+      "moves": 497,
+      "maximum": 28,
+      "rootCandidates": 19
+    },
+    {
+      "seed": "gym-feasibility-v1-94",
+      "status": "complete",
+      "generationMs": 100.45883299999696,
+      "setupTurns": 8,
+      "moves": 640,
+      "maximum": 40,
+      "rootCandidates": 18
+    },
+    {
+      "seed": "gym-feasibility-v1-95",
+      "status": "complete",
+      "generationMs": 39.40491699999984,
+      "setupTurns": 6,
+      "moves": 51,
+      "maximum": 30,
+      "rootCandidates": 16
+    },
+    {
+      "seed": "gym-feasibility-v1-96",
+      "status": "complete",
+      "generationMs": 99.8985840000023,
+      "setupTurns": 10,
+      "moves": 173,
+      "maximum": 29,
+      "rootCandidates": 20
+    },
+    {
+      "seed": "gym-feasibility-v1-97",
+      "status": "complete",
+      "generationMs": 67.33204200000182,
+      "setupTurns": 4,
+      "moves": 475,
+      "maximum": 81,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-98",
+      "status": "complete",
+      "generationMs": 170.55858400000216,
+      "setupTurns": 8,
+      "moves": 1206,
+      "maximum": 46,
+      "rootCandidates": 17
+    },
+    {
+      "seed": "gym-feasibility-v1-99",
+      "status": "complete",
+      "generationMs": 251.95070799999667,
+      "setupTurns": 6,
+      "moves": 618,
+      "maximum": 38,
+      "rootCandidates": 18
+    }
+  ]
+}

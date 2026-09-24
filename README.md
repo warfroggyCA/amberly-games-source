@@ -10,6 +10,12 @@ Use the [release ledger](docs/release-status.md) for independently observed depl
 
 The public source repository is `warfroggyCA/amberly-games-source`. It starts from a sanitized source snapshot; earlier operator notes, personal media and source history remain in a separate private archive. The reliability milestone is included, but source publication does not deploy the hosted app. Consult [release instructions](docs/releasing.md) before deploying.
 
+The proposed [Scrabble Gym practice and training mode](docs/scrabble-training-spec.md) has a feature specification covering freshly generated random two-player puzzles, score and strategy feedback, hints, and practice results saved to player profiles and available across signed-in devices. Future Easy, Medium and Hard modes are captured for later design. Scrabble Gym is the working name, with Scarlett the dog lifting Scrabble-themed weights as a mascot concept. A local engine preview is now implemented; the full release is not complete. See the [build status and benchmark report](docs/scrabble-gym-build-status.md).
+
+The [Scrabble Gym first release plan](docs/scrabble-gym-release-plan.md) sets out the engine prototype, profile sync, practice flow, verification and release sequence. Run `npm run gym:preview` to open the isolated local preview; the launcher prints a same-network iPad URL. It uses port 4321 by default, disables hosted account/storage connections, and exposes `/gym-lab` only with its explicit preview flag. Keep the Mac awake and both devices on the same network.
+
+The local game chooser is at `/gym-lab/games`. With the Gym preview flag enabled, the family hub also shows a Scrabble Gym entry beside Scrabble and Crokinole. Back to games returns to the originating chooser. The original local scorer remains at `/`.
+
 ## Fresh checkout
 
 Use Node **24.21.0** and npm. Versions are pinned in the lockfile. Word sources are a separate private artifact accessible only to authorized maintainers; missing or modified sources fail the build rather than selecting another dictionary.
@@ -57,3 +63,6 @@ Use [backup and recovery](docs/backup-recovery.md) for encrypted operator archiv
 [Diagnostics](docs/diagnostics.md) describes failure reports, dictionary resource limits and their boundaries. No third-party tracking service is installed. The deployment provider’s log retention still applies.
 
 Trusted CI uses a read-only deploy key held in a repository secret to read a pinned private word-input commit. It never uploads dictionary files as build or test artifacts. External pull requests receive no such secret and require maintainer review before full verification.
+
+
+Gym profile history is staged behind `AMBERLY_GYM_HISTORY_ENABLED=true`, alongside the existing Gym entry flag. The signed-in Games entry uses profile persistence after migration `20260924214100_gym_profile_history.sql`; the standalone LAN `/gym-lab` remains an unsaved preview. Do not enable the history flag on a hosted environment until its migration and release are approved. See `docs/scrabble-gym-build-status.md` for validation and limitations.

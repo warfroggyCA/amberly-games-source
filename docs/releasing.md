@@ -50,6 +50,7 @@ The required local files, in order, are:
 10. `20260918003644_invitation_player_onboarding.sql`
 11. `20260923235027_review_integrity_guards.sql`
 12. `20260924011827_superadmin_game_removal.sql`
+13. `20260924214100_gym_profile_history.sql`
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 
@@ -60,3 +61,8 @@ The integrity migration retains existing data. Duplicate command IDs or invalid 
 New Crokinole amendments use `correct_round_v2` / `undo_round_v2` and explicit `resume` events. Original v1 journals keep their historical semantics. After these new events are saved, rollback must retain support for them and the integrity migration. An older application cannot safely replay these journals. Keep the additive migration on rollback; prefer a forward fix or a compatible build.
 
 Hosted migration history, runtime-login grants, off-device backup custody, deployment and physical-device acceptance must be recorded separately. Local tests do not establish those facts.
+
+
+### Staged Gym history
+
+Migration 13 adds private Gym sessions/events only; it has been prepared for local verification and must not be assumed present in the hosted migration ledger. Enable `AMBERLY_GYM_HISTORY_ENABLED=true` only after the reviewed migration and application revision are authorized and verified. The existing `AMBERLY_GYM_LAB_ENABLED` gate still controls Gym entry. On rollback, disable the history gate and retain the additive tables, receipts and device queues; never delete practice history to roll back UI. Verify an owned save and second-device retrieval after rollout, plus rejection for another account/profile.

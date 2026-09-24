@@ -1,0 +1,201 @@
+import { randomUUID } from "node:crypto";
+import type postgres from "postgres";
+import { describe, it, expect, beforeAll } from "vitest";
+import {
+  createGymRepository,
+  gymFingerprint,
+} from "../src/server/gym-repository";
+import { generatePuzzle } from "../src/domain/gym/generator";
+import { makeBudget, type Puzzle } from "../src/domain/gym/model";
+import { defaultLexicon } from "../src/lib/lexicons";
+import type {
+  GymWrite,
+  GymHistory,
+  GymSessionDetail,
+  GymEventPayload,
+} from "../src/lib/gym-history-contract";
+export function gymHistoryDatabaseCases(
+  owner: postgres.Sql,
+  runtime: postgres.Sql,
+) {
+  describe("private Gym history", () => {
+    let puzzle: Puzzle, move: GymEventPayload;
+    beforeAll(() => {
+      const result = generatePuzzle(
+        "gym-history-db-v1",
+        defaultLexicon,
+        makeBudget(),
+      );
+      puzzle = result.puzzle;
+      move = {
+        type: "attempt",
+        action: { type: "play", placements: result.answer.best[0].placements },
+      };
+    }, 20000);
+    async function fixture() {
+      const familyId = randomUUID(),
+        actor = {
+          userId: randomUUID(),
+          email: "gym@example.test",
+          emailVerified: true as const,
+        },
+        other = {
+          userId: randomUUID(),
+          email: "other@example.test",
+          emailVerified: true as const,
+        };
+      await owner`insert into scrabble.families(id,name) values(${familyId}::uuid,'Gym test')`;
+      await owner`insert into scrabble.players(family_id,id,name) values(${familyId}::uuid,'one','One'),(${familyId}::uuid,'two','Two')`;
+      await owner`insert into scrabble.memberships(family_id,user_id,email,role,player_id) values(${familyId}::uuid,${actor.userId}::uuid,${actor.email},'member','one'),(${familyId}::uuid,${other.userId}::uuid,${other.email},'superadmin','two')`;
+      const repo = createGymRepository(runtime, { enabled: true });
+      const sessionId = randomUUID();
+      const write = (sequence: number, payload: GymEventPayload): GymWrite => ({
+        sessionId,
+        playerId: "one",
+        puzzle,
+        event: {
+          id: randomUUID(),
+          sequence,
+          occurredAt: new Date().toISOString(),
+          payload,
+        },
+      });
+      return { familyId, actor, other, repo, write, sessionId };
+    }
+    it("retrieves the same profile history through independent clients, deduplicates a lost receipt and preserves first attempts", async () => {
+      const f = await fixture(),
+        hint = f.write(1, { type: "hint", level: 1 });
+      await Promise.all([
+        f.repo.append(f.actor, f.familyId, hint),
+        f.repo.append(f.actor, f.familyId, hint),
+      ]);
+      await f.repo.append(f.actor, f.familyId, f.write(2, move));
+      await f.repo.append(f.actor, f.familyId, f.write(3, move));
+      const second = createGymRepository(runtime, { enabled: true });
+      const history = (await second.read(f.actor, f.familyId)) as GymHistory;
+      expect(history.sessions).toHaveLength(1);
+      expect(history.sessions[0]).toMatchObject({
+        attempts: 2,
+        assisted: true,
+      });
+      const detail = (await second.read(f.actor, f.familyId, {
+        sessionId: f.sessionId,
+      })) as GymSessionDetail;
+      expect(detail.events).toHaveLength(3);
+      expect(detail.events[1]).toMatchObject({
+        valid: true,
+        assisted: true,
+        firstAttempt: true,
+      });
+      expect(detail.events[2].firstAttempt).toBe(false);
+      const changed = structuredClone(hint);
+      changed.event.payload = { type: "solve" };
+      await expect(
+        f.repo.append(f.actor, f.familyId, changed),
+      ).rejects.toMatchObject({ code: "EVENT_CONFLICT" });
+    });
+    it("denies even admins another profile, rejects out-of-order events and pauses revoked/relinked owners", async () => {
+      const f = await fixture();
+      await expect(
+        f.repo.append(f.actor, f.familyId, f.write(2, move)),
+      ).rejects.toMatchObject({ code: "SEQUENCE_CONFLICT" });
+      await f.repo.append(f.actor, f.familyId, f.write(1, move));
+      await expect(
+        f.repo.read(f.other, f.familyId, { sessionId: f.sessionId }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(
+        f.repo.append(f.other, f.familyId, f.write(2, move)),
+      ).rejects.toMatchObject({ code: "PROFILE_CHANGED" });
+      await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
+      await expect(f.repo.read(f.actor, f.familyId)).rejects.toMatchObject({
+        code: "NO_PROFILE",
+      });
+    });
+    it("keeps replay exposure across sessions, validates snapshots/scores and prevents assessment forgery", async () => {
+      const f = await fixture(),
+        attempt = f.write(1, move);
+      await f.repo.append(f.actor, f.familyId, attempt);
+      const replay = { ...f.write(1, move), sessionId: randomUUID() };
+      await f.repo.append(f.actor, f.familyId, replay);
+      const history = (await f.repo.read(f.actor, f.familyId)) as GymHistory;
+      expect(history.sessions.filter((s) => s.replay)).toHaveLength(1);
+      const bad = f.write(2, {
+        type: "score",
+        attemptId: attempt.event.id,
+        points: 2999,
+        rank: 1,
+        percentage: 100,
+      });
+      await expect(
+        f.repo.append(f.actor, f.familyId, bad),
+      ).rejects.toMatchObject({ code: "INVALID_SCORE" });
+      const tampered = structuredClone(f.write(2, move));
+      tampered.puzzle.position.scores[0]++;
+      await expect(
+        f.repo.append(f.actor, f.familyId, tampered),
+      ).rejects.toMatchObject({ code: "INVALID_PUZZLE" });
+      expect(gymFingerprint(puzzle)).toBe(
+        gymFingerprint({
+          ...puzzle,
+          seed: "different",
+          position: {
+            ...puzzle.position,
+            rack: [...puzzle.position.rack].reverse(),
+          },
+        }),
+      );
+    });
+    it("paginates without duplicate rows and blocks relinked accounts and foreign families", async () => {
+      const f = await fixture();
+      for (let n = 0; n < 22; n++)
+        await f.repo.append(f.actor, f.familyId, {
+          ...f.write(1, { type: "solve" }),
+          sessionId: randomUUID(),
+        });
+      const first = (await f.repo.read(f.actor, f.familyId)) as GymHistory;
+      expect(first.sessions).toHaveLength(20);
+      expect(first.nextCursor).toBeTruthy();
+      const second = (await f.repo.read(f.actor, f.familyId, {
+        cursor: first.nextCursor!,
+      })) as GymHistory;
+      expect(second.sessions).toHaveLength(2);
+      expect(
+        new Set([...first.sessions, ...second.sessions].map((s) => s.id)).size,
+      ).toBe(22);
+      await expect(f.repo.read(f.actor, randomUUID())).rejects.toMatchObject({
+        code: "NO_PROFILE",
+      });
+      await owner`update scrabble.memberships set player_id=null where family_id=${f.familyId}::uuid and user_id=${f.other.userId}::uuid`;
+      await owner`update scrabble.memberships set player_id='two' where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
+      await expect(
+        f.repo.append(f.actor, f.familyId, f.write(1, move)),
+      ).rejects.toMatchObject({ code: "PROFILE_CHANGED" });
+      expect(
+        ((await f.repo.read(f.actor, f.familyId)) as GymHistory).sessions,
+      ).toHaveLength(0);
+    });
+    it("runtime cannot update/delete journals or directly read another owner", async () => {
+      const f = await fixture();
+      await f.repo.append(f.actor, f.familyId, f.write(1, move));
+      await runtime.begin(async (tx) => {
+        await tx`set local role scrabble_runtime`;
+        await tx`select set_config('scrabble.actor_id',${f.other.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+        expect(
+          await tx`select id from scrabble.gym_sessions where family_id=${f.familyId}::uuid and player_id='one'`,
+        ).toHaveLength(0);
+      });
+      await expect(
+        runtime.begin(async (tx) => {
+          await tx`set local role scrabble_runtime`;
+          await tx`delete from scrabble.gym_events`;
+        }),
+      ).rejects.toMatchObject({ code: "42501" });
+      await expect(
+        createGymRepository(runtime, { enabled: false }).read(
+          f.actor,
+          f.familyId,
+        ),
+      ).rejects.toMatchObject({ code: "GYM_UNAVAILABLE" });
+    });
+  });
+}

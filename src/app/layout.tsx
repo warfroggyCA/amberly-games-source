@@ -50,7 +50,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    // Browsers may inject root attributes (e.g. __gcrremoteframetoken) before
+    // hydration. This static root has no dynamic attributes; descendant
+    // application markup still receives normal hydration checks.
+    <html lang="en" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

@@ -10,5 +10,6 @@
   "20260917182443_player_nicknames.sql",
   "20260918003644_invitation_player_onboarding.sql",
   "20260923235027_review_integrity_guards.sql",
-  "20260924011827_superadmin_game_removal.sql"
+  "20260924011827_superadmin_game_removal.sql",
+  "20260924214100_gym_profile_history.sql"
 ]
