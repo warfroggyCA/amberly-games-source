@@ -1,3 +1,4 @@
+import { SharedRepositoryError } from "./shared-repository";
 import { NextResponse } from "next/server";
 import { reportFailure } from "./diagnostics";
 
@@ -136,4 +137,20 @@ export function requireObject(value: unknown): Record<string, unknown> {
     throw new HttpError(400, "This request is incomplete.");
   }
   return value as Record<string, unknown>;
+}
+
+/** Keep repository error codes while reporting server failures without private data. */
+export function repositoryFailure(
+  error: unknown,
+  context?: { json: (data: unknown, status?: number) => NextResponse } | null,
+): NextResponse {
+  if (!(error instanceof SharedRepositoryError))
+    return errorJson(error, context);
+  const response = (context?.json ?? privateJson)(
+    { error: error.message, code: error.code },
+    error.status,
+  );
+  if (error.status >= 500)
+    response.headers.set("X-Incident-Id", reportFailure("family", error));
+  return response;
 }

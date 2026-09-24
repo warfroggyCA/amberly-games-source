@@ -31,6 +31,11 @@ vi.mock("../src/server/auth", () => ({
   }),
 }));
 vi.mock("../src/server/database", () => ({
+  getCrokinoleRepository: () => ({ readState: mock.read, mutate: mock.mutate }),
+  getGameSummaryRepository: () => ({
+    read: mock.read,
+    exportHistory: mock.archive,
+  }),
   getSharedRepository: () => ({
     readState: mock.read,
     mutate: mock.mutate,
@@ -51,6 +56,12 @@ vi.mock("../src/server/shared-repository", () => ({
 }));
 import { GET, POST } from "../src/app/api/family/route";
 import { POST as join } from "../src/app/api/family/join/route";
+import {
+  GET as crokinoleGet,
+  POST as crokinolePost,
+} from "../src/app/api/family/crokinole/route";
+import { GET as gamesGet } from "../src/app/api/family/games/route";
+import { SharedRepositoryError } from "../src/server/shared-repository";
 import { HttpError } from "../src/server/shared-http";
 const origin = "http://127.0.0.1:3001";
 const post = (
@@ -60,7 +71,12 @@ const post = (
 ) =>
   new Request(origin + path, {
     method: "POST",
-    headers: { origin, "content-type": "application/json", ...headers },
+    headers: {
+      origin,
+      "content-type": "application/json",
+      "x-scrabble-user": mock.actor.id,
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
 beforeEach(() => {
@@ -74,7 +90,11 @@ beforeEach(() => {
 });
 describe("family HTTP boundary", () => {
   it("passes only the provider-verified identity to a read", async () => {
-    const response = await GET(new Request(origin + "/api/family"));
+    const response = await GET(
+      new Request(origin + "/api/family", {
+        headers: { "x-scrabble-user": mock.actor.id },
+      }),
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(mock.read).toHaveBeenCalledWith(
@@ -114,7 +134,15 @@ describe("family HTTP boundary", () => {
   });
   it("never reaches shared storage when authentication has expired", async () => {
     mock.authError = new HttpError(401, "Sign in again.");
-    expect((await GET(new Request(origin + "/api/family"))).status).toBe(401);
+    expect(
+      (
+        await GET(
+          new Request(origin + "/api/family", {
+            headers: { "x-scrabble-user": mock.actor.id },
+          }),
+        )
+      ).status,
+    ).toBe(401);
     expect(mock.read).not.toHaveBeenCalled();
   });
   it("does not accept identity fields in an invitation acceptance", async () => {
@@ -132,8 +160,69 @@ describe("family HTTP boundary", () => {
   });
   it("keeps database details out of unknown error responses", async () => {
     mock.read.mockRejectedValue(new Error("password or SQL private details"));
-    const response = await GET(new Request(origin + "/api/family"));
+    const response = await GET(
+      new Request(origin + "/api/family", {
+        headers: { "x-scrabble-user": mock.actor.id },
+      }),
+    );
     expect(response.status).toBe(503);
     expect(await response.text()).not.toMatch(/password|SQL/);
   });
+});
+
+describe("consistent family route safety", () => {
+  it.each([
+    ["family", GET],
+    ["crokinole", crokinoleGet],
+    ["games", gamesGet],
+  ] as const)(
+    "%s requires the expected account and logs integrity failures",
+    async (path, handler) => {
+      for (const headers of [
+        {},
+        { "x-scrabble-user": "someone-else" },
+      ] as Record<string, string>[]) {
+        const response = await handler(
+          new Request(origin + "/api/family/" + path, { headers }),
+        );
+        expect(response.status).toBe(401);
+      }
+      expect(mock.read).not.toHaveBeenCalled();
+      mock.read.mockRejectedValueOnce(
+        new SharedRepositoryError(
+          "HISTORY_INTEGRITY",
+          "History needs recovery.",
+          500,
+        ),
+      );
+      const log = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await handler(
+          new Request(origin + "/api/family/" + path, {
+            headers: { "x-scrabble-user": mock.actor.id },
+          }),
+        );
+        expect(response.status).toBe(500);
+        expect(await response.json()).toMatchObject({
+          code: "HISTORY_INTEGRITY",
+        });
+        expect(response.headers.get("x-incident-id")).toBeTruthy();
+        expect(log).toHaveBeenCalledTimes(1);
+        const entry = JSON.parse(log.mock.calls[0][0]);
+        expect(entry.incidentId).toBe(response.headers.get("x-incident-id"));
+        expect(JSON.stringify(entry)).not.toMatch(/History|owner@example/);
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
+  it.each([POST, crokinolePost])(
+    "rejects a write without its expected account",
+    async (handler) => {
+      const request = post("/api/family", {});
+      request.headers.delete("x-scrabble-user");
+      expect((await handler(request)).status).toBe(401);
+      expect(mock.mutate).not.toHaveBeenCalled();
+    },
+  );
 });

@@ -1,3 +1,4 @@
+import { requireCurrentSchema } from "./schema-compatibility";
 import {
   hasPermission,
   isMemberPermissions,
@@ -470,6 +471,7 @@ export function createSharedRepository(
       readOnly ? "isolation level repeatable read read only" : "",
       async (tx) => {
         await tx`set local role scrabble_runtime`;
+        await requireCurrentSchema(tx);
         await tx`select set_config('scrabble.actor_id', ${actor.userId}, true), set_config('scrabble.family_id', ${familyId}, true), set_config('scrabble.actor_email', ${email(actor.email)}, true), set_config('scrabble.email_verified', 'true', true), set_config('statement_timeout', '15000', true), set_config('lock_timeout', '5000', true)`;
         return work(tx);
       },
@@ -524,14 +526,11 @@ export function createSharedRepository(
   ) {
     await tx`insert into scrabble.audit(family_id,id,actor_id,action,subject,before_value,after_value) values(${familyId}::uuid,${randomUUID()}::uuid,${actor.userId}::uuid,${action},${subject},${json(tx, before)},${json(tx, after)})`;
   }
-  async function checkedGame(
-    tx: Tx,
-    familyId: string,
-    gameId: string,
-    lock = false,
-  ) {
+  async function checkedGame(tx: Tx, familyId: string, gameId: string) {
+    // Mutation callers already hold the family lock. A head row lock also
+    // applies UPDATE policies and would hide history from reviewers/non-scorers.
     const rows =
-      await tx`select h.*,d.definition,d.mode from scrabble.game_heads h join scrabble.game_definitions d using(family_id,game_id) where h.family_id = ${familyId}::uuid and h.game_id = ${gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id) ${lock ? tx`for update of h` : tx``}`;
+      await tx`select h.*,d.definition,d.mode from scrabble.game_heads h join scrabble.game_definitions d using(family_id,game_id) where h.family_id = ${familyId}::uuid and h.game_id = ${gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id)`;
     if (!rows.length)
       reject("GAME_NOT_FOUND", "This game is not in the family history.", 404);
     const row = rows[0];
@@ -729,7 +728,7 @@ export function createSharedRepository(
     }
     if (op.type === "delete-practice-game") {
       requireAdmin(who);
-      const { row, game } = await checkedGame(tx, familyId, op.gameId, true);
+      const { row, game } = await checkedGame(tx, familyId, op.gameId);
       if (row.mode !== "practice")
         reject(
           "PROTECTED_GAME",
@@ -947,7 +946,7 @@ export function createSharedRepository(
     }
     if (op.type === "create-watch-link" || op.type === "revoke-watch-link") {
       requirePermission(who, "shareGames");
-      const { row } = await checkedGame(tx, familyId, op.gameId, true);
+      const { row } = await checkedGame(tx, familyId, op.gameId);
       if (row.mode === "practice")
         reject(
           "PRIVATE_PRACTICE",
@@ -981,7 +980,7 @@ export function createSharedRepository(
       return {};
     }
     if (op.type === "report-protest" || op.type === "resolve-protest") {
-      const { row, game } = await checkedGame(tx, familyId, op.gameId, true);
+      const { row, game } = await checkedGame(tx, familyId, op.gameId);
       if (op.type === "report-protest") {
         const [open] =
           await tx`select p.id from scrabble.game_protests p left join scrabble.game_protest_resolutions r on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id where p.family_id=${familyId}::uuid and p.game_id=${op.gameId} and p.reporter_id=${actor.userId}::uuid and r.protest_id is null limit 1`;
@@ -1059,7 +1058,7 @@ export function createSharedRepository(
     }
     if (op.type === "take-over-scoring") {
       requirePermission(who, "scoreGames");
-      const { row, game } = await checkedGame(tx, familyId, op.gameId, true);
+      const { row, game } = await checkedGame(tx, familyId, op.gameId);
       if (
         row.scorer_user_id !== actor.userId &&
         !hasPermission(who, "takeOverScoring")
@@ -1120,7 +1119,7 @@ export function createSharedRepository(
       };
     }
     if (op.type === "approve-game") {
-      const { row, game } = await checkedGame(tx, familyId, op.gameId, true);
+      const { row, game } = await checkedGame(tx, familyId, op.gameId);
       if (row.mode !== "confirmed")
         reject(
           "PRACTICE_GAME",
@@ -1183,7 +1182,6 @@ export function createSharedRepository(
         tx,
         familyId,
         op.gameId,
-        true,
       );
       requireScorer(actor, row, op);
       let commands: GameCommand[];
@@ -1700,7 +1698,6 @@ export function createSharedRepository(
             tx,
             familyId,
             response.game.id,
-            true,
           );
           return {
             ...response,
@@ -1737,7 +1734,7 @@ export function createSharedRepository(
       ) {
         const op = input.operation;
         const [head] =
-          await tx`select * from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${op.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id) for update`;
+          await tx`select * from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${op.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id)`;
         if (!head)
           reject(
             "GAME_NOT_FOUND",
@@ -1872,7 +1869,7 @@ export function createSharedRepository(
         "scoreGames",
       );
       const [head] =
-        await tx`select * from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${input.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id) for update`;
+        await tx`select * from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${input.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id)`;
       if (!head) reject("GAME_NOT_FOUND", "This game is unavailable.", 404);
       if (head.scorer_user_id !== actor.userId)
         reject(
@@ -1966,6 +1963,7 @@ export function createSharedRepository(
     const hash = createHash("sha256").update(token).digest("hex");
     return (await sql.begin("read only", async (tx) => {
       await tx`set local role scrabble_runtime`;
+      await requireCurrentSchema(tx);
       await tx`select set_config('statement_timeout','5000',true)`;
       const [result] =
         await tx`select scrabble.read_watch_draft(${hash}) state`;
@@ -1992,6 +1990,7 @@ export function createSharedRepository(
     const hash = createHash("sha256").update(token).digest("hex");
     return (await sql.begin("read only", async (tx) => {
       await tx`set local role scrabble_runtime`;
+      await requireCurrentSchema(tx);
       await tx`select set_config('statement_timeout','5000',true)`;
       const [result] = await tx`select scrabble.read_watch(${hash}) state`;
       if (!result?.state)

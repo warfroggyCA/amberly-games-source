@@ -19,7 +19,7 @@ No Crokinole anonymous watch links, per-shot data, new ratings or rankings are i
 1. Complete local and CI checks against the final candidate. Record exact commit and test evidence.
 2. Review current hosted migration history and restricted runtime grants. Local migration version names are not proof of the hosted baseline.
 3. With hosted-change authorization, capture a current encrypted backup using the existing operator workflow; rehearse restoration to an isolated database and compare table digests.
-4. Apply only the reviewed additive migration `20260917105407_crokinole_shared_scorer.sql`. Do not run a blind migration push.
+4. Apply the reviewed missing migrations in the complete ordered [application schema list](releasing.md#complete-ordered-application-schema), including defaults, player nicknames, invitation onboarding and integrity guards. Reconcile provider timestamps against actual schema; do not run a blind migration push.
 5. Publish the matching application with `AMBERLY_CROKINOLE_ENABLED=false` first. Verify existing Scrabble and sign-in behaviour. Do not use real family matches as synthetic test fixtures.
 6. Enable `AMBERLY_CROKINOLE_ENABLED=true` for the family hub and Crokinole writes after checking schema compatibility.
 7. Verify superadmin and ordinary-member paths, private-test isolation, account-based scorer access and combined history. Record deployment identity separately from the local build.
@@ -38,3 +38,11 @@ Combined JSON archives are useful for inspection, but are not a replacement for 
 ## Release status
 
 Local implementation and automated verification are complete. See `crokinole-gauntlet.md` for counts, review evidence and limitations. No hosted migration, release, production repair or physical-device acceptance is implied by this document.
+
+## Review fixes (local candidate)
+
+Corrections and undo now preserve an explicitly ended-early match. Resume match is a separate confirmed, reasoned action, including for a match ended before its first round. New event types preserve replay of original histories; stale clients must reload before amending an ended-early match. Naturally completed matches may still reopen when a correction removes their finish condition.
+
+Crokinole integrity failures receive a privacy-safe incident log and response ID. Account identity headers are required on family, Crokinole and combined-history requests. The database enforces scorer permissions, append-only projection transitions, unique command IDs and immutable concern evidence. History summaries replay the selected Crokinole journals within the same database snapshot, using batched reads.
+
+The rollout flag is a write switch, not a schema-installation switch. Turning it off keeps direct routes and saved history available while disabling Crokinole scoring, creation and administration controls. Scrabble remains available. Journal replay no longer clones the accumulated event list at every step, and the existing 5,000-event history limit is retained. Mutations replay in a read snapshot before acquiring the family write lock; they recheck the projection and current ownership under that lock, retrying a changed snapshot up to three times before returning a safe revision conflict.

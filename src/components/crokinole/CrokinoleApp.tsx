@@ -197,7 +197,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
         ? {
             id: crypto.randomUUID(),
             expectedRevision: match.revision,
-            type: "correct_round",
+            type: "correct_round_v2",
             roundId: editing.id,
             entries,
             excludedRoundIds: excluded,
@@ -233,7 +233,9 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             ? `The corrected scores finish this game earlier. ${excluded.length} later round${excluded.length === 1 ? "" : "s"} will stop contributing to the result. Their original entries remain in history.`
             : "",
           ended
-            ? "This can change the winner or reopen the match. The original result is retained in its amendment history."
+            ? match.status === "ended_early"
+              ? "This match will remain ended early. Use Resume match separately to continue playing. The original scores remain in history."
+              : "This can change the winner or reopen the match. The original result is retained in its amendment history."
             : "",
         ]
           .filter(Boolean)
@@ -254,14 +256,14 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
     const hasDraft = Object.values(draft?.values ?? {}).some((v) => v !== "");
     confirm({
       title: `Undo round ${last.number}?`,
-      message: `The last round will stop contributing to the match, and its values will reopen for correction.${hasDraft ? " This replaces your unfinished entry." : ""} Original entries remain in history.`,
+      message: `The last round will stop contributing to the match, and its values will reopen for correction.${hasDraft ? " This replaces your unfinished entry." : ""} Original entries remain in history.${match.status === "ended_early" ? " The match will remain ended early until you choose Resume match." : ""}`,
       action: "Undo round",
       reasonRequired: match.status !== "active",
       run: async () => {
         await onCommand({
           id: crypto.randomUUID(),
           expectedRevision: match.revision,
-          type: "undo_round",
+          type: "undo_round_v2",
           ...(match.status !== "active"
             ? { reason: reasonRef.current.trim() }
             : {}),
@@ -272,7 +274,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
           ),
           editingRoundId: null,
         });
-        setEntryOpen(true);
+        setEntryOpen(match.status !== "ended_early");
       },
     });
   }
@@ -609,6 +611,30 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
                     : Object.values(draft?.values ?? {}).some((v) => v !== "")
                       ? "Continue entry"
                       : `Add Round ${match.rounds.length + 1}`}
+                </button>
+              )}
+              {match.status === "ended_early" && (
+                <button
+                  className="button primary"
+                  disabled={pending}
+                  onClick={() =>
+                    confirm({
+                      title: "Resume this match?",
+                      message:
+                        "Continue from the saved scores. If corrected scores already meet the finish condition, the match will complete with those results.",
+                      action: "Resume match",
+                      reasonRequired: true,
+                      run: () =>
+                        onCommand({
+                          id: crypto.randomUUID(),
+                          expectedRevision: match.revision,
+                          type: "resume",
+                          reason: reasonRef.current.trim(),
+                        }),
+                    })
+                  }
+                >
+                  Resume match
                 </button>
               )}
               <button

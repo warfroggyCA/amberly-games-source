@@ -31,3 +31,31 @@ The permissions/private-test update requires the additive migration described in
 | 20260916150031 saved tile sets | 20260916152145 |
 
 Do not blindly push local migration history to the live project. Inspect current provider history and verify the intended schema change independently.
+
+## Complete ordered application schema
+
+The canonical ordered list is [`config/database-migrations.json`](../config/database-migrations.json). The real PostgreSQL suite applies exactly this list and rejects unlisted migration files. It exercises both games against the resulting schema. The mapping above is historical evidence only, not the complete current schema.
+
+The required local files, in order, are:
+
+1. `20260914184358_shared_family_foundation.sql`
+2. `20260914195113_game_protests.sql`
+3. `20260915033241_spectator_tile_inventory.sql`
+4. `20260915181732_live_provisional_drafts.sql`
+5. `20260916150031_saved_tile_sets.sql`
+6. `20260916234943_member_permissions_and_practice_removal.sql`
+7. `20260917105407_crokinole_shared_scorer.sql`
+8. `20260917132437_crokinole_family_defaults.sql`
+9. `20260917182443_player_nicknames.sql`
+10. `20260918003644_invitation_player_onboarding.sql`
+11. `20260923235027_review_integrity_guards.sql`
+
+Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an encrypted backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
+
+The final migration installs ownership policies, immutable concern evidence, journal/projection guards, a unique per-match command ID, and the `application_schema_v1()` capability marker atomically. Every repository transaction checks this marker and returns `SCHEMA_BEHIND` (503) before proceeding when it is absent. Install the complete schema before publishing this build. Reads as well as writes fail closed on an old schema.
+
+The integrity migration retains existing data. Duplicate command IDs or invalid historic event shapes cause a transactional migration failure; investigate and restore/repair from verified evidence, never delete history to force installation. Existing resolved concerns remain intact; future resolutions can be appended once but cannot replace the original report or a previous resolution.
+
+New Crokinole amendments use `correct_round_v2` / `undo_round_v2` and explicit `resume` events. Original v1 journals keep their historical semantics. After these new events are saved, rollback must retain support for them and the integrity migration. An older application cannot safely replay these journals. Keep the additive migration on rollback; prefer a forward fix or a compatible build.
+
+Hosted migration history, runtime-login grants, off-device backup custody, deployment and physical-device acceptance must be recorded separately. Local tests do not establish those facts.

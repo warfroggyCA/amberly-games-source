@@ -1,0 +1,13 @@
+[
+  "20260914184358_shared_family_foundation.sql",
+  "20260914195113_game_protests.sql",
+  "20260915033241_spectator_tile_inventory.sql",
+  "20260915181732_live_provisional_drafts.sql",
+  "20260916150031_saved_tile_sets.sql",
+  "20260916234943_member_permissions_and_practice_removal.sql",
+  "20260917105407_crokinole_shared_scorer.sql",
+  "20260917132437_crokinole_family_defaults.sql",
+  "20260917182443_player_nicknames.sql",
+  "20260918003644_invitation_player_onboarding.sql",
+  "20260923235027_review_integrity_guards.sql"
+]

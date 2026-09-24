@@ -1,3 +1,5 @@
+import { checkedCrokinoleState } from "./crokinole-integrity";
+import { requireCurrentSchema } from "./schema-compatibility";
 import { createCrokinoleRepository } from "./crokinole-repository";
 import type postgres from "postgres";
 import type { VerifiedActor } from "../lib/shared-contract";
@@ -86,6 +88,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
         "isolation level repeatable read read only",
         async (tx) => {
           await tx`set local role scrabble_runtime`;
+          await requireCurrentSchema(tx);
           await tx`select set_config('scrabble.actor_id',${actor.userId},true),set_config('scrabble.family_id',${familyId},true),set_config('statement_timeout','15000',true)`;
           const [member] =
             await tx`select user_id from scrabble.memberships where family_id=${familyId}::uuid and user_id=${actor.userId}::uuid and active`;
@@ -113,6 +116,31 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
           ${query.playerId ? tx`and exists(select 1 from jsonb_array_elements(participants) p where p->>'id'=${query.playerId} or p->'playerIds' ? ${query.playerId})` : tx``}
           ${cursor ? tx`and (created_at,game_type,game_id)<(${cursor.date}::text::timestamptz,${cursor.type},${cursor.id})` : tx``}
           order by created_at desc,game_type desc,game_id desc limit 31`;
+          // Verify each returned Crokinole projection in this same snapshot.
+          // Two batched reads avoid a query per game and detect same-revision edits.
+          const ids = rows
+            .slice(0, 30)
+            .filter((r) => r.game_type === "crokinole")
+            .map((r) => r.game_id);
+          if (ids.length) {
+            const heads =
+              await tx`select game_id,definition,state,revision from scrabble.crokinole_games where family_id=${familyId}::uuid and game_id in ${tx(ids)}`;
+            const events =
+              await tx`select game_id,event from scrabble.crokinole_events where family_id=${familyId}::uuid and game_id in ${tx(ids)} order by game_id,sequence`;
+            const journals = new Map<string, unknown[]>();
+            for (const row of events) {
+              const journal = journals.get(row.game_id) ?? [];
+              journal.push(row.event);
+              journals.set(row.game_id, journal);
+            }
+            for (const head of heads)
+              checkedCrokinoleState(
+                head.definition,
+                journals.get(head.game_id) ?? [],
+                head.state,
+                head.revision,
+              );
+          }
           const games: GameSummary[] = rows.slice(0, 30).map((row) => ({
             gameType: row.game_type,
             id: row.game_id,

@@ -1,11 +1,9 @@
 import { createAuthContext, type AuthContext } from "../../../../server/auth";
 import { getCrokinoleRepository } from "../../../../server/database";
 import { configuredFamilyId } from "../../../../server/family-config";
-import { SharedRepositoryError } from "../../../../server/shared-repository";
 import {
-  errorJson,
+  repositoryFailure,
   HttpError,
-  privateJson,
   readMutationJson,
 } from "../../../../server/shared-http";
 import type { CrokinoleMutation } from "../../../../lib/crokinole-contract";
@@ -18,10 +16,7 @@ async function handle(request: Request, write: boolean) {
     context = createAuthContext(request);
     if (!context) throw new HttpError(503, "Family sign-in is not configured.");
     const user = await context.requireUser();
-    if (
-      request.headers.has("x-scrabble-user") &&
-      request.headers.get("x-scrabble-user") !== user.id
-    )
+    if (request.headers.get("x-scrabble-user") !== user.id)
       throw new HttpError(
         401,
         "Your signed-in account changed. Reload before continuing.",
@@ -46,12 +41,7 @@ async function handle(request: Request, write: boolean) {
       await repo.readState(actor, familyId, { gameId, cursor }),
     );
   } catch (error) {
-    if (error instanceof SharedRepositoryError)
-      return (context?.json ?? privateJson)(
-        { error: error.message, code: error.code },
-        error.status,
-      );
-    return errorJson(error, context);
+    return repositoryFailure(error, context);
   }
 }
 export async function GET(request: Request) {

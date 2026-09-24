@@ -63,6 +63,224 @@ export function crokinoleDatabaseCases(
     return { familyId, admin, member, definition, mutate };
   }
   describe("Crokinole shared PostgreSQL boundaries", () => {
+    async function asActor<T>(
+      f: Awaited<ReturnType<typeof fixture>>,
+      who: VerifiedActor,
+      work: (tx: postgres.TransactionSql) => Promise<T>,
+    ) {
+      return runtime.begin(async (tx) => {
+        await tx`set local role scrabble_runtime`;
+        await tx`select set_config('scrabble.actor_id',${who.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+        return work(tx);
+      });
+    }
+    it("blocks same-revision score edits, duplicate command IDs and orphan events at SQL level", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      const saved = await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 0,
+        command: {
+          id: "cmd",
+          type: "record_round",
+          expectedRevision: 0,
+          roundId: "r1",
+          entries: [
+            { participantId: "ada", rawScore: 20 },
+            { participantId: "ben", rawScore: 10 },
+          ],
+        },
+      });
+      await expect(
+        asActor(f, f.admin, async (tx) => {
+          await tx`update scrabble.crokinole_games set state=jsonb_set(state,'{totals,ada}','999') where family_id=${f.familyId} and game_id=${f.definition.id}`;
+        }),
+      ).rejects.toThrow(/next journal event/);
+      const event = saved.game!.events[0];
+      await expect(
+        asActor(f, f.admin, async (tx) => {
+          await tx`insert into scrabble.crokinole_events(family_id,game_id,sequence,event) values(${f.familyId},${f.definition.id},2,${tx.json({ ...event, sequence: 2, command: { ...event.command, expectedRevision: 1 } })})`;
+        }),
+      ).rejects.toMatchObject({ code: "23505" });
+      await expect(
+        asActor(f, f.admin, async (tx) => {
+          await tx`insert into scrabble.crokinole_events(family_id,game_id,sequence,event) values(${f.familyId},${f.definition.id},2,${tx.json({ ...event, sequence: 2, command: { ...event.command, id: "orphan", expectedRevision: 1 } })})`;
+        }),
+      ).rejects.toThrow(/matching projection/);
+      expect(
+        (await repo.readState(f.admin, f.familyId, { gameId: f.definition.id }))
+          .games[0].revision,
+      ).toBe(1);
+    });
+    it("rejects forged summaries even when head and journal revision numbers agree", async () => {
+      const f = await fixture();
+      f.definition.endCondition = { type: "target", target: 10 };
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 0,
+        command: {
+          id: "win",
+          type: "record_round",
+          expectedRevision: 0,
+          roundId: "r1",
+          entries: [
+            { participantId: "ada", rawScore: 20 },
+            { participantId: "ben", rawScore: 10 },
+          ],
+        },
+      });
+      const summary = createGameSummaryRepository(runtime);
+      expect(
+        (await summary.read(f.admin, f.familyId)).games[0].winnerIds,
+      ).toEqual(["ada"]);
+      // Simulate pre-existing corruption / an operator bypass, not a runtime grant.
+      await owner.begin(async (tx) => {
+        await tx`set local session_replication_role=replica`;
+        await tx`update scrabble.crokinole_games set state=jsonb_set(state,'{result,winnerIds}','["ben"]') where family_id=${f.familyId}`;
+      });
+      await expect(summary.read(f.admin, f.familyId)).rejects.toMatchObject({
+        code: "HISTORY_INTEGRITY",
+      });
+      await expect(
+        repo.readState(f.admin, f.familyId, { gameId: f.definition.id }),
+      ).rejects.toMatchObject({ code: "HISTORY_INTEGRITY" });
+    });
+    it("protects reporter evidence and permits only one resolution", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      const reported = await f.mutate(
+        {
+          type: "report-concern",
+          gameId: f.definition.id,
+          expectedRevision: 0,
+          reason: "Original evidence",
+        },
+        f.member,
+      );
+      const concern = reported.access!.concerns[0];
+      await expect(
+        asActor(f, f.admin, async (tx) => {
+          await tx`update scrabble.crokinole_concerns set concern=jsonb_set(concern,'{reason}','"Rewritten"') where family_id=${f.familyId}`;
+        }),
+      ).rejects.toThrow(/immutable/);
+      const resolved = await f.mutate({
+        type: "resolve-concern",
+        gameId: f.definition.id,
+        expectedRevision: 0,
+        concernId: concern.id,
+        outcome: "upheld",
+        reason: "Checked",
+      });
+      expect(resolved.access!.concerns[0].reason).toBe("Original evidence");
+      await expect(
+        asActor(f, f.admin, async (tx) => {
+          await tx`update scrabble.crokinole_concerns set concern=jsonb_set(concern,'{resolution,reason}','"Changed"') where family_id=${f.familyId}`;
+        }),
+      ).rejects.toThrow(/immutable/);
+    });
+    it("preserves stopped matches across new amendments, refuses stale clients and explicitly resumes", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 0,
+        command: {
+          id: "r",
+          type: "record_round",
+          expectedRevision: 0,
+          roundId: "r1",
+          entries: [
+            { participantId: "ada", rawScore: 20 },
+            { participantId: "ben", rawScore: 10 },
+          ],
+        },
+      });
+      await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 1,
+        command: {
+          id: "end",
+          type: "end_early",
+          expectedRevision: 1,
+          reason: "Dinner",
+        },
+      });
+      await expect(
+        f.mutate({
+          type: "command",
+          gameId: f.definition.id,
+          generation: 1,
+          expectedDraftRevision: 2,
+          amendmentReason: "Wrong round",
+          command: {
+            id: "legacy",
+            type: "undo_round",
+            expectedRevision: 2,
+            reason: "Wrong round",
+          },
+        }),
+      ).rejects.toMatchObject({ code: "CLIENT_UPDATE_REQUIRED" });
+      const undo = await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 2,
+        amendmentReason: "Wrong round",
+        command: {
+          id: "undo",
+          type: "undo_round_v2",
+          expectedRevision: 2,
+          reason: "Wrong round",
+        },
+      });
+      expect(undo.game!.status).toBe("ended_early");
+      expect(undo.draft!.values).toEqual({ ada: "20", ben: "10" });
+      const resumed = await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 3,
+        amendmentReason: "Continue",
+        command: {
+          id: "resume",
+          type: "resume",
+          expectedRevision: 3,
+          reason: "Continue",
+        },
+      });
+      expect(resumed.game!.status).toBe("active");
+      expect(resumed.draft!.values).toEqual({ ada: "20", ben: "10" });
+      const disabled = await createCrokinoleRepository(runtime, {
+        enabled: false,
+      }).readState(f.admin, f.familyId, { gameId: f.definition.id });
+      expect(disabled.access[f.definition.id].canScore).toBe(false);
+    });
+
     it("shares family defaults, protects permission and revisions, preserves old games and colours", async () => {
       const f = await fixture();
       const created = await f.mutate({

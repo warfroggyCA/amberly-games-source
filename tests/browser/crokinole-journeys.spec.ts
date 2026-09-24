@@ -292,3 +292,114 @@ test("unreadable local Crokinole workspace requires confirmation and preserves t
   );
   expect(JSON.stringify(rows)).toContain("unreadable-original");
 });
+
+async function endEarly(page: Page) {
+  await page
+    .locator("summary")
+    .filter({ hasText: /^More$/ })
+    .click();
+  await page.getByRole("button", { name: "End early", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "End this game early?" });
+  await dialog.getByLabel("Reason", { exact: true }).fill("Dinner");
+  await dialog.getByRole("button", { name: "End early", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
+test("an empty ended-early match resumes only through the explicit action", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await endEarly(page);
+  await expect(
+    page.getByRole("button", { name: "Add Round 1", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Resume match", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Resume this match?" });
+  await expect(
+    dialog.getByRole("button", { name: "Resume match", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Reason", { exact: true }).fill("Ended by mistake");
+  await dialog
+    .getByRole("button", { name: "Resume match", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Add Round 1", exact: true }),
+  ).toBeVisible();
+  expect(fixture.game().status).toBe("active");
+  expect(fixture.game().events.at(-1)!.command.type).toBe("resume");
+  await fitsWidth(page);
+});
+
+test("undoing an ended-early round retains stopped status and the restored draft", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await enterRound(page, 1, ["Doug", "Erin"], [20, 10]);
+  await endEarly(page);
+  await page.getByRole("button", { name: "Undo last round" }).click();
+  const dialog = page.getByRole("dialog", { name: "Undo round 1?" });
+  await expect(dialog).toContainText("will remain ended early");
+  await dialog.getByLabel("Reason", { exact: true }).fill("Wrong round");
+  await dialog.getByRole("button", { name: "Undo round", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Resume match", exact: true }),
+  ).toBeVisible();
+  expect(fixture.game().status).toBe("ended_early");
+  expect(fixture.game().events.at(-1)!.command.type).toBe("undo_round_v2");
+  await expect(
+    page.getByRole("button", { name: "Save round", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Resume match", exact: true }).click();
+  const resume = page.getByRole("dialog", { name: "Resume this match?" });
+  await resume.getByLabel("Reason", { exact: true }).fill("Continue scoring");
+  await resume
+    .getByRole("button", { name: "Resume match", exact: true })
+    .click();
+  await expect(resume).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Continue entry", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Doug round total", { exact: true }),
+  ).toHaveValue("20");
+  await expect(
+    page.getByLabel("Erin round total", { exact: true }),
+  ).toHaveValue("10");
+});
+
+test("paused Crokinole keeps saved matches readable and disables direct-route writes", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await enterRound(page, 1, ["Doug", "Erin"], [20, 10]);
+  fixture.shared.creationEnabled = false;
+  fixture.shared.access[fixture.game().definition.id].canScore = false;
+  await page.reload();
+  await expect(
+    page.getByText(
+      "Crokinole changes are paused. You can still view saved games and history.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Add Round 2", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .locator("summary")
+    .filter({ hasText: "Game administration" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Report a concern", exact: true }),
+  ).toBeDisabled();
+  await page.goto("/family/crokinole/new");
+  await expect(
+    page.getByRole("button", { name: "Start game", exact: true }),
+  ).toBeDisabled();
+  expect(fixture.shared.games).toHaveLength(1);
+});

@@ -531,3 +531,178 @@ describe("Already-netted winner-only scoring", () => {
     ).toThrow(/Only one/);
   });
 });
+
+describe("compatible ended-early amendments and bounded replay", () => {
+  function stopped(empty = false) {
+    const game = empty
+      ? createCrokinoleGame(definition())
+      : record(createCrokinoleGame(definition()), [20, 10]);
+    return applyCrokinoleCommand(game, {
+      id: "end",
+      expectedRevision: game.revision,
+      type: "end_early",
+      reason: "Dinner",
+    });
+  }
+  it("preserves ended early after correction and undo, then resumes explicitly", () => {
+    const ended = stopped();
+    const corrected = applyCrokinoleCommand(ended, {
+      id: "fix",
+      expectedRevision: ended.revision,
+      type: "correct_round_v2",
+      roundId: "round0",
+      entries: entries(ended, [25, 10]),
+      excludedRoundIds: [],
+      reason: "Typo",
+    });
+    expect(corrected.status).toBe("ended_early");
+    expect(corrected.result).toBeNull();
+    const undone = applyCrokinoleCommand(corrected, {
+      id: "undo",
+      expectedRevision: corrected.revision,
+      type: "undo_round_v2",
+      reason: "Wrong round",
+    });
+    expect(undone.status).toBe("ended_early");
+    const resumed = applyCrokinoleCommand(undone, {
+      id: "resume",
+      expectedRevision: undone.revision,
+      type: "resume",
+      reason: "Continue",
+    });
+    expect(resumed.status).toBe("active");
+    expect(hydrateCrokinoleGame(resumed.definition, resumed.events)).toEqual(
+      resumed,
+    );
+    expect(ended.totals).toEqual({ p0: 20, p1: 10 });
+  });
+  it("can resume a zero-round ended game and requires a reason", () => {
+    const ended = stopped(true);
+    expect(() =>
+      applyCrokinoleCommand(ended, {
+        id: "resume",
+        expectedRevision: 1,
+        type: "resume",
+        reason: "",
+      }),
+    ).toThrow();
+    const resumed = applyCrokinoleCommand(ended, {
+      id: "resume",
+      expectedRevision: 1,
+      type: "resume",
+      reason: "Tapped by mistake",
+    });
+    expect(record(resumed, [10, 20]).status).toBe("active");
+    expect(() =>
+      applyCrokinoleCommand(resumed, {
+        id: "again",
+        expectedRevision: 2,
+        type: "resume",
+        reason: "Again",
+      }),
+    ).toThrow(/ended early/);
+  });
+  it("does not reinterpret legacy ended-early correction journals", () => {
+    const ended = stopped();
+    const legacy = applyCrokinoleCommand(ended, {
+      id: "legacy",
+      expectedRevision: 2,
+      type: "correct_round",
+      roundId: "round0",
+      entries: entries(ended, [25, 10]),
+      excludedRoundIds: [],
+      reason: "Typo",
+    });
+    expect(legacy.status).toBe("active");
+    expect(hydrateCrokinoleGame(legacy.definition, legacy.events)).toEqual(
+      legacy,
+    );
+  });
+  it("preserves stopped status even if a correction reaches the target", () => {
+    const initial = record(
+      createCrokinoleGame({
+        ...definition(),
+        endCondition: { type: "target", target: 100 },
+      }),
+      [20, 10],
+    );
+    const ended = applyCrokinoleCommand(initial, {
+      id: "stop",
+      expectedRevision: 1,
+      type: "end_early",
+      reason: "Dinner",
+    });
+    const corrected = applyCrokinoleCommand(ended, {
+      id: "fix",
+      expectedRevision: 2,
+      type: "correct_round_v2",
+      roundId: "round0",
+      entries: entries(ended, [100, 10]),
+      excludedRoundIds: [],
+      reason: "Typo",
+    });
+    expect(corrected.status).toBe("ended_early");
+    expect(corrected.result).toBeNull();
+    const resumed = applyCrokinoleCommand(corrected, {
+      id: "resume",
+      expectedRevision: 3,
+      type: "resume",
+      reason: "Accept finish",
+    });
+    expect(resumed.status).toBe("completed");
+    expect(
+      hydrateCrokinoleGame(corrected.definition, corrected.events),
+    ).toEqual(corrected);
+  });
+  it("replays the full 5000-event allowance without copying accumulated journals", () => {
+    const def = {
+      ...definition(),
+      endCondition: { type: "target" as const, target: 1000000 },
+    };
+    const events = Array.from({ length: 5000 }, (_, i) => ({
+      sequence: i + 1,
+      actorId: "local",
+      createdAt: date,
+      result: null,
+      command: {
+        type: "record_round",
+        id: `cmd${i}`,
+        expectedRevision: i,
+        roundId: `r${i}`,
+        entries: [
+          { participantId: "p0", rawScore: 0 },
+          { participantId: "p1", rawScore: 0 },
+        ],
+      },
+    }));
+    const spy = vi.spyOn(globalThis, "structuredClone");
+    try {
+      const game = hydrateCrokinoleGame(def, events);
+      expect(game.revision).toBe(5000);
+      expect(game.rounds).toHaveLength(5000);
+      const amended = events.map((event, i) =>
+        i < 2500
+          ? event
+          : {
+              ...event,
+              command: {
+                ...event.command,
+                type: "correct_round",
+                roundId: "r0",
+                excludedRoundIds: [],
+              },
+            },
+      );
+      expect(hydrateCrokinoleGame(def, amended).rounds).toHaveLength(2500);
+
+      expect(
+        spy.mock.calls.filter(
+          ([value]) => Array.isArray(value) && value.length > 4,
+        ),
+      ).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+    }
+    // Full-cap correctness/allocation stress; CPU contention must not become a timing assertion.
+  }, 60000);
+});

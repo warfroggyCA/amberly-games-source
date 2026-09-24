@@ -423,7 +423,7 @@ export function FamilyHub({
               </p>
             )}
             <span>{shared.member.email}</span>
-            {gameId && (
+            {gameId && state.creationEnabled && (
               <button
                 className="button light"
                 onClick={() => {
@@ -535,6 +535,12 @@ export function FamilyHub({
                 </div>
               </div>
             )}
+            {!state.creationEnabled && (
+              <p role="status" className="crokinole-notice">
+                Crokinole changes are paused. You can still view saved games and
+                history.
+              </p>
+            )}
             <CrokinoleApp
               key={gameId ?? "new"}
               defaults={state.palette?.defaults}
@@ -543,6 +549,7 @@ export function FamilyHub({
               palette={state.palette?.colours ?? []}
               match={game}
               canScore={
+                state.creationEnabled &&
                 !!access?.canScore &&
                 hasPermission(shared.member, "scoreGames") &&
                 !state.displaced
@@ -552,10 +559,10 @@ export function FamilyHub({
                 hasPermission(shared.member, "startGames") &&
                 hasPermission(shared.member, "scoreGames")
               }
-              canManageEquipment={hasPermission(
-                shared.member,
-                "manageEquipment",
-              )}
+              canManageEquipment={
+                state.creationEnabled &&
+                hasPermission(shared.member, "manageEquipment")
+              }
               canPractice={shared.member.role === "superadmin"}
               busy={locked}
               saveStatus={
@@ -607,7 +614,8 @@ export function FamilyHub({
               <section className="hub-game-tools">
                 <details>
                   <summary>Game administration</summary>
-                  {!access.canScore &&
+                  {state.creationEnabled &&
+                    !access.canScore &&
                     hasPermission(shared.member, "takeOverScoring") &&
                     hasPermission(shared.member, "scoreGames") && (
                       <button
@@ -632,6 +640,7 @@ export function FamilyHub({
                     )}
                   <button
                     className="text-button"
+                    disabled={!state.creationEnabled}
                     onClick={() =>
                       prompt({
                         title: "Report a concern",
@@ -656,7 +665,8 @@ export function FamilyHub({
                           ? c.resolution.outcome
                           : "Awaiting review"}
                       </p>
-                      {!c.resolution &&
+                      {state.creationEnabled &&
+                        !c.resolution &&
                         hasPermission(shared.member, "resolveConcerns") &&
                         (["dismissed", "upheld"] as const).map((outcome) => (
                           <button
@@ -682,7 +692,8 @@ export function FamilyHub({
                         ))}
                     </div>
                   ))}
-                  {shared.member.role === "superadmin" &&
+                  {state.creationEnabled &&
+                    shared.member.role === "superadmin" &&
                     game.definition.mode === "practice" && (
                       <button
                         className="button danger-outline"
@@ -855,7 +866,10 @@ export function FamilyHub({
                       </button>
                     )}
                   {!state.creationEnabled && (
-                    <span>New games are not available yet.</span>
+                    <span>
+                      Crokinole changes are paused. Saved games remain
+                      available.
+                    </span>
                   )}
                 </div>
               </div>
@@ -891,7 +905,7 @@ export function FamilyHub({
                     g.definition.mode === "practice" ? (
                     <SwipeToDelete
                       key={g.definition.id}
-                      disabled={locked}
+                      disabled={locked || !state.creationEnabled}
                       onDelete={() =>
                         prompt({
                           title: "Delete this private test?",
@@ -938,7 +952,7 @@ export function FamilyHub({
       {equipment === "colours" && state.palette && (
         <ColourSettings
           colours={state.palette.colours}
-          disabled={locked}
+          disabled={locked || !state.creationEnabled}
           onSave={async (colours) => {
             await store.mutate({
               type: "save-palette",
@@ -953,7 +967,10 @@ export function FamilyHub({
         <CrokinoleDefaultsSettings
           initial={state.palette.defaults}
           busy={locked}
-          canEdit={hasPermission(shared.member, "manageEquipment")}
+          canEdit={
+            state.creationEnabled &&
+            hasPermission(shared.member, "manageEquipment")
+          }
           onClose={() => setShowDefaults(false)}
           onSave={async (defaults) => {
             await store.mutate({
@@ -979,6 +996,7 @@ export function FamilyHub({
             </button>
             <button
               className="button primary"
+              disabled={!state.creationEnabled}
               onClick={() => {
                 setNewGameConfirm(false);
                 void navigate("/family/crokinole/new");
@@ -1020,7 +1038,7 @@ export function FamilyHub({
             </button>
             <button
               className="button primary"
-              disabled={locked || !reason.trim()}
+              disabled={locked || !state.creationEnabled || !reason.trim()}
               onClick={() => void doAction()}
             >
               Confirm

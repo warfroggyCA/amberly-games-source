@@ -1,3 +1,4 @@
+import { createCrokinoleRepository } from "../src/server/crokinole-repository";
 import { crokinoleDatabaseCases } from "./crokinole-database-cases";
 import {
   MEMBER_PERMISSIONS,
@@ -140,9 +141,26 @@ suite("isolated real PostgreSQL shared family repository", () => {
       "../supabase/migrations/",
       import.meta.url,
     );
-    const migrations = (await readdir(migrationDirectory))
-      .filter((name) => name.endsWith(".sql"))
-      .sort();
+    const migrations: string[] = JSON.parse(
+      await readFile(
+        new URL("../config/database-migrations.json", import.meta.url),
+        "utf8",
+      ),
+    );
+    expect(migrations).toEqual(
+      (await readdir(migrationDirectory))
+        .filter((name) => name.endsWith(".sql"))
+        .sort(),
+    );
+    const releaseGuide = await readFile(
+      new URL("../docs/releasing.md", import.meta.url),
+      "utf8",
+    );
+    expect(
+      [...releaseGuide.matchAll(/^\d+\. `([^`]+\.sql)`$/gm)].map(
+        (match) => match[1],
+      ),
+    ).toEqual(migrations);
     await owner`create role anon nologin`;
     await owner`create role authenticated nologin`;
     await owner`create role service_role nologin`;
@@ -155,6 +173,67 @@ suite("isolated real PostgreSQL shared family repository", () => {
     await owner`create role scrabble_test_login login nosuperuser nocreatedb nocreaterole nobypassrls`;
     await owner`grant scrabble_runtime to scrabble_test_login`;
   }, 20000);
+  it.each([
+    "players.nickname",
+    "invitations.player_id",
+    "crokinole_palette.defaults",
+  ])("does not certify an incomplete schema missing %s", async (reference) => {
+    const [table, column] = reference.split(".");
+    const migration = await readFile(
+      new URL(
+        "../supabase/migrations/20260923235027_review_integrity_guards.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const preflight = migration.slice(
+      migration.indexOf("do $$"),
+      migration.indexOf("end $$;") + 7,
+    );
+    await expect(
+      owner.begin(async (tx) => {
+        await tx.unsafe(
+          `alter table scrabble.${table} rename column ${column} to missing_prerequisite`,
+        );
+        await tx.unsafe(preflight);
+      }),
+    ).rejects.toThrow(/prerequisite Amberly migrations/);
+  });
+  it("refuses both games' writes before a missing schema capability can touch data", async () => {
+    const f = await fixture();
+    await owner`alter function scrabble.application_schema_v1() rename to application_schema_unavailable`;
+    try {
+      await expect(f.create()).rejects.toMatchObject({ code: "SCHEMA_BEHIND" });
+      const crokinole = createCrokinoleRepository(runtime, { enabled: true });
+      await expect(
+        crokinole.mutate(f.admin, f.familyId, {
+          requestId: randomUUID(),
+          operation: { type: "save-palette", expectedRevision: 0, colours: [] },
+        }),
+      ).rejects.toMatchObject({ code: "SCHEMA_BEHIND" });
+      const [count] =
+        await owner`select count(*)::integer count from scrabble.game_heads where family_id=${f.familyId}`;
+      expect(count.count).toBe(0);
+    } finally {
+      await owner`alter function scrabble.application_schema_unavailable() rename to application_schema_v1`;
+    }
+  });
+  it("enforces Scrabble scoring and takeover permissions at the SQL boundary", async () => {
+    const f = await fixture();
+    const created = await f.create();
+    for (const permissions of [
+      { scoreGames: false, takeOverScoring: false },
+      { scoreGames: true, takeOverScoring: false },
+    ]) {
+      await setPermissions(f, permissions);
+      const rows = await runtime.begin(async (tx) => {
+        await tx`set local role scrabble_runtime`;
+        await tx`select set_config('scrabble.actor_id',${f.guest.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+        return tx`update scrabble.game_heads set scorer_user_id=${f.guest.userId} where family_id=${f.familyId} and game_id=${created.game!.id} returning game_id`;
+      });
+      expect(rows).toHaveLength(0);
+    }
+  });
   it("validates permission keys, defaults and every delegated switch against real membership rows", async () => {
     const f = await fixture();
     const baseline = (await repository.readState(f.guest, f.familyId)).member;

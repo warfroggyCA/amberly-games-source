@@ -63,14 +63,15 @@ export type CrokinoleCommand = CommandBase &
         acknowledgedHighScores?: boolean;
       }
     | {
-        type: "correct_round";
+        type: "correct_round" | "correct_round_v2";
         roundId: string;
         entries: CrokinoleEntry[];
         excludedRoundIds: string[];
         reason?: string;
         acknowledgedHighScores?: boolean;
       }
-    | { type: "undo_round"; reason?: string }
+    | { type: "undo_round" | "undo_round_v2"; reason?: string }
+    | { type: "resume"; reason: string }
     | { type: "end_early"; reason: string }
   );
 export type CrokinoleEvent = {
@@ -481,13 +482,21 @@ function project(
   raw: Pick<CrokinoleRound, "id" | "entries">[],
   endedEarly = false,
   stopAtResult = false,
+  previous?: Pick<CrokinoleGame, "rounds" | "totals" | "result">,
 ) {
-  const totals: Record<string, number> = Object.fromEntries(
-    definition.participants.map((p) => [p.id, 0]),
+  const totals: Record<string, number> = previous
+    ? { ...previous.totals }
+    : Object.fromEntries(definition.participants.map((p) => [p.id, 0]));
+  const rounds: CrokinoleRound[] = previous ? [...previous.rounds] : [];
+  let result: CrokinoleResult | null = previous?.result ?? null;
+  const players = [...definition.players].sort(
+    (a, b) => a.seatOrder - b.seatOrder,
   );
-  const rounds: CrokinoleRound[] = [];
-  let result: CrokinoleResult | null = null;
-  for (const [index, round] of raw.entries()) {
+  const first = players.findIndex(
+    (p) => p.id === definition.initialStartingPlayerId,
+  );
+  for (const round of raw) {
+    const index = rounds.length;
     if (result) {
       if (stopAtResult) break;
       fail("POST_WIN_ROUNDS", "Rounds remain after this match ends.");
@@ -501,9 +510,10 @@ function project(
       totals[id] = sum;
     }
     rounds.push({
-      ...clone(round),
+      id: round.id,
+      entries: round.entries.map((entry) => ({ ...entry })),
       number: index + 1,
-      startingPlayerId: getStartingPlayer(definition, index).id,
+      startingPlayerId: players[(first + index) % players.length].id,
       awards,
       totals: { ...totals },
     });
@@ -553,14 +563,21 @@ export function isCrokinoleCommand(value: unknown): value is CrokinoleCommand {
   )
     return false;
   const base = ["id", "expectedRevision", "type"];
-  if (value.type === "undo_round" || value.type === "end_early")
+  if (
+    typeof value.type === "string" &&
+    ["undo_round", "undo_round_v2", "end_early", "resume"].includes(value.type)
+  )
     return (
       keys(value, [...base, "reason"]) &&
       (value.reason === undefined
-        ? value.type === "undo_round"
+        ? value.type === "undo_round" || value.type === "undo_round_v2"
         : text(value.reason, 500))
     );
-  if (value.type !== "record_round" && value.type !== "correct_round")
+  if (
+    value.type !== "record_round" &&
+    value.type !== "correct_round" &&
+    value.type !== "correct_round_v2"
+  )
     return false;
   if (
     !keys(value, [
@@ -568,7 +585,7 @@ export function isCrokinoleCommand(value: unknown): value is CrokinoleCommand {
       "roundId",
       "entries",
       "acknowledgedHighScores",
-      ...(value.type === "correct_round" ? ["excludedRoundIds", "reason"] : []),
+      ...(value.type !== "record_round" ? ["excludedRoundIds", "reason"] : []),
     ]) ||
     !identifier(value.roundId) ||
     !Array.isArray(value.entries) ||
@@ -627,13 +644,23 @@ export function applyCrokinoleCommand(
     createdAt: game.definition.createdAt,
   },
 ): CrokinoleGame {
+  return applyCommand(game, command, metadata);
+}
+function applyCommand(
+  game: CrokinoleGame,
+  command: CrokinoleCommand,
+  metadata: { actorId: string; createdAt: string },
+  replay?: { commandIds: Set<string>; roundIds: Set<string> },
+): CrokinoleGame {
   if (
     !isCrokinoleCommand(command) ||
     !identifier(metadata.actorId) ||
     !timestamp(metadata.createdAt)
   )
     fail("INVALID_COMMAND", "Invalid game command.");
-  const previous = game.events.find((e) => e.command.id === command.id);
+  const previous = replay
+    ? undefined
+    : game.events.find((e) => e.command.id === command.id);
   if (previous) {
     if (canonical(previous.command) !== canonical(command))
       fail("COMMAND_REUSED", "This request ID was used for different input.");
@@ -661,20 +688,27 @@ export function applyCrokinoleCommand(
     )
       fail("HIGH_SCORE_CONFIRMATION", "Confirm unusually high round scores.");
   }
-  let raw = game.rounds.map((r) => ({ id: r.id, entries: r.entries }));
-  let endedEarly = false;
+  let raw: Pick<CrokinoleRound, "id" | "entries">[] = game.rounds;
+  let endedEarly =
+    game.status === "ended_early" &&
+    (command.type === "correct_round_v2" || command.type === "undo_round_v2");
+  if (command.type === "resume" && game.status !== "ended_early")
+    fail("NOT_ENDED_EARLY", "Only a match ended early can be resumed.");
   if (command.type === "record_round") {
     if (
-      game.events.some(
-        (e) =>
-          e.command.type === "record_round" &&
-          e.command.roundId === command.roundId,
-      )
+      replay
+        ? replay.roundIds.has(command.roundId)
+        : game.events.some(
+            (e) =>
+              e.command.type === "record_round" &&
+              e.command.roundId === command.roundId,
+          )
     )
       fail("ROUND_ID_REUSED", "Use a new ID for a new round.");
-    raw = [...raw, { id: command.roundId, entries: command.entries }];
+    raw = [{ id: command.roundId, entries: command.entries }];
   }
-  if (command.type === "correct_round") {
+  let corrected: ReturnType<typeof project> | undefined;
+  if (command.type === "correct_round" || command.type === "correct_round_v2") {
     const preview = previewCrokinoleCorrection(
       game,
       command.roundId,
@@ -688,14 +722,35 @@ export function applyCrokinoleCommand(
         "TAIL_CONFIRMATION",
         "Confirm the exact later rounds excluded by this correction.",
       );
-    raw = preview.rounds;
+    corrected = {
+      rounds: preview.rounds,
+      totals: preview.totals,
+      result: preview.result,
+      status: preview.status,
+    };
   }
-  if (command.type === "undo_round") {
+  if (command.type === "undo_round" || command.type === "undo_round_v2") {
     if (!raw.length) fail("NO_ROUNDS", "There is no saved round to undo.");
     raw = raw.slice(0, -1);
   }
   if (command.type === "end_early") endedEarly = true;
-  const projected = project(game.definition, raw, endedEarly);
+  const projected =
+    corrected ??
+    project(
+      game.definition,
+      raw,
+      endedEarly,
+      false,
+      command.type === "record_round"
+        ? replay
+          ? game
+          : { ...game, rounds: clone(game.rounds) }
+        : undefined,
+    );
+  if (endedEarly) {
+    projected.status = "ended_early";
+    projected.result = null;
+  }
   const event: CrokinoleEvent = {
     sequence: game.revision + 1,
     command: clone(command),
@@ -703,11 +758,17 @@ export function applyCrokinoleCommand(
     createdAt: metadata.createdAt,
     result: clone(projected.result),
   };
+  const events = replay ? game.events : clone(game.events);
+  events.push(event);
+  if (replay) {
+    replay.commandIds.add(command.id);
+    if (command.type === "record_round") replay.roundIds.add(command.roundId);
+  }
   return {
-    definition: clone(game.definition),
+    definition: replay ? game.definition : clone(game.definition),
     ...projected,
     revision: event.sequence,
-    events: [...clone(game.events), event],
+    events,
   };
 }
 export function hydrateCrokinoleGame(
@@ -717,6 +778,7 @@ export function hydrateCrokinoleGame(
   let game = createCrokinoleGame(definition);
   if (!Array.isArray(events) || events.length > CROKINOLE_MAX_EVENTS)
     fail("INVALID_JOURNAL", "Invalid game history.");
+  const replay = { commandIds: new Set<string>(), roundIds: new Set<string>() };
   for (const event of events) {
     if (
       !object(event) ||
@@ -729,12 +791,17 @@ export function hydrateCrokinoleGame(
     )
       fail("INVALID_JOURNAL", "Invalid game history sequence.");
     const command = event.command;
-    if (game.events.some((e) => e.command.id === command.id))
+    if (replay.commandIds.has(command.id))
       fail("INVALID_JOURNAL", "Repeated game history command.");
-    const next = applyCrokinoleCommand(game, command, {
-      actorId: event.actorId,
-      createdAt: event.createdAt,
-    });
+    const next = applyCommand(
+      game,
+      command,
+      {
+        actorId: event.actorId,
+        createdAt: event.createdAt,
+      },
+      replay,
+    );
     if (canonical(next.result) !== canonical(event.result))
       fail("INVALID_JOURNAL", "The saved result does not match its rounds.");
     game = next;

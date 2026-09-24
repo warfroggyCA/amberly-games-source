@@ -23,6 +23,8 @@ import "./family-shared.css";
 
 export function FamilyApp({ hubEnabled = false }: { hubEnabled?: boolean }) {
   const path = usePathname();
+  // The rollout flag changes the landing page. Direct routes retain access to
+  // saved history; the repository flag separately gates every Crokinole write.
   const showHub = hubEnabled || path !== "/family";
   return (
     <FamilyAccess>

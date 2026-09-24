@@ -124,9 +124,16 @@ export async function installFixture(
         createdAt: new Date().toISOString(),
       });
       shared.games[index] = game;
-      draft = null;
+      draft =
+        op.command.type === "resume" && draft
+          ? {
+              ...draft,
+              revision: draft.revision + 1,
+              baseRevision: game.revision,
+            }
+          : null;
       return route.fulfill({
-        json: { game, access: shared.access[op.gameId], draft: null },
+        json: { game, access: shared.access[op.gameId], draft },
       });
     }
     if (op.type === "save-defaults") {
