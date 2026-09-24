@@ -7,10 +7,12 @@ export function SwipeToDelete({
   children,
   disabled,
   onDelete,
+  actionLabel = "Delete practice game…",
 }: {
   children: ReactNode;
   disabled: boolean;
   onDelete: () => void;
+  actionLabel?: string;
 }) {
   const actionId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -126,7 +128,7 @@ export function SwipeToDelete({
         id={actionId}
         className="swipe-game-delete"
         type="button"
-        aria-label="Delete practice game…"
+        aria-label={actionLabel}
         aria-hidden={!revealed || disabled}
         tabIndex={revealed && !disabled ? 0 : -1}
         disabled={!revealed || disabled}

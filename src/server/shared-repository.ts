@@ -149,6 +149,7 @@ function validateMutation(input: SharedMutation) {
   const op = input.operation as unknown as Record<string, unknown>;
   const fields: Record<string, string[]> = {
     "delete-practice-game": ["gameId", "expectedRevision", "reason"],
+    "remove-game": ["gameId", "expectedRevision", "reason"],
     "save-equipment": ["equipment", "expectedRevision"],
     "create-player": ["id", "profile"],
     "update-player": ["id", "expectedRevision", "profile"],
@@ -218,16 +219,13 @@ function validateMutation(input: SharedMutation) {
   )
     reject("INVALID_REQUEST", "The revision is invalid.");
   if (
-    op.type === "delete-practice-game" &&
+    (op.type === "delete-practice-game" || op.type === "remove-game") &&
     (typeof op.reason !== "string" ||
       !op.reason.trim() ||
       op.reason.length > 500 ||
       /[\u0000-\u001f\u007f]/.test(op.reason))
   )
-    reject(
-      "INVALID_REQUEST",
-      "Give a short reason for deleting this practice game.",
-    );
+    reject("INVALID_REQUEST", "Give a short reason for removing this game.");
   if (
     op.type === "update-member" &&
     Object.hasOwn(op, "permissions") &&
@@ -726,10 +724,10 @@ export function createSharedRepository(
         playerAccess: { revision: updated.revision, userId: actor.userId },
       };
     }
-    if (op.type === "delete-practice-game") {
+    if (op.type === "delete-practice-game" || op.type === "remove-game") {
       requireAdmin(who);
       const { row, game } = await checkedGame(tx, familyId, op.gameId);
-      if (row.mode !== "practice")
+      if (op.type === "delete-practice-game" && row.mode !== "practice")
         reject(
           "PROTECTED_GAME",
           "Only practice games can be deleted. Games that count toward records are protected.",
@@ -747,7 +745,7 @@ export function createSharedRepository(
         tx,
         actor,
         familyId,
-        "game.practice-deleted",
+        op.type === "remove-game" ? "game.removed" : "game.practice-deleted",
         op.gameId,
         { revision: game.revision, mode: row.mode },
         { reason: op.reason.trim() },

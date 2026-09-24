@@ -239,7 +239,8 @@ function checkResult(
       (!validPalette(v.palette) ||
         v.palette.revision !== op.expectedRevision + 1 ||
         canonical(v.palette.colours) !== canonical(op.colours))) ||
-    (op.type === "delete-practice" && v.removedGameId !== op.gameId) ||
+    ((op.type === "delete-practice" || op.type === "remove-game") &&
+      v.removedGameId !== op.gameId) ||
     (object(v.game) &&
       object(v.game.definition) &&
       v.game.definition.id !== expectedGameId)

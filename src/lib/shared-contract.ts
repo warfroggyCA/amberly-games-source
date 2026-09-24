@@ -76,7 +76,7 @@ export type SharedState = {
 };
 export type SharedOperation =
   | {
-      type: "delete-practice-game";
+      type: "delete-practice-game" | "remove-game";
       gameId: string;
       expectedRevision: number;
       reason: string;

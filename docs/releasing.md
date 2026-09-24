@@ -49,10 +49,11 @@ The required local files, in order, are:
 9. `20260917182443_player_nicknames.sql`
 10. `20260918003644_invitation_player_onboarding.sql`
 11. `20260923235027_review_integrity_guards.sql`
+12. `20260924011827_superadmin_game_removal.sql`
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 
-The final migration installs ownership policies, immutable concern evidence, journal/projection guards, a unique per-match command ID, and the `application_schema_v1()` capability marker atomically. Every repository transaction checks this marker and returns `SCHEMA_BEHIND` (503) before proceeding when it is absent. Install the complete schema before publishing this build. Reads as well as writes fail closed on an old schema.
+The integrity migration installs ownership policies, immutable concern evidence, journal/projection guards, a unique per-match command ID, and the `application_schema_v1()` capability marker atomically. The game-removal migration adds `application_schema_v2()` and permits reasoned superadmin removal of regular games while retaining all original evidence. Every repository transaction checks the v2 marker and returns `SCHEMA_BEHIND` (503) before proceeding when it is absent. Install the complete schema before publishing this build. Reads as well as writes fail closed on an old schema.
 
 The integrity migration retains existing data. Duplicate command IDs or invalid historic event shapes cause a transactional migration failure; investigate and restore/repair from verified evidence, never delete history to force installation. Existing resolved concerns remain intact; future resolutions can be appended once but cannot replace the original report or a previous resolution.
 

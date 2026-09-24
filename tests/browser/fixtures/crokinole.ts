@@ -91,6 +91,11 @@ export async function installFixture(
         json: { game, access: shared.access[game.definition.id], draft: null },
       });
     }
+    if (op.type === "remove-game") {
+      shared.games = shared.games.filter((g) => g.definition.id !== op.gameId);
+      delete shared.access[op.gameId];
+      return route.fulfill({ json: { removedGameId: op.gameId } });
+    }
     if (op.type === "rematch") {
       const prior = shared.games.find((g) => g.definition.id === op.gameId)!;
       const game = createCrokinoleRematch(

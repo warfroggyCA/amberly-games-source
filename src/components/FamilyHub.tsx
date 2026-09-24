@@ -708,17 +708,24 @@ export function FamilyHub({
                     </div>
                   ))}
                   {state.creationEnabled &&
-                    shared.member.role === "superadmin" &&
-                    game.definition.mode === "practice" && (
+                    shared.member.role === "superadmin" && (
                       <button
                         className="button danger-outline"
                         onClick={() =>
                           prompt({
-                            title: "Delete this private test?",
+                            title:
+                              game.definition.mode === "practice"
+                                ? "Delete this private test?"
+                                : game.status === "active"
+                                  ? "End and remove game?"
+                                  : "Remove game?",
                             message:
-                              "This test will disappear from game lists. The internal audit remains retained.",
+                              "This stops further scoring and removes the game from Home, History and player records. Saved scores and the removal reason are retained in the internal audit archive. Unsent entries are not included.",
                             operation: (reason) => ({
-                              type: "delete-practice",
+                              type:
+                                game.definition.mode === "practice"
+                                  ? "delete-practice"
+                                  : "remove-game",
                               gameId: game.definition.id,
                               expectedRevision: game.revision,
                               reason,
@@ -727,7 +734,11 @@ export function FamilyHub({
                           })
                         }
                       >
-                        Delete private test
+                        {game.definition.mode === "practice"
+                          ? "Delete private test"
+                          : game.status === "active"
+                            ? "End and remove game"
+                            : "Remove game"}
                       </button>
                     )}
                 </details>

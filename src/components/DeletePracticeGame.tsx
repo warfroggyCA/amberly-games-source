@@ -23,11 +23,13 @@ export function DeletePracticeGame({
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const busy = useRef(false);
   const state = store.getSnapshot();
-  if (
-    state.shared?.member.role !== "superadmin" ||
-    state.shared?.gameAccess[game.id]?.mode !== "practice"
-  )
-    return children ?? null;
+  if (state.shared?.member.role !== "superadmin") return children ?? null;
+  const practice = state.shared?.gameAccess[game.id]?.mode === "practice";
+  const action = practice
+    ? "Delete practice game"
+    : game.status === "finalized"
+      ? "Remove game"
+      : "End and remove game";
   const remove = async (retry = false) => {
     if (busy.current || (!retry && (disabled || !reason.trim()))) return;
     busy.current = true;
@@ -39,7 +41,7 @@ export function DeletePracticeGame({
         await store.refresh!();
       } else {
         await store.administer({
-          type: "delete-practice-game",
+          type: practice ? "delete-practice-game" : "remove-game",
           gameId: game.id,
           expectedRevision: game.revision,
           reason: reason.trim(),
@@ -60,6 +62,7 @@ export function DeletePracticeGame({
     <>
       {children ? (
         <SwipeToDelete
+          actionLabel={`${action}…`}
           disabled={disabled || working}
           onDelete={() => setOpen(true)}
         >
@@ -72,22 +75,22 @@ export function DeletePracticeGame({
             disabled={disabled || working}
             onClick={() => setOpen(true)}
           >
-            Delete practice game…
+            {action}…
           </button>
         </div>
       )}
       {open && (
         <Modal
-          title="Delete this practice game?"
+          title={practice ? "Delete this practice game?" : `${action}?`}
           onClose={() => {
             if (!busy.current) setOpen(false);
           }}
           className="practice-delete-confirm"
         >
           <p>
-            This removes the test from the superadmin game list and history. Its
-            original data and this deletion remain in the internal audit
-            archive.
+            This stops further scoring and removes the game from Home, History
+            and player records. Saved scores and the removal reason are retained
+            in the internal audit archive. Unsent entries are not included.
           </p>
           <strong>{game.players.map((p) => p.name).join(" · ")}</strong>
           <p>
@@ -101,14 +104,14 @@ export function DeletePracticeGame({
             }}
           >
             <label className="field">
-              Reason for deleting
+              {practice ? "Reason for deleting" : "Reason for removing"}
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 required
                 maxLength={240}
                 disabled={working || awaitingConfirmation}
-                placeholder="e.g. Finished testing word entry"
+                placeholder="e.g. Duplicate or abandoned game"
               />
             </label>
             {error && (
@@ -144,7 +147,7 @@ export function DeletePracticeGame({
                 className="button danger-outline"
                 disabled={disabled || working || !reason.trim()}
               >
-                {working ? "Deleting…" : "Delete practice game"}
+                {working ? "Removing…" : action}
               </button>
             </div>
           </form>

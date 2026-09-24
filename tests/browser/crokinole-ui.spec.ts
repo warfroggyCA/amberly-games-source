@@ -352,3 +352,30 @@ test("family net defaults, rules guide and zero opponents survive a reload", asy
       page.getByLabel(`${name} round total`, { exact: true }),
     ).toHaveValue("0");
 });
+
+test("superadmin removes a regular Crokinole game without becoming scorer", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page);
+  await page.goto("/family/crokinole/new");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Add Round 1", exact: true }),
+  ).toBeVisible();
+  const id = fixture.game().definition.id;
+  fixture.shared.access[id].canScore = false;
+  fixture.shared.access[id].scorerUserId = "another-scorer";
+  await page.reload();
+  await page.getByText("Game administration", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "End and remove game", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "End and remove game?" });
+  await expect(
+    dialog.getByRole("button", { name: "Confirm", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Reason", { exact: true }).fill("Abandoned game");
+  await dialog.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page).toHaveURL(/\/family$/);
+  expect(fixture.shared.games).toHaveLength(0);
+});

@@ -536,3 +536,49 @@ test("touch swipe starting on the game button preserves vertical scroll and neve
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await cdp.detach();
 });
+
+test("superadmin can end and remove a regular game owned by another scorer", async ({
+  page,
+}) => {
+  const shared = fixture();
+  const game = shared.games[0];
+  shared.gameAccess[game.id] = {
+    ...shared.gameAccess[game.id],
+    mode: "confirmed",
+    scorerUserId: memberId,
+    canScore: false,
+  };
+  const writes: SharedMutation[] = [];
+  await mock(page, shared, async (route, mutation) => {
+    writes.push(mutation);
+    expect(mutation.operation).toMatchObject({
+      type: "remove-game",
+      gameId: game.id,
+      expectedRevision: game.revision,
+      reason: "Duplicate game",
+    });
+    shared.games = [];
+    shared.gameAccess = {};
+    shared.removedGameIds = [game.id];
+    await route.fulfill({ json: { removedGameId: game.id } });
+  });
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page
+    .getByRole("button", { name: "Scrabble history", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Show delete action" }).click();
+  await page
+    .getByRole("button", { name: "End and remove game…", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "End and remove game?" });
+  await expect(
+    dialog.getByRole("button", { name: "End and remove game", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByLabel("Reason for removing").fill("Duplicate game");
+  await dialog
+    .getByRole("button", { name: "End and remove game", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  expect(writes).toHaveLength(1);
+  await expect(page.locator(".game-list-item")).toHaveCount(0);
+});

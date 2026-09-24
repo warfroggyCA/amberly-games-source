@@ -205,7 +205,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
   });
   it("refuses both games' writes before a missing schema capability can touch data", async () => {
     const f = await fixture();
-    await owner`alter function scrabble.application_schema_v1() rename to application_schema_unavailable`;
+    await owner`alter function scrabble.application_schema_v2() rename to application_schema_unavailable`;
     try {
       await expect(f.create()).rejects.toMatchObject({ code: "SCHEMA_BEHIND" });
       const crokinole = createCrokinoleRepository(runtime, { enabled: true });
@@ -219,7 +219,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
         await owner`select count(*)::integer count from scrabble.game_heads where family_id=${f.familyId}`;
       expect(count.count).toBe(0);
     } finally {
-      await owner`alter function scrabble.application_schema_unavailable() rename to application_schema_v1`;
+      await owner`alter function scrabble.application_schema_unavailable() rename to application_schema_v2`;
     }
   });
   it("enforces Scrabble scoring and takeover permissions at the SQL boundary", async () => {
@@ -620,6 +620,39 @@ suite("isolated real PostgreSQL shared family repository", () => {
     expect(heads.map((h) => h.game_id)).toEqual([publicGame.id]);
   });
 
+  it("superadmins remove regular games without scoring takeover, preserving evidence and rejecting stale or unauthorized requests", async () => {
+    const f = await fixture();
+    const game = (await f.create()).game!;
+    const op: SharedOperation = {
+      type: "remove-game",
+      gameId: game.id,
+      expectedRevision: 0,
+      reason: "Duplicate game",
+    };
+    await code(f.mutate(op, f.guest), "FORBIDDEN");
+    await code(f.mutate({ ...op, expectedRevision: 1 }), "REVISION_CONFLICT");
+    await code(f.mutate({ ...op, reason: " " }), "INVALID_REQUEST");
+    await owner`update scrabble.game_heads set scorer_user_id=${f.guest.userId}::uuid where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+    const before =
+      await owner`select state,scorer_user_id from scrabble.game_heads where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+    const id = randomUUID();
+    expect(await f.mutate(op, f.admin, id)).toMatchObject({
+      removedGameId: game.id,
+    });
+    expect(await f.mutate(op, f.admin, id)).toMatchObject({
+      removedGameId: game.id,
+      replayed: true,
+    });
+    expect((await repository.readState(f.guest, f.familyId)).games).toEqual([]);
+    await code(f.mutate(pass(game.id)), "GAME_NOT_FOUND");
+    expect(
+      await owner`select state,scorer_user_id from scrabble.game_heads where family_id=${f.familyId}::uuid and game_id=${game.id}`,
+    ).toEqual(before);
+    expect(
+      await owner`select action from scrabble.audit where family_id=${f.familyId}::uuid and action='game.removed'`,
+    ).toHaveLength(1);
+  });
+
   it("removes only practice games, closes legacy links, preserves original evidence and cannot resurrect games on retries", async () => {
     const f = await fixture();
     const game = (await f.create("practice")).game!;
@@ -677,69 +710,72 @@ suite("isolated real PostgreSQL shared family repository", () => {
     ).rejects.toThrow();
   });
 
-  it("rolls back a failed practice deletion and keeps finalized results intact after a successful retry", async () => {
-    const f = await fixture();
-    const game = (await f.create("practice")).game!;
-    const final = await f.mutate({
-      type: "game-commands",
-      gameId: game.id,
-      deviceId: "device-a",
-      generation: 1,
-      commands: [
-        {
-          type: "finalize",
-          id: randomUUID(),
-          expectedRevision: 0,
-          reason: "early",
-          racks: {
-            ada: ["A", "A", "A", "A", "A", "A", "A"],
-            ben: ["E", "E", "E", "E", "E", "E", "E"],
+  it.each(["practice", "confirmed"] as const)(
+    "rolls back failed %s removal and preserves finalized results on retry",
+    async (mode) => {
+      const f = await fixture();
+      const game = (await f.create(mode)).game!;
+      const final = await f.mutate({
+        type: "game-commands",
+        gameId: game.id,
+        deviceId: "device-a",
+        generation: 1,
+        commands: [
+          {
+            type: "finalize",
+            id: randomUUID(),
+            expectedRevision: 0,
+            reason: "early",
+            racks: {
+              ada: ["A", "A", "A", "A", "A", "A", "A"],
+              ben: ["E", "E", "E", "E", "E", "E", "E"],
+            },
           },
-        },
-      ],
-    });
-    expect(final.game!.status).toBe("finalized");
-    const before =
-      await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`;
-    const requestId = randomUUID();
-    const op: SharedOperation = {
-      type: "delete-practice-game",
-      gameId: game.id,
-      expectedRevision: 1,
-      reason: "Finished final-result testing",
-    };
-    await owner.unsafe(
-      `create function scrabble.test_fail_removal_audit() returns trigger language plpgsql as $$ begin raise exception 'Injected audit failure'; end $$`,
-    );
-    await owner.unsafe(
-      `create trigger test_removal_audit_failure before insert on scrabble.audit for each row when(new.action='game.practice-deleted' and new.subject='${game.id}') execute function scrabble.test_fail_removal_audit()`,
-    );
-    try {
-      await expect(f.mutate(op, f.admin, requestId)).rejects.toMatchObject({
-        code: "P0001",
+        ],
       });
+      expect(final.game!.status).toBe("finalized");
+      const before =
+        await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      const requestId = randomUUID();
+      const op: SharedOperation = {
+        type: mode === "practice" ? "delete-practice-game" : "remove-game",
+        gameId: game.id,
+        expectedRevision: 1,
+        reason: "Finished final-result testing",
+      };
+      await owner.unsafe(
+        `create function scrabble.test_fail_removal_audit() returns trigger language plpgsql as $$ begin raise exception 'Injected audit failure'; end $$`,
+      );
+      await owner.unsafe(
+        `create trigger test_removal_audit_failure before insert on scrabble.audit for each row when(new.action='${mode === "practice" ? "game.practice-deleted" : "game.removed"}' and new.subject='${game.id}') execute function scrabble.test_fail_removal_audit()`,
+      );
+      try {
+        await expect(f.mutate(op, f.admin, requestId)).rejects.toMatchObject({
+          code: "P0001",
+        });
+        expect(
+          (await repository.readState(f.admin, f.familyId)).games,
+        ).toHaveLength(1);
+        expect(
+          await owner`select 1 from scrabble.game_removals where family_id=${f.familyId}::uuid`,
+        ).toHaveLength(0);
+        expect(
+          await owner`select 1 from scrabble.requests where family_id=${f.familyId}::uuid and request_id=${requestId}`,
+        ).toHaveLength(0);
+      } finally {
+        await owner`drop trigger test_removal_audit_failure on scrabble.audit`;
+        await owner`drop function scrabble.test_fail_removal_audit()`;
+      }
+      await f.mutate(op, f.admin, requestId);
       expect(
         (await repository.readState(f.admin, f.familyId)).games,
-      ).toHaveLength(1);
-      expect(
-        await owner`select 1 from scrabble.game_removals where family_id=${f.familyId}::uuid`,
       ).toHaveLength(0);
       expect(
-        await owner`select 1 from scrabble.requests where family_id=${f.familyId}::uuid and request_id=${requestId}`,
-      ).toHaveLength(0);
-    } finally {
-      await owner`drop trigger test_removal_audit_failure on scrabble.audit`;
-      await owner`drop function scrabble.test_fail_removal_audit()`;
-    }
-    await f.mutate(op, f.admin, requestId);
-    expect(
-      (await repository.readState(f.admin, f.familyId)).games,
-    ).toHaveLength(0);
-    expect(
-      await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`,
-    ).toEqual(before);
-    expect((await f.mutate(op, f.admin, requestId)).replayed).toBe(true);
-  });
+        await owner`select * from scrabble.game_results where family_id=${f.familyId}::uuid and game_id=${game.id}`,
+      ).toEqual(before);
+      expect((await f.mutate(op, f.admin, requestId)).replayed).toBe(true);
+    },
+  );
 
   it("saves shared equipment with retries, concurrent edits, immutable game snapshots and spectator supply", async () => {
     const f = await fixture();

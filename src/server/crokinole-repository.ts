@@ -293,6 +293,7 @@ export function createCrokinoleRepository(
       ],
       "take-over": ["gameId", "expectedRevision", "generation", "reason"],
       "delete-practice": ["gameId", "expectedRevision", "reason"],
+      "remove-game": ["gameId", "expectedRevision", "reason"],
       "report-concern": ["gameId", "expectedRevision", "reason"],
       "resolve-concern": [
         "gameId",
@@ -789,13 +790,15 @@ export function createCrokinoleRepository(
                   },
                   draft: null,
                 };
-              } else if (op.type === "delete-practice") {
-                if (who.role !== "superadmin" || row.mode !== "practice")
-                  fail(
-                    "FORBIDDEN",
-                    "Only superadmins can remove test games.",
-                    403,
-                  );
+              } else if (
+                op.type === "delete-practice" ||
+                op.type === "remove-game"
+              ) {
+                if (
+                  who.role !== "superadmin" ||
+                  (op.type === "delete-practice" && row.mode !== "practice")
+                )
+                  fail("FORBIDDEN", "Only superadmins can remove games.", 403);
                 reason(op.reason);
                 await tx`update scrabble.crokinole_games set removed=true,updated_at=now() where family_id=${familyId}::uuid and game_id=${op.gameId}`;
                 response = { removedGameId: op.gameId };

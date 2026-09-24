@@ -76,7 +76,7 @@ export type CrokinoleOperation =
       reason: string;
     }
   | {
-      type: "delete-practice";
+      type: "delete-practice" | "remove-game";
       gameId: string;
       expectedRevision: number;
       reason: string;

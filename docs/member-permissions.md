@@ -26,7 +26,7 @@ Viewing shared history and reporting concerns remain available to active members
 
 Shared games with `mode=practice` are visible only to superadmins, including historical tests. Regular members cannot create them, open them by ID, read their draft, export them, or see their concerns. Practice links cannot be created and existing practice viewing tokens no longer resolve. Enabling every member capability does not grant private-test access. The independent local `/` preview remains a device-only development sandbox and does not read shared tests.
 
-In Home and History, superadmins swipe a practice game left to reveal **Delete**, or use the row’s **…** control with a mouse or keyboard. Swiping alone never deletes or opens a game. The game details also retain **Delete practice game…**. It requires confirmation and a reason. Removal is an immutable marker, not a physical deletion: original definitions, turns, results and audit evidence remain in the internal archive. Finalized practice games may be removed; confirmed games cannot. Removed tests disappear from normal lists and cannot be scored or restored by an old request. Retries acknowledge the original removal once, including when the connection fails after commit.
+In Home and History, superadmins swipe a practice game left to reveal **Delete**, or use the row’s **…** control with a mouse or keyboard. Swiping alone never deletes or opens a game. The game details also retain **Delete practice game…**. It requires confirmation and a reason. Removal is an immutable marker, not a physical deletion: original definitions, turns, results and audit evidence remain in the internal archive. Finalized practice games may also be removed. Regular games use the separate superadmin removal action described below. Removed tests disappear from normal lists and cannot be scored or restored by an old request. Retries acknowledge the original removal once, including when the connection fails after commit.
 
 ## Enforcement and recovery
 
@@ -55,3 +55,11 @@ Only superadmins can reserve or change an existing profile link. Members with In
 Profile completion uses the existing retained-request mechanism: uncertain saves survive reload and retry the same request. Member and player revisions protect against concurrent changes. The profile write, account link, completion flag and audit record commit together.
 
 The additive migration `20260918003644_invitation_player_onboarding.sql` must be applied before this API is published. It adds nullable invitation player links and a setup flag, and narrowly scoped admission/completion functions in the private schema. Existing memberships default to no onboarding prompt. No historical games are rewritten. Hosted migration and publication require the normal release approval; local verification is not a hosted release. For rollback, keep the additive columns and data; prefer a forward fix because older application versions do not show pending onboarding.
+
+## Superadmin game removal
+
+Superadmins can remove regular Scrabble and Crokinole games from game details. Active games offer **End and remove game**; finished games offer **Remove game**. Crokinole keeps this under **Game administration**. A confirmation and reason are required, with no scorer takeover. Private-test deletion remains available.
+
+Removal is terminal: further scoring is blocked and the game disappears from Home, History and player records. It does not fabricate a scored finish or winner. Original definitions, scores, events and results remain unchanged for operator recovery, with an audit record of who removed the game and why. There is no user-facing restore button. Unsaved entries are excluded. Concurrent changes require reviewing the refreshed game before retrying.
+
+Deploy migration `20260924011827_superadmin_game_removal.sql` before the matching application; the schema-v2 guard prevents use against an older database. No existing games are removed by the migration.

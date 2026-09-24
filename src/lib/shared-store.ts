@@ -187,6 +187,7 @@ function plainJson(value: unknown, depth = 0): boolean {
 }
 const operations = [
   "delete-practice-game",
+  "remove-game",
   "save-equipment",
   "create-player",
   "update-player",
@@ -502,7 +503,9 @@ function validateResult(
           : null;
     if (
       result.removedGameId !== gameId ||
-      (operation.type !== "delete-practice-game" && !result.replayed)
+      (operation.type !== "delete-practice-game" &&
+        operation.type !== "remove-game" &&
+        !result.replayed)
     )
       throw new FamilyRequestError(
         "The removal response did not match this game. Retry safely.",
@@ -510,7 +513,10 @@ function validateResult(
       );
     return result;
   }
-  if (operation.type === "delete-practice-game")
+  if (
+    operation.type === "delete-practice-game" ||
+    operation.type === "remove-game"
+  )
     throw new FamilyRequestError(
       "Game removal was not confirmed. Retry the saved action.",
       0,

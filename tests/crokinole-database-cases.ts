@@ -418,6 +418,81 @@ export function crokinoleDatabaseCases(
         f.mutate({ ...op, expectedDraftRevision: 1 }),
       ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
     });
+    it("superadmins remove a member-scored regular game with a reason and safe retries", async () => {
+      const f = await fixture();
+      await f.mutate(
+        { type: "create-game", definition: f.definition, paletteRevision: 0 },
+        f.member,
+      );
+      const op: CrokinoleOperation = {
+        type: "remove-game",
+        gameId: f.definition.id,
+        expectedRevision: 0,
+        reason: "Abandoned duplicate",
+      };
+      await expect(f.mutate(op, f.member)).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+      await expect(
+        f.mutate({ ...op, expectedRevision: 1 }),
+      ).rejects.toMatchObject({ code: "REVISION_CONFLICT" });
+      await expect(f.mutate({ ...op, reason: " " })).rejects.toThrow();
+      const before =
+        await owner`select state,scorer_user_id from scrabble.crokinole_games where family_id=${f.familyId}::uuid`;
+      const id = randomUUID();
+      expect(await f.mutate(op, f.admin, id)).toMatchObject({
+        removedGameId: f.definition.id,
+      });
+      expect(await f.mutate(op, f.admin, id)).toMatchObject({
+        removedGameId: f.definition.id,
+        replayed: true,
+      });
+      expect((await repo.readState(f.member, f.familyId)).games).toEqual([]);
+      await expect(
+        repo.readState(f.admin, f.familyId, { gameId: f.definition.id }),
+      ).rejects.toMatchObject({ code: "GAME_NOT_FOUND" });
+      expect(
+        await owner`select state,scorer_user_id from scrabble.crokinole_games where family_id=${f.familyId}::uuid`,
+      ).toEqual(before);
+      expect(
+        await owner`select action from scrabble.audit where family_id=${f.familyId}::uuid and action='crokinole:remove-game'`,
+      ).toHaveLength(1);
+    });
+
+    it("removes an ended regular game without changing its saved result", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 0,
+        command: {
+          type: "end_early",
+          id: randomUUID(),
+          expectedRevision: 0,
+          reason: "Interrupted",
+        },
+      });
+      const before =
+        await owner`select state from scrabble.crokinole_games where family_id=${f.familyId}::uuid`;
+      expect(before[0].state.status).toBe("ended_early");
+      await f.mutate({
+        type: "remove-game",
+        gameId: f.definition.id,
+        expectedRevision: 1,
+        reason: "Remove abandoned game",
+      });
+      expect(
+        await owner`select state from scrabble.crokinole_games where family_id=${f.familyId}::uuid`,
+      ).toEqual(before);
+      expect((await repo.readState(f.admin, f.familyId)).games).toEqual([]);
+    });
+
     it("protects private tests on lists, IDs, mutation retries and removal", async () => {
       const f = await fixture();
       f.definition.mode = "practice";
