@@ -730,19 +730,6 @@
 }
 
 /* Bright letter ink retains contrast on the existing dark wooden tiles. */
-.gym-tile.word-valid b {
-  color: #9ff0af;
-}
-.gym-tile.word-invalid b {
-  color: #ffb3b3;
-}
-.gym-tile.word-mixed b {
-  color: #ffb3b3;
-  background: linear-gradient(135deg, #9ff0af 0 47%, #ffb3b3 53% 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
 .gym-word-feedback {
   display: flex;
   flex-wrap: wrap;
@@ -798,9 +785,6 @@
   animation: none;
 }
 
-.gym-tile.word-mixed.valid-down b {
-  background-image: linear-gradient(45deg, #ffb3b3 0 47%, #9ff0af 53% 100%);
-}
 .gym-strength-bars {
   display: inline-flex;
   align-items: end;

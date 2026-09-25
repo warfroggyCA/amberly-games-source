@@ -44,7 +44,8 @@ describe("Gym per-word feedback", () => {
     expect(cells["5,8"].state).toBe("invalid");
     expect(cells["7,8"]).toEqual({
       state: "mixed",
-      label: "EM: valid; NEM: invalid",
+      label: "EM: valid across; NEM: invalid down",
+      edges: { left: true, top: false },
       validDirection: "across",
     });
     expect(board[7][7]).toBeNull();
@@ -96,7 +97,7 @@ describe("Gym per-word feedback", () => {
   });
 });
 
-it("tracks a valid down word for the direction-aware split", () => {
+it("tracks a valid down word for directional edge markers", () => {
   const cells = wordCellFeedback([
     { word: "ND", valid: false, direction: "across", cells: ["7,6", "7,7"] },
     {
@@ -109,5 +110,54 @@ it("tracks a valid down word for the direction-aware split", () => {
   expect(cells["7,7"]).toMatchObject({
     state: "mixed",
     validDirection: "down",
+  });
+});
+
+it("marks only connected edges for LOOT crossing invalid RT, independent of word order", () => {
+  const words = [
+    {
+      word: "LOOT",
+      valid: true,
+      direction: "across" as const,
+      cells: ["7,4", "7,5", "7,6", "7,7"],
+    },
+    {
+      word: "RT",
+      valid: false,
+      direction: "down" as const,
+      cells: ["6,7", "7,7"],
+    },
+  ];
+  for (const input of [words, [...words].reverse()]) {
+    expect(wordCellFeedback(input)["7,7"]).toMatchObject({
+      state: "mixed",
+      edges: { left: true, top: false },
+    });
+    expect(Object.keys(wordCellFeedback(input)["7,7"].edges).sort()).toEqual([
+      "left",
+      "top",
+    ]);
+  }
+});
+it("marks both sides of words that pass through a crossing", () => {
+  const cells = wordCellFeedback([
+    {
+      word: "CAT",
+      valid: true,
+      direction: "across",
+      cells: ["7,6", "7,7", "7,8"],
+    },
+    {
+      word: "QAZ",
+      valid: false,
+      direction: "down",
+      cells: ["6,7", "7,7", "8,7"],
+    },
+  ]);
+  expect(cells["7,7"].edges).toEqual({
+    left: true,
+    right: true,
+    top: false,
+    bottom: false,
   });
 });

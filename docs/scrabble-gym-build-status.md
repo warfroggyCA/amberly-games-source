@@ -195,3 +195,10 @@ Current hosted migration history was inspected read-only and does not include Gy
 Dragging now outlines the precise destination cell and shows its coordinate above the lifted tile, clear of the finger. Occupied cells use a red cross and Occupied label. Preview and release share the pointer hit-test; dropping, leaving the board and cancelling clear the preview. This indicates placement space, not whole-move or word validity.
 
 Type checking, focused lint, production build and five drag/drop browser cases passed (three native-touch cases intentionally skipped outside Chromium). Native touch injection covers blocked-to-empty preview transitions, exact-coordinate release, return to rack and undo. The rendered preview screenshot was inspected. Physical iPad acceptance remains with the owner.
+
+
+## Shared directional word feedback — September 24, 2026
+
+Gym and the typing-first scorer now share word-cell edge mapping and marker styling. Mixed crossings keep neutral letters and display green/red markers only toward actual neighbouring letters in each formed word, including both sides of interior crossings. Uniformly valid/invalid letters retain their colours; scorer blanks preserve blue faces with darker feedback ink. A Word feedback control explains mixed crossings without changing tile-edit gestures or keyboard entry. Word validity remains independent of turn legality.
+
+Validation: 30 focused domain tests passed, including LOOT/RT, reversed input order and four-edge interior crossings. 29 Gym browser cases passed (15 intentional skips); all 20 scorer browser cases passed after retaining stable cell names and exposing word feedback through accessible descriptions. Type checking, lint, formatting and production builds passed. Desktop/iPad screenshots were inspected. Physical iPad acceptance remains separate.

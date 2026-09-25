@@ -166,3 +166,40 @@ test("saved equipment survives reload and changes only future games", async ({
     page.locator("button.tile-bag-button").filter({ visible: true }),
   ).toHaveAccessibleName("Tiles remaining in bag: 86");
 });
+
+test("typed crossings use directional word markers and retain invalid-turn checks", async ({
+  page,
+}, info) => {
+  await startGame(page);
+  await enter(page, "H8", "CAT");
+  await review(page, 10);
+  await enter(page, "I9", "A");
+  await enter(page, "J9", "T");
+  const crossing = page.getByTestId("cell-J9");
+  await expect(crossing.locator(".letter-tile")).toHaveClass(/word-mixed/);
+  await expect(crossing.locator('[data-word-edge="left"]')).toHaveAttribute(
+    "data-word-valid",
+    "true",
+  );
+  await expect(crossing.locator('[data-word-edge="top"]')).toHaveAttribute(
+    "data-word-valid",
+    "false",
+  );
+  await expect(
+    crossing.locator('[data-word-edge="bottom"], [data-word-edge="right"]'),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: info.outputPath("directional-word-feedback.png"),
+  });
+  await page
+    .getByRole("button", { name: "Word feedback", exact: true })
+    .click();
+  const details = page.getByRole("dialog", { name: "Word feedback" });
+  await expect(details).toContainText("AT: valid across");
+  await expect(details).toContainText("TT: invalid down");
+  await details.getByRole("button", { name: "Close dialog" }).click();
+  await page.getByRole("button", { name: "Review turn", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /^Record \d+ points$/ }),
+  ).toHaveCount(0);
+});

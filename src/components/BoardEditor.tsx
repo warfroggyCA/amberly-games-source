@@ -1,4 +1,6 @@
 "use client";
+import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
+import { draftWordFeedback, wordCellFeedback } from "../domain/word-feedback";
 import { PlayerName } from "./PlayerName";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { useEffect, useId, useRef, useState } from "react";
@@ -160,6 +162,9 @@ export function BoardEditor({
     ? preview.score
     : calculateDraftScore(game.board, draft.placements);
   const formedWords = getFormedWords(game.board, draft.placements, lexicon);
+  const wordCells = wordCellFeedback(
+    draftWordFeedback(game.board, draft.placements, lexicon),
+  );
   const player = game.players.find((p) => p.id === game.currentPlayerId)!;
   const displayedScores = displayScores ?? game.result?.scores ?? game.scores;
   const crown = liveLeader(game.order, displayedScores, displayTurns);
@@ -805,6 +810,7 @@ export function BoardEditor({
                         const exhausted = exhaustedTiles.some(
                           (p) => p.row === r && p.col === c,
                         );
+                        const wordFeedback = wordCells[`${r},${c}`];
                         const premium = premiumAt(r, c);
                         const selected =
                           draft.row === r && draft.col === c && !disabled;
@@ -815,6 +821,7 @@ export function BoardEditor({
                             type="button"
                             role="gridcell"
                             aria-label={`${label}${exhausted ? ". No physical tiles left; use a blank or check tiles." : ""}`}
+                            aria-description={wordFeedback?.label}
                             aria-invalid={exhausted || undefined}
                             aria-selected={selected}
                             tabIndex={selected ? 0 : -1}
@@ -826,8 +833,10 @@ export function BoardEditor({
                             {shown ? (
                               <span
                                 key={`${shown.letter}:${shown.blank}:${exhausted}`}
-                                className={`letter-tile ${shown.blank ? "blank-tile" : ""}`}
+                                className={`letter-tile ${shown.blank ? "blank-tile" : ""}${wordFeedback ? ` word-${wordFeedback.state}` : ""}`}
+                                title={wordFeedback?.label}
                               >
+                                <WordDirectionMarkers feedback={wordFeedback} />
                                 <b>{shown.letter}</b>
                                 <small>
                                   {shown.blank
@@ -1135,6 +1144,7 @@ export function BoardEditor({
             >
               <TabletopIcon name="more" />
             </button>
+            <WordFeedbackHelp cells={wordCells} compact />
             <button
               className={`button primary entry-review-button ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "inventory-review" : ""}`}
               aria-label={

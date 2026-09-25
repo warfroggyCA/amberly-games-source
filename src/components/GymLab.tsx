@@ -1,4 +1,5 @@
 "use client";
+import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -942,6 +943,7 @@ export function GymLab({
                                 className={`gym-tile${wordFeedback ? ` word-${wordFeedback.state} valid-${wordFeedback.validDirection ?? "across"}` : ""}`}
                                 title={wordFeedback?.label}
                               >
+                                <WordDirectionMarkers feedback={wordFeedback} />
                                 <b>{tile.letter}</b>
                                 <small>
                                   {tile.blank ? 0 : LETTER_VALUES[tile.letter]}
@@ -1231,15 +1233,7 @@ export function GymLab({
                     ))}
                   </ul>
                 )}
-                {!reveal &&
-                  Object.values(wordCells).some(
-                    (cell) => cell.state === "mixed",
-                  ) && (
-                    <p className="gym-colour-key">
-                      Two colours on a letter mean valid in one direction and
-                      invalid in the other.
-                    </p>
-                  )}
+                {!reveal && <WordFeedbackHelp cells={wordCells} />}
                 {strength && (
                   <details className="gym-live-coaching">
                     <summary>
