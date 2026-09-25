@@ -35,12 +35,37 @@ export function catalogueMoves(
   moves.sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
   return { moves, complete };
 }
+/** Name the play along its new tiles; a one-tile crossing has no primary axis. */
+export function describeMove(move: ScoredMove) {
+  const direction =
+    move.placements.length > 1
+      ? move.placements.every((p) => p.row === move.placements[0].row)
+        ? "across"
+        : "down"
+      : undefined;
+  const primary = direction
+    ? move.words.filter((w) => w.direction === direction)
+    : [...move.words].sort((a, b) =>
+        a.direction === b.direction
+          ? a.word.localeCompare(b.word)
+          : a.direction === "across"
+            ? -1
+            : 1,
+      );
+  const headline = primary.length ? primary : move.words;
+  return {
+    label: headline.map((w) => w.word).join(" + ") || "Move",
+    arrow:
+      headline.length === 1
+        ? headline[0].direction === "across"
+          ? "→"
+          : "↓"
+        : "",
+    crosswords: move.words.filter((w) => !headline.includes(w)),
+  };
+}
 export function moveWord(move: ScoredMove): string {
-  return (
-    [...move.words].sort(
-      (a, b) => b.word.length - a.word.length || a.word.localeCompare(b.word),
-    )[0]?.word ?? "Move"
-  );
+  return describeMove(move).label;
 }
 export function groupMoves(moves: ScoredMove[]) {
   const groups = new Map<string, ScoredMove[]>();

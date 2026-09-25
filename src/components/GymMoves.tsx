@@ -4,7 +4,28 @@ import type { Puzzle } from "../domain/gym/model";
 import type { ScoredMove } from "../domain/solver";
 import type { VerifiedWord } from "../domain/verified-words";
 import type { StrategyCoaching } from "../domain/gym/coaching";
-import { groupMoves, type MoveCatalog } from "../domain/gym/move-catalog";
+import {
+  describeMove,
+  groupMoves,
+  type MoveCatalog,
+} from "../domain/gym/move-catalog";
+
+function MoveName({ move }: { move: ScoredMove }) {
+  const description = describeMove(move);
+  return (
+    <>
+      {description.label} {description.arrow}
+    </>
+  );
+}
+function Crosswords({ move }: { move: ScoredMove }) {
+  const { crosswords } = describeMove(move);
+  return crosswords.length ? (
+    <span style={{ display: "block" }}>
+      Also forms {crosswords.map((w) => w.word).join(" + ")}
+    </span>
+  ) : null;
+}
 
 function Choices({
   moves,
@@ -29,8 +50,11 @@ function Choices({
               aria-pressed={selected === move.key}
               onClick={() => choose(move)}
             >
-              <strong>{move.score} points</strong> · {move.newTileCount} rack
-              tiles
+              <strong>
+                <MoveName move={move} /> · {move.score} points
+              </strong>{" "}
+              · {move.newTileCount} rack tiles
+              <Crosswords move={move} />
               <span>
                 {move.words
                   .map(
@@ -196,7 +220,8 @@ export function GymMoves({
         <div className="gym-selected-move">
           <p>
             <strong>Preview: {selected.score} points</strong> ·{" "}
-            {selected.words.map((w) => w.word).join(" + ")}
+            <MoveName move={selected} />
+            <Crosswords move={selected} />
           </p>
           <button
             className="button light"
@@ -231,7 +256,11 @@ export function GymMoves({
               aria-pressed={selected?.key === group.placements[0].key}
               onClick={() => choose(group.placements[0])}
             >
-              <strong>{group.word}</strong> · {group.placements[0].score} points
+              <strong>
+                <MoveName move={group.placements[0]} />
+              </strong>{" "}
+              · {group.placements[0].score} points
+              <Crosswords move={group.placements[0]} />
               <span>
                 {group.placements[0].newTileCount} rack tiles · Tap to preview
               </span>
