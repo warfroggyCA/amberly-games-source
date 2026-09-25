@@ -255,3 +255,56 @@ test("clear entered tiles preserves the recorded board and resets the start mark
   await enter(page, "K8", "S");
   await review(page, 6);
 });
+
+test("empty assisted racks stay editable and all exit controls work", async ({
+  page,
+}) => {
+  await startGame(page);
+  await enter(page, "H8", "CAT");
+  await review(page, 10);
+  const open = async () => {
+    await page
+      .getByRole("button", { name: "Open game menu", exact: true })
+      .click();
+    await page.getByRole("button", { name: "End game", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Continue to ending review", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Use assisted finish", exact: true })
+      .click();
+  };
+  await open();
+  const dialog = page.getByRole("dialog", { name: "Finish with assistance" });
+  await expect(dialog).toContainText(
+    "Enter the remaining letters to enable assisted finish",
+  );
+  await expect(
+    dialog.getByRole("button", { name: "Confirm assisted mode" }),
+  ).toBeDisabled();
+  await dialog
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await open();
+  await dialog
+    .getByRole("button", { name: "Close dialog", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await open();
+  await dialog
+    .getByRole("textbox", { name: "Ada remaining tiles", exact: true })
+    .fill("AAAAAAA");
+  await dialog
+    .getByRole("textbox", { name: "Ben remaining tiles", exact: true })
+    .fill("EEEEEEE");
+  await expect(
+    dialog.getByRole("button", { name: "Confirm assisted mode" }),
+  ).toBeEnabled();
+  await dialog
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+});

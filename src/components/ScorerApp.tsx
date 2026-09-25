@@ -2067,6 +2067,16 @@ function Ending({
       .split("")
       .filter((t) => t === "?" || isLetter(t)) as Racks[string];
   }
+  const missingRacks =
+    mode === "assist" && !invalid
+      ? game.order.filter(
+          (player) =>
+            game.expectedRackCounts[player] > 0 && racks[player].length === 0,
+        )
+      : [];
+  const rackEntryHelp = missingRacks.length
+    ? `Enter the remaining letters to enable assisted finish: ${missingRacks.map((player) => `${nameOf(game, player)} — ${game.expectedRackCounts[player]} tiles`).join("; ")}. If a physical rack is actually empty, use Check counts again to correct the recorded counts.`
+    : null;
   const action: Action =
     mode === "assist"
       ? { type: "assist", racks }
@@ -2178,9 +2188,11 @@ function Ending({
               {error ??
                 (invalid
                   ? "Use only A–Z and ? for blanks."
-                  : checked && !checked.ok
-                    ? checked.error.message
-                    : "")}
+                  : rackEntryHelp
+                    ? rackEntryHelp
+                    : checked && !checked.ok
+                      ? checked.error.message
+                      : "")}
             </p>
           )}
           <div className="dialog-actions">
