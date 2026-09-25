@@ -148,9 +148,12 @@ test("standalone LAN practice does not require profile storage or secure-context
   await expect(
     page.getByRole("button", { name: "Solve", exact: true }),
   ).toBeEnabled();
-  await expect(page.locator(".gym-preview-note")).toContainText(
-    "Progress is not saved",
-  );
+  await expect(
+    page.getByText(/Local preview · Draft recovery stays on this device/),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Practice saved on this device.", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "My practice history", exact: true }),
   ).toHaveCount(0);
