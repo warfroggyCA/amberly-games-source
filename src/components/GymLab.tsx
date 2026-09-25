@@ -1653,9 +1653,11 @@ export function GymLab({
               </li>
             </ol>
             <p>
-              This first local build tests the engine and placement controls.
-              Profile saving, shared word lookup and full-game strategy coaching
-              come later in the release plan.
+              {profileHistory
+                ? "Practice attempts and help are saved to your linked profile. Check the sync status before leaving; unfinished tile layouts are not restored after refresh."
+                : "This standalone preview does not save practice history. Refresh clears the puzzle."}{" "}
+              Shared word lookup and full-game strategy coaching are still
+              planned; current strategy feedback uses short-horizon estimates.
             </p>
           </Modal>
         )}

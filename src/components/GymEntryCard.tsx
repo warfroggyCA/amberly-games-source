@@ -19,9 +19,7 @@ export function GymEntryCard({
       <div>
         <h2>Scrabble Gym</h2>
         <p>Practice &amp; training</p>
-        <p>
-          Fresh boards, hints and coaching. Preview — progress is not saved yet.
-        </p>
+        <p>Fresh boards, hints and coaching.</p>
         {onOpen ? (
           <button className="button primary" onClick={onOpen}>
             Open Gym
