@@ -618,6 +618,8 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
   const box = (await ghost.boundingBox())!;
   expect(box.y + box.height).toBeLessThan(y);
   expect(box.width).toBeGreaterThan(source.width);
+  const lift = y - (box.y + box.height / 2);
+  expect(lift).toBeGreaterThan(40);
   // Touch hover previews the exact cell used on release, including blocked cells.
   const occupied = board.locator(".has-tile:not(.is-draft)").first();
   const occupiedBox = (await occupied.boundingBox())!;
@@ -626,7 +628,7 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
     touchPoints: [
       {
         x: occupiedBox.x + occupiedBox.width / 2,
-        y: occupiedBox.y + occupiedBox.height / 2,
+        y: occupiedBox.y + occupiedBox.height / 2 + lift,
       },
     ],
   });
@@ -641,7 +643,7 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
   const destinationBox = (await destination.boundingBox())!;
   const point = {
     x: destinationBox.x + destinationBox.width / 2,
-    y: destinationBox.y + destinationBox.height / 2,
+    y: destinationBox.y + destinationBox.height / 2 + lift,
   };
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchMove",
@@ -661,7 +663,7 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
   await expect(ghost).toHaveCount(0);
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchStart",
-    touchPoints: [point],
+    touchPoints: [{ x: point.x, y: point.y - lift }],
   });
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchMove",

@@ -181,6 +181,7 @@ export function GymLab({
     y: number;
     time: number;
     pointer: number;
+    offsetY: number;
   } | null>(null);
   const suppressClick = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -686,16 +687,18 @@ export function GymLab({
     )
       return;
     suppressClick.current = null;
+    const touch = event.pointerType !== "mouse";
+    const size = Math.max(
+      64,
+      event.currentTarget.getBoundingClientRect().width * 1.15,
+    );
     setDragPreview({
       id,
       target: null,
       x: event.clientX,
       y: event.clientY,
-      touch: event.pointerType !== "mouse",
-      size: Math.max(
-        64,
-        event.currentTarget.getBoundingClientRect().width * 1.15,
-      ),
+      touch,
+      size,
     });
     gesture.current = {
       id,
@@ -703,13 +706,15 @@ export function GymLab({
       y: event.clientY,
       time: event.timeStamp,
       pointer: event.pointerId,
+      // Aim at the centre of the lifted tile, above a finger or stylus.
+      offsetY: touch ? size / 2 + 16 : 0,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
   function gestureMove(event: PointerEvent<HTMLButtonElement>) {
     const start = gesture.current;
     if (!start || start.pointer !== event.pointerId) return;
-    const square = dragTarget(event.clientX, event.clientY);
+    const square = dragTarget(event.clientX, event.clientY - start.offsetY);
     const row = Number(square?.dataset.row),
       col = Number(square?.dataset.col);
     const target =
@@ -745,8 +750,9 @@ export function GymLab({
       dy = event.clientY - start.y;
     if (Math.hypot(dx, dy) < 12) return; // Native click handles a tap and keyboard activation.
     suppressClick.current = start.id;
-    const hit = document.elementFromPoint(event.clientX, event.clientY);
-    const target = dragTarget(event.clientX, event.clientY);
+    const aimY = event.clientY - start.offsetY;
+    const hit = document.elementFromPoint(event.clientX, aimY);
+    const target = dragTarget(event.clientX, aimY);
     const fromBoard = currentDraft.current.tiles.some((t) => t.id === start.id);
     // A placed tile can be pulled off the board, including anywhere on the rack.
     // Only rack-origin gestures use the quick upward flick-to-cursor shortcut.
@@ -1861,7 +1867,7 @@ export function GymLab({
         )}
         {dragPreview && dragTile && (
           <div
-            className={`gym-drag-preview${dragPreview.touch ? " is-touch" : ""}`}
+            className={`gym-drag-preview${dragPreview.touch ? " is-touch" : ""}${dragPreview.touch && dragPreview.target ? " is-aiming" : ""}`}
             aria-hidden="true"
             style={{
               left: dragPreview.x,

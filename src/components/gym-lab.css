@@ -1411,3 +1411,8 @@
     margin: 0;
   }
 }
+
+/* Let the board target remain visible through the lifted touch tile. */
+.gym-drag-preview.is-touch.is-aiming {
+  opacity: 0.45;
+}
