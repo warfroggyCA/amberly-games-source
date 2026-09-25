@@ -24,6 +24,12 @@ export function GymStrategyComparison({
           ? `${name(result.requested.label)} looks good`
           : `${name(result.requested.label)} or ${name(result.recommended.label)}?`}
       </h2>
+      {result.quick && (
+        <p>
+          <strong>Quick comparison</strong> · You stopped this check early, so
+          the advice may change with a closer look.
+        </p>
+      )}
       <p>Tap a move to see it on the board.</p>
       <div className="gym-comparison-options">
         {(

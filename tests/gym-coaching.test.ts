@@ -17,9 +17,13 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
     placements: answer.best[0].placements,
   };
   const progress: { phase: string; percentage: number }[] = [];
+  const snapshots: import("../src/domain/gym/coaching").StrategyCoaching[] = [];
   const options = {
     discoverySamples: 2,
-    validationSamples: 2,
+    validationSamples: 4,
+    checkpoint: (
+      result: import("../src/domain/gym/coaching").StrategyCoaching,
+    ) => snapshots.push(result),
     progress: (
       _completed: number,
       state: { phase: string; percentage: number },
@@ -39,6 +43,10 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
   expect(progress.map((p) => p.percentage)).toEqual(
     progress.map((p) => p.percentage).sort((a, b) => a - b),
   );
+  expect(snapshots.map((s) => s.validationSamples)).toEqual([2, 3]);
+  expect(snapshots.every((s) => s.quick)).toBe(true);
+  expect(first.quick).toBeUndefined();
+  const saved = JSON.stringify(snapshots[0]);
   const second = coachStrategy(
     puzzle.position,
     defaultLexicon,
@@ -49,6 +57,7 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
     options,
   );
   expect(first).toEqual(second);
+  expect(JSON.stringify(snapshots[0])).toBe(saved);
   expect(JSON.stringify(puzzle)).toBe(before);
   expect(first.requested.points).toBe(answer.maximum);
   expect(first.requested.estimate).toBeCloseTo(
@@ -61,7 +70,7 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
   );
   const same =
     actionKey(first.requested.action) === actionKey(first.recommended.action);
-  expect(first.completedSamples).toBe(first.considered * 2 + (same ? 2 : 4));
+  expect(first.completedSamples).toBe(first.considered * 2 + (same ? 4 : 8));
   expect(first.sampleGapRange[0]).toBeLessThanOrEqual(first.gap);
   expect(first.sampleGapRange[1]).toBeGreaterThanOrEqual(first.gap);
   expect(() =>

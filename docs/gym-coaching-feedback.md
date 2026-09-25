@@ -21,3 +21,9 @@ Unit tests cover progress endpoints/monotonicity, budget failure, immutable/repr
 The result opens at the top of the board workspace. Move names and points lead the panel; blue identifies the checked move and purple the compared option. Tap either to preview its tiles and completed crossing words in the matching colour. Only one placement is shown at a time so overlapping options remain legible. A text label and pressed-button state identify the selected move without relying on colour. Hints and general feedback are hidden during comparison. The board stays sticky while reading, with a compact stacked layout on phones.
 
 Back to my move exits comparison and restores the untouched draft. Preview actions do not change the original tiles, rack, undo history or saved attempt. Comparison previews are not persisted as Solve state. The text names the other move explicitly and refers to the opponent’s next turn.
+
+## Wait or answer early
+
+Strategy comparisons no longer have a wall-clock deadline, either in the main coach or All moves. They still finish after the planned comparison work, and retain search-size safeguards. Other operations retain their existing limits.
+
+Answer now becomes available after discovery completes and at least two fresh paired comparisons have finished. Only complete pairs contribute to that result. Accepting it terminates the worker, rejects later messages, and labels the result Quick comparison; saved strategy events retain that optional label without changing older records. Cancel preserves the player's draft. All moves can start another comparison after either cancellation or an early answer.

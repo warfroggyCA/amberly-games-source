@@ -202,9 +202,10 @@ export function GymHistory({
                 </>
               ) : e.payload.type === "strategy" ? (
                 <>
-                  Strategy estimate: {e.payload.verdict} · Your move:{" "}
-                  {e.payload.requested}; alternative: {e.payload.recommended}.
-                  Average replies: {e.payload.replyPoints.toFixed(1)} /{" "}
+                  {e.payload.quick ? "Quick comparison" : "Strategy estimate"}:{" "}
+                  {e.payload.verdict} · Your move: {e.payload.requested};
+                  alternative: {e.payload.recommended}. Average replies:{" "}
+                  {e.payload.replyPoints.toFixed(1)} /{" "}
                   {e.payload.alternativeReplyPoints.toFixed(1)} points.{" "}
                   <small>
                     {e.payload.policy} · {e.payload.samples} samples · Browser

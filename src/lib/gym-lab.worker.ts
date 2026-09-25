@@ -62,6 +62,7 @@ scope.onmessage = ({ data }) => {
       return;
     }
     const budget = makeBudget();
+    if (data.type === "strategy") budget.deadline = Infinity;
     const answer = analyseScore(data.puzzle.position, lexicon, budget);
     if (data.type === "refresh" || data.type === "restore") {
       scope.postMessage({ id: data.id, type: data.type, answer });
@@ -89,6 +90,8 @@ scope.onmessage = ({ data }) => {
         "lab-coaching-v1",
         budget,
         {
+          checkpoint: (strategy) =>
+            scope.postMessage({ id: data.id, type: "checkpoint", strategy }),
           progress: (completed, progress) =>
             scope.postMessage({
               id: data.id,

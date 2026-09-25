@@ -104,12 +104,15 @@ export function GymMoves({
   const [selected, setSelected] = useState<ScoredMove | null>(null);
   const [progress, setProgress] = useState<CoachingProgress | null>(null);
   const [coaching, setCoaching] = useState<StrategyCoaching | null>(null);
+  const [quick, setQuick] = useState<StrategyCoaching | null>(null);
+  const receive = useRef<((event: MessageEvent) => void) | null>(null);
   const [limit, setLimit] = useState(25);
   const [retry, setRetry] = useState(0);
   const worker = useRef<Worker | null>(null),
     serial = useRef(1);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    let active = true;
     let instance: Worker;
     try {
       instance = new Worker(
@@ -137,14 +140,19 @@ export function GymMoves({
     };
     timeout.current = setTimeout(fail, 18000);
     instance.onerror = fail;
-    instance.onmessage = ({ data }) => {
-      if (data.id !== serial.current) return;
+    receive.current = instance.onmessage = ({ data }) => {
+      if (!active || data.id !== serial.current) return;
+      if (data.type === "checkpoint") {
+        setQuick(data.strategy);
+        return;
+      }
       if (data.type === "progress") {
         setProgress(data.progress ?? null);
         return;
       }
       if (timeout.current) clearTimeout(timeout.current);
       setBusy(false);
+      setQuick(null);
       if (data.type === "error") {
         setError(data.message);
         return;
@@ -154,7 +162,8 @@ export function GymMoves({
     };
     instance.postMessage({ id, type: "all-moves", puzzle, words });
     return () => {
-      instance.terminate();
+      active = false;
+      worker.current?.terminate();
       worker.current = null;
       if (timeout.current) clearTimeout(timeout.current);
     };
@@ -166,29 +175,50 @@ export function GymMoves({
     setCoaching(null);
     onPreview(move);
   }
+  function stopComparison() {
+    ++serial.current;
+    worker.current?.terminate();
+    worker.current = null;
+    setBusy(false);
+    setQuick(null);
+  }
   function compare() {
-    if (!selected || busy || !worker.current) return;
+    if (!selected || busy) return;
     onStrategy();
     setProgress(null);
+    setQuick(null);
     setBusy(true);
     setError("");
     setCoaching(null);
-    const instance = worker.current;
-    timeout.current = setTimeout(() => {
-      instance.terminate();
-      worker.current = null;
-      setBusy(false);
+    const id = ++serial.current;
+    try {
+      if (!worker.current) {
+        worker.current = new Worker(
+          new URL("../lib/gym-lab.worker.ts", import.meta.url),
+          { type: "module" },
+        );
+        worker.current.onmessage = receive.current;
+      }
+      worker.current.onerror = () => {
+        if (id !== serial.current) return;
+        stopComparison();
+        setError(
+          "The comparison could not finish. Your tiles and move list are kept.",
+        );
+      };
+      worker.current.postMessage({
+        id,
+        type: "strategy",
+        puzzle,
+        words,
+        action: { type: "play", placements: selected.placements },
+      });
+    } catch {
+      stopComparison();
       setError(
-        "Strategy analysis reached its time limit. Your draft and move list are kept.",
+        "The comparison could not start. Your tiles and move list are kept.",
       );
-    }, 18000);
-    instance.postMessage({
-      id: ++serial.current,
-      type: "strategy",
-      puzzle,
-      words,
-      action: { type: "play", placements: selected.placements },
-    });
+    }
   }
   return (
     <section className="gym-move-explorer" aria-label="Move explorer">
@@ -215,6 +245,27 @@ export function GymMoves({
             <>
               <p>Thinking about this placement…</p>
               <GymStrategyProgress progress={progress} />
+              <button
+                className="button light"
+                disabled={!quick}
+                onClick={() => {
+                  if (!quick) return;
+                  const result = quick;
+                  stopComparison();
+                  setCoaching(result);
+                }}
+              >
+                Answer now
+              </button>
+              <button className="button light" onClick={stopComparison}>
+                Cancel comparison
+              </button>
+              {!quick && (
+                <p>
+                  Answer now becomes available after the first comparison is
+                  ready.
+                </p>
+              )}
             </>
           ) : (
             <p>Finding legal placements…</p>
@@ -253,6 +304,12 @@ export function GymMoves({
               {coaching.verdict !== "same" && (
                 <p>
                   <strong>Another option:</strong> {coaching.recommended.label}
+                </p>
+              )}
+              {coaching.quick && (
+                <p>
+                  <strong>Quick comparison</strong> · You stopped this check
+                  early, so the advice may change with a closer look.
                 </p>
               )}
               <GymStrategyTakeaways result={coaching} />

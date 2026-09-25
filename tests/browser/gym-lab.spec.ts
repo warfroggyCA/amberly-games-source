@@ -812,6 +812,13 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
     const OriginalWorker = window.Worker;
     let stalled = false;
     window.Worker = class extends OriginalWorker {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        this.addEventListener("message", (event) => {
+          // Keep the real early result available long enough to exercise acceptance.
+          if (event.data.type === "strategy") event.stopImmediatePropagation();
+        });
+      }
       postMessage(message: { id: number; type: string; seed?: string }) {
         // Keep this success-path check reproducible under concurrent browser load.
         // Random positions and budget exhaustion are covered separately.
@@ -910,16 +917,29 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
   await expect(page.locator(".gym-status")).not.toContainText(
     "samples checked",
   );
+  await expect(
+    page.getByRole("button", { name: "Answer now", exact: true }),
+  ).toBeDisabled();
+  await page.clock.install();
+  await page.clock.fastForward(19000);
+  await expect(page.locator(".gym-status")).toContainText("Thinking…");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   expect(await readDraft()).toEqual(draft);
   await page
     .getByRole("button", { name: "Compare strategy", exact: true })
     .click();
+  const answerNow = page.getByRole("button", {
+    name: "Answer now",
+    exact: true,
+  });
+  await expect(answerNow).toBeEnabled({ timeout: 25000 });
+  await answerNow.click();
   const feedback = page.getByRole("region", {
     name: "Strategy comparison",
     exact: true,
   });
   await expect(feedback).toBeVisible({ timeout: 20000 });
+  await expect(feedback).toContainText("Quick comparison");
   await expect(
     feedback.getByRole("button", { name: /Your move/ }),
   ).toBeVisible();

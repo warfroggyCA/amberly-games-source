@@ -5,6 +5,12 @@ test("all moves ranks placements and previews without changing my draft", async 
   await page.addInitScript(() => {
     const Original = window.Worker;
     window.Worker = class extends Original {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        this.addEventListener("message", (event) => {
+          if (event.data.type === "strategy") event.stopImmediatePropagation();
+        });
+      }
       postMessage(value: { type: string; seed?: string; action?: unknown }) {
         if (value.type === "generate")
           value = { ...value, seed: "gym-feasibility-v1-0" };
@@ -49,6 +55,24 @@ test("all moves ranks placements and previews without changing my draft", async 
         .selectedStrategy,
   );
   expect(action.placements.length).toBe(previewCount);
+  await expect(
+    explorer.getByRole("button", { name: "Answer now" }),
+  ).toBeEnabled({ timeout: 25000 });
+  await explorer.getByRole("button", { name: "Answer now" }).click();
+  await expect(
+    explorer.getByText("Quick comparison", { exact: true }),
+  ).toBeVisible();
+  await explorer
+    .getByRole("button", { name: "Compare strategy for this move" })
+    .click();
+  await explorer.getByRole("button", { name: "Cancel comparison" }).click();
+  await explorer
+    .getByRole("button", { name: "Compare strategy for this move" })
+    .click();
+  await expect(
+    explorer.getByRole("button", { name: "Answer now" }),
+  ).toBeEnabled({ timeout: 25000 });
+  await explorer.getByRole("button", { name: "Answer now" }).click();
   await expect(explorer.getByText(/Think of this as advice/)).toBeVisible({
     timeout: 20000,
   });

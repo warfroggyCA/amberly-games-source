@@ -105,3 +105,37 @@ describe("Gym pending saves", () => {
     ).toBe(false);
   });
 });
+
+it("preserves old strategy events and validates the optional quick label", () => {
+  const data = {
+    sessionId: crypto.randomUUID(),
+    playerId: "one",
+    puzzle: {},
+    event: {
+      id: crypto.randomUUID(),
+      sequence: 1,
+      occurredAt: new Date().toISOString(),
+      payload: {
+        type: "strategy",
+        attemptId: crypto.randomUUID(),
+        policy: "sampled-reply-rack-v1",
+        verdict: "same",
+        requested: "AT",
+        recommended: "AT",
+        replyPoints: 12,
+        alternativeReplyPoints: 12,
+        gap: 0,
+        samples: 4,
+      },
+    },
+  };
+  expect(isGymWrite(data)).toBe(true);
+  for (const quick of [true, false, "true", null, 1]) {
+    expect(
+      isGymWrite({
+        ...data,
+        event: { ...data.event, payload: { ...data.event.payload, quick } },
+      }),
+    ).toBe(typeof quick === "boolean");
+  }
+});

@@ -42,6 +42,8 @@ export interface StrategyCoaching {
   discoverySamples: number;
   validationSamples: number;
   completedSamples: number;
+  /** User may accept a checkpoint before all fresh comparisons finish. */
+  quick?: boolean;
 }
 export interface CoachingProgress {
   phase: "discovery" | "validation";
@@ -52,6 +54,7 @@ export interface CoachingOptions {
   discoverySamples?: number;
   validationSamples?: number;
   progress?: (completed: number, progress: CoachingProgress) => void;
+  checkpoint?: (result: StrategyCoaching) => void;
 }
 
 /** Midgame heuristic, never a winning-odds estimator. No synthetic hidden state is accepted. */
@@ -172,11 +175,6 @@ export function coachStrategy(
   report("validation");
   const chosen: CoachingMove[] = [];
   const played: CoachingMove[] = [];
-  for (let i = 0; i < validationSamples; i++) {
-    const a = run(recommended, "validation", i);
-    chosen.push(a);
-    played.push(same ? a : run(requested, "validation", i));
-  }
   const average = (moves: CoachingMove[]): CoachingMove => ({
     ...moves[0],
     replyPoints:
@@ -185,22 +183,35 @@ export function coachStrategy(
       moves.reduce((sum, m) => sum + m.rackBalance, 0) / moves.length,
     estimate: moves.reduce((sum, m) => sum + m.estimate, 0) / moves.length,
   });
-  const gaps = chosen.map((move, i) => move.estimate - played[i].estimate);
-  const gap = gaps.reduce((sum, n) => sum + n, 0) / gaps.length;
-  return {
-    policy: COACHING_POLICY,
-    horizon: "opponent-reply",
-    requested: average(played),
-    recommended: average(chosen),
-    gap,
-    sampleGapRange: [Math.min(...gaps), Math.max(...gaps)],
-    verdict: same ? "same" : Math.min(...gaps) > 0 ? "favoured" : "uncertain",
-    considered: candidates.size,
-    available: summary.candidateCount,
-    discoverySamples,
-    validationSamples,
-    completedSamples,
+  const result = (quick: boolean): StrategyCoaching => {
+    const gaps = chosen.map((move, i) => move.estimate - played[i].estimate);
+    const gap = gaps.reduce((sum, n) => sum + n, 0) / gaps.length;
+    return {
+      policy: COACHING_POLICY,
+      horizon: "opponent-reply",
+      requested: average(played),
+      recommended: average(chosen),
+      gap,
+      sampleGapRange: [Math.min(...gaps), Math.max(...gaps)],
+      verdict: same ? "same" : Math.min(...gaps) > 0 ? "favoured" : "uncertain",
+      considered: candidates.size,
+      available: summary.candidateCount,
+      discoverySamples,
+      validationSamples: chosen.length,
+      completedSamples,
+      ...(quick ? { quick: true } : {}),
+    };
   };
+  for (let i = 0; i < validationSamples; i++) {
+    const a = run(recommended, "validation", i);
+    const b = same ? a : run(requested, "validation", i);
+    // Publish only whole pairs: never average a half-finished or failed search.
+    chosen.push(a);
+    played.push(b);
+    if (chosen.length >= 2 && chosen.length < validationSamples)
+      options.checkpoint?.(result(true));
+  }
+  return result(false);
 }
 
 function describeAction(

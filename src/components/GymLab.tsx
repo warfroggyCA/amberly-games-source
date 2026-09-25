@@ -116,6 +116,10 @@ export function GymLab({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [grade, setGrade] = useState<Grade | null>(null);
+  const [quickStrategy, setQuickStrategy] = useState<StrategyCoaching | null>(
+    null,
+  );
+  const acceptQuick = useRef<((result: StrategyCoaching) => void) | null>(null);
   const [strategyProgress, setStrategyProgress] =
     useState<CoachingProgress | null>(null);
   const [strategyView, setStrategyView] = useState<StrategyView>("requested");
@@ -305,6 +309,8 @@ export function GymLab({
     }
   }
   function stop() {
+    setQuickStrategy(null);
+    acceptQuick.current = null;
     worker.current?.terminate();
     worker.current = null;
     if (timeout.current) clearTimeout(timeout.current);
@@ -425,6 +431,33 @@ export function GymLab({
     });
   }
 
+  function showStrategy(result: StrategyCoaching, attemptId: string | null) {
+    setStrategy(result);
+    setStrategyView("requested");
+    setReveal(true);
+    requestAnimationFrame(() =>
+      boardRef.current?.closest(".gym-workspace")?.scrollIntoView({
+        block: "start",
+        behavior: reducedMotionRef.current ? "auto" : "smooth",
+      }),
+    );
+    if (attemptId) {
+      historySync.record({
+        type: "strategy",
+        attemptId,
+        policy: result.policy,
+        verdict: result.verdict,
+        requested: result.requested.label,
+        recommended: result.recommended.label,
+        replyPoints: result.requested.replyPoints,
+        alternativeReplyPoints: result.recommended.replyPoints,
+        gap: result.gap,
+        samples: result.completedSamples,
+        ...(result.quick ? { quick: true } : {}),
+      });
+    }
+    setMessage("");
+  }
   function request(
     input:
       | Omit<Extract<LabRequest, { type: "generate" }>, "id">
@@ -449,6 +482,12 @@ export function GymLab({
     setStrategyProgress(null);
     const attemptId = savedAttempt.current;
     const id = ++serial.current;
+    if (input.type === "strategy")
+      acceptQuick.current = (result) => {
+        if (id !== serial.current) return;
+        stop();
+        showStrategy(result, attemptId);
+      };
     setBusy(
       input.type === "generate"
         ? "Preparing a fresh board…"
@@ -474,19 +513,24 @@ export function GymLab({
         { type: "module" },
       );
       worker.current = instance;
-      timeout.current = setTimeout(
-        () =>
-          fail(
-            "Analysis reached its time limit. Your current board and tiles have been kept.",
-          ),
-        18_000,
-      );
+      if (input.type !== "strategy")
+        timeout.current = setTimeout(
+          () =>
+            fail(
+              "Analysis reached its time limit. Your current board and tiles have been kept.",
+            ),
+          18_000,
+        );
       instance.onerror = () =>
         fail(
           "The analysis worker could not run. Your current board and tiles have been kept.",
         );
       instance.onmessage = ({ data }) => {
         if (id !== serial.current || data.id !== id) return;
+        if (data.type === "checkpoint") {
+          setQuickStrategy(data.strategy);
+          return;
+        }
         if (data.type === "progress") {
           setStrategyProgress(data.progress ?? null);
           setBusy("Thinking…");
@@ -579,31 +623,7 @@ export function GymLab({
             });
           setMessage("Your move is legal.");
         } else if (data.type === "strategy") {
-          setStrategy(data.strategy);
-          setStrategyView("requested");
-          setReveal(true);
-          requestAnimationFrame(() =>
-            boardRef.current?.closest(".gym-workspace")?.scrollIntoView({
-              block: "start",
-              behavior: reducedMotionRef.current ? "auto" : "smooth",
-            }),
-          );
-          if (attemptId) {
-            const result = data.strategy as StrategyCoaching;
-            historySync.record({
-              type: "strategy",
-              attemptId,
-              policy: result.policy,
-              verdict: result.verdict,
-              requested: result.requested.label,
-              recommended: result.recommended.label,
-              replyPoints: result.requested.replyPoints,
-              alternativeReplyPoints: result.recommended.replyPoints,
-              gap: result.gap,
-              samples: result.completedSamples,
-            });
-          }
-          setMessage("");
+          showStrategy(data.strategy, attemptId);
         }
       };
       instance.postMessage({ words, ...input, id });
@@ -1891,9 +1911,28 @@ export function GymLab({
             <div className="gym-status-content">
               <span>{busy ?? message}</span>
               {busy === "Thinking…" && (
-                <GymStrategyProgress progress={strategyProgress} />
+                <>
+                  <GymStrategyProgress progress={strategyProgress} />
+                  {!quickStrategy && (
+                    <small>
+                      Answer now becomes available after the first comparison is
+                      ready.
+                    </small>
+                  )}
+                </>
               )}
             </div>
+            {busy === "Thinking…" && (
+              <button
+                className="button light"
+                disabled={!quickStrategy}
+                onClick={() =>
+                  quickStrategy && acceptQuick.current?.(quickStrategy)
+                }
+              >
+                Answer now
+              </button>
+            )}
             {busy && (
               <button
                 className="text-button"

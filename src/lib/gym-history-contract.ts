@@ -31,6 +31,7 @@ export type GymEventPayload =
       alternativeReplyPoints: number;
       gap: number;
       samples: number;
+      quick?: boolean;
     };
 export interface GymEvent {
   id: string;
@@ -185,6 +186,7 @@ export function isGymWrite(v: unknown): v is GymWrite {
         number(p.replyPoints, 0, 3000) &&
         number(p.alternativeReplyPoints, 0, 3000) &&
         number(p.gap, -10000, 10000) &&
+        (p.quick === undefined || typeof p.quick === "boolean") &&
         integer(p.samples, 1, 4096)
       );
     default:

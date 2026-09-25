@@ -1120,15 +1120,15 @@
   pointer-events: none;
   display: grid;
   place-items: center;
-  border: 4px solid #fffbe6;
-  background: #ffd54a;
-  color: #493019;
+  border: 4px solid #e9fff0;
+  background: #64ce8b;
+  color: #185b35;
   font-size: 1.25em;
   line-height: 1;
   font-weight: 900;
   box-shadow:
-    0 0 0 3px #493019,
-    0 0 0 6px #ffd54a;
+    0 0 0 3px #185b35,
+    0 0 0 6px #64ce8b;
 }
 .gym-square[data-drop-preview="blocked"]::after {
   content: "×";
