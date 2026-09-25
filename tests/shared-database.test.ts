@@ -139,6 +139,62 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   gymHistoryDatabaseCases(owner, runtime);
+  it("shares confirmed words with scorer and Gym, retries without duplicates, and isolates families", async () => {
+    const f = await fixture(),
+      other = await fixture();
+    await expect(
+      repository.confirmWords(f.guest, f.familyId, ["ZZNOPE"]),
+    ).rejects.toThrow();
+    const [first, retry] = await Promise.all([
+      repository.confirmWords(f.guest, f.familyId, ["ZZTEST"]),
+      repository.confirmWords(f.admin, f.familyId, ["ZZTEST"]),
+    ]);
+    expect(first.map((word) => word.word)).toEqual(["ZZTEST"]);
+    expect(retry).toEqual(first);
+    expect(
+      (await repository.readState(f.admin, f.familyId)).verifiedWords,
+    ).toEqual(first);
+    const created = await f.create();
+    expect(created.game?.verifiedWords).toEqual(first);
+    expect(await repository.readWords(other.admin, other.familyId)).toEqual([]);
+    await expect(
+      repository.readWords(other.admin, f.familyId),
+    ).rejects.toThrow();
+    const audit =
+      await owner`select * from scrabble.audit where family_id=${f.familyId}::uuid and action='words.confirmed'`;
+    expect(audit).toHaveLength(1);
+  });
+  it("rechecks word-catalog membership after a slow publisher reply", async () => {
+    let release!: () => void, started!: () => void;
+    const began = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const repo = createSharedRepository(runtime, {
+      verifyWord: async (word) => {
+        started();
+        await gate;
+        return {
+          word,
+          playable: true,
+          source: "merriam-webster",
+          sourceUrl: `https://scrabble.merriam.com/finder/${word.toLowerCase()}`,
+          verifiedAt: "2026-09-25T00:00:00.000Z",
+        };
+      },
+    });
+    const f = await fixture();
+    const pending = repo.confirmWords(f.guest, f.familyId, ["ZZTEST"]);
+    await began;
+    await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.guest.userId}::uuid`;
+    const rejected = expect(pending).rejects.toThrow();
+    release();
+    await rejected;
+    expect(await repository.readWords(f.admin, f.familyId)).toEqual([]);
+  });
+
   crokinoleDatabaseCases(owner, runtime);
   gameSummaryDatabaseCases(owner, runtime);
   crokinolePermissionDatabaseCases(owner, runtime);

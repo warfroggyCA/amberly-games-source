@@ -25,6 +25,9 @@ test("Gym queues offline help, recovers after reload, and retrieves profile hist
         },
       }),
     );
+    await c.route("**/api/family/words", (route) =>
+      route.fulfill({ json: { words: [] } }),
+    );
     await c.route("**/api/family/gym**", async (route) => {
       if (route.request().method() === "POST") {
         if (offline)

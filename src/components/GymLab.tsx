@@ -34,8 +34,13 @@ import type { Letter, Placement, MoveResult } from "../domain/types";
 import type { LabRequest } from "../lib/gym-lab.worker";
 import { Modal } from "./Modal";
 import { useGymHistory } from "./useGymHistory";
+import { OfficialWordSearch } from "./OfficialWordSearch";
+import { gymWordCatalog } from "../lib/gym-word-catalog";
+import type { VerifiedWord } from "../domain/verified-words";
 import { GymHistory } from "./GymHistory";
 import "./gym-lab.css";
+import { useGymDraft } from "./useGymDraft";
+import { gymDraftKey, type GymDraft } from "../lib/gym-draft";
 interface Ready {
   puzzle: Puzzle;
   answer: ScoreSummary;
@@ -54,7 +59,46 @@ export function GymLab({
   profileHistory?: boolean;
 }) {
   const router = useRouter();
-  const historySync = useGymHistory(profileHistory);
+  const [words, setWords] = useState<VerifiedWord[]>([]);
+  const [catalog, setCatalog] = useState<VerifiedWord[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [referencePending, setReferencePending] = useState(false);
+  const [officialQuery, setOfficialQuery] = useState<string | null>(null);
+  const historySync = useGymHistory(
+    profileHistory,
+    words.map((entry) => entry.word),
+  );
+  const catalogUserId = historySync.identity?.userId;
+  const lookupOwner = useRef(catalogUserId);
+  useEffect(() => {
+    lookupOwner.current = catalogUserId;
+  }, [catalogUserId]);
+  useEffect(() => {
+    if (profileHistory && !catalogUserId) return;
+    let cancelled = false;
+    void gymWordCatalog(profileHistory ? catalogUserId : undefined).then(
+      (entries) => {
+        if (cancelled) return;
+        setWords(entries);
+        setCatalog(entries);
+        setCatalogLoaded(true);
+        setCatalogError("");
+      },
+      (error) => {
+        if (!cancelled)
+          setCatalogError(
+            error instanceof Error
+              ? error.message
+              : "Word list unavailable. Please retry.",
+          );
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [profileHistory, catalogUserId, catalogRetry]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const savedAttempt = useRef<string | null>(null);
   const [ready, setReady] = useState<Ready | null>(null);
@@ -89,7 +133,12 @@ export function GymLab({
     key: "",
     result: null,
   });
-  const liveKey = JSON.stringify([ready?.puzzle.seed, draft.tiles]);
+  const liveKey = JSON.stringify([
+    ready?.puzzle.seed,
+    words.map((entry) => entry.word),
+    referencePending,
+    draft.tiles,
+  ]);
   const introSeed = [...(ready?.puzzle.seed ?? "")].reduce(
     (hash, ch) => (Math.imul(hash, 31) + ch.charCodeAt(0)) >>> 0,
     0,
@@ -107,6 +156,7 @@ export function GymLab({
   const [leavePrompt, setLeavePrompt] = useState(false);
   const history = useRef<Draft[]>([]);
   const [undoCount, setUndoCount] = useState(0);
+  const [undoSnapshots, setUndoSnapshots] = useState<Draft[]>([]);
   const [introduced, setIntroduced] = useState(true);
   const worker = useRef<Worker | null>(null);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +171,53 @@ export function GymLab({
   const suppressClick = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  const recoveryKey = profileHistory
+    ? historySync.identity
+      ? gymDraftKey(historySync.identity)
+      : null
+    : gymDraftKey();
+  const [draftOwner, setDraftOwner] = useState<string | null>(null);
+  const recovery = useGymDraft(
+    recoveryKey,
+    ready && draftOwner === recoveryKey
+      ? {
+          version: 1,
+          puzzle: ready.puzzle,
+          draft,
+          undo: undoSnapshots,
+          referenceWords: words.map((w) => w.word),
+          hint,
+          pointToHint,
+          reveal,
+          solutionIndex,
+          help,
+          reducedMotion,
+          liveCoaching,
+          petPaused,
+        }
+      : null,
+  );
+  const restoring = useRef<GymDraft | null>(null);
+  function resumePractice() {
+    if (!recovery.saved || busy || !catalogLoaded) return;
+    const snapshot = recovery.saved;
+    const reference = catalog.filter((w) =>
+      snapshot.referenceWords.includes(w.word),
+    );
+    if (reference.length !== snapshot.referenceWords.length) {
+      setMessage(
+        "The saved word list is unavailable. Retry loading your word list before resuming.",
+      );
+      return;
+    }
+    restoring.current = snapshot;
+    request({
+      type: "restore",
+      puzzle: snapshot.puzzle,
+      snapshot,
+      words: reference,
+    });
+  }
   function saveDraft(next: Draft) {
     currentDraft.current = next;
     setDraft(next);
@@ -134,6 +231,7 @@ export function GymLab({
     if (JSON.stringify(previous) !== JSON.stringify(next)) {
       history.current.push(previous);
       setUndoCount(history.current.length);
+      setUndoSnapshots(history.current.slice(-100));
     }
   }
   function undoAction() {
@@ -141,6 +239,7 @@ export function GymLab({
     const previous = history.current.pop();
     if (!previous) return;
     setUndoCount(history.current.length);
+    setUndoSnapshots(history.current.slice(-100));
     saveDraft(previous);
   }
   function returnAll() {
@@ -150,13 +249,15 @@ export function GymLab({
     saveDraft(next);
     setReveal(false);
   }
-  function leavePractice() {
+  async function leavePractice() {
+    await recovery.flush();
     stop();
     validityWorker.current?.terminate();
     validityWorker.current = null;
     if (timer.current) clearTimeout(timer.current);
     history.current = [];
     setUndoCount(0);
+    setUndoSnapshots([]);
     saveDraft(emptyDraft([]));
     setReady(null);
     setReveal(false);
@@ -202,10 +303,10 @@ export function GymLab({
     [],
   );
   useEffect(() => {
-    if (!ready || !draft.tiles.length) return;
+    if (!ready || !draft.tiles.length || referencePending) return;
     let cancelled = false;
     let deadline: ReturnType<typeof setTimeout> | undefined;
-    const key = JSON.stringify([ready.puzzle.seed, draft.tiles]);
+    const key = liveKey;
     const id = Math.random();
     const timer = setTimeout(() => {
       try {
@@ -237,6 +338,7 @@ export function GymLab({
         instance.postMessage({
           id,
           position: ready.puzzle.position,
+          words,
           placements: draft.tiles.map(({ row, col, tile }) => ({
             row,
             col,
@@ -252,7 +354,7 @@ export function GymLab({
       clearTimeout(timer);
       clearTimeout(deadline);
     };
-  }, [ready, draft.tiles]);
+  }, [ready, draft.tiles, words, referencePending, liveKey]);
 
   function shuffleRack() {
     if (busy || !introduced || reveal || blank) return;
@@ -307,9 +409,16 @@ export function GymLab({
   function request(
     input:
       | Omit<Extract<LabRequest, { type: "generate" }>, "id">
+      | Omit<Extract<LabRequest, { type: "refresh" }>, "id">
+      | Omit<Extract<LabRequest, { type: "restore" }>, "id">
       | Omit<Extract<LabRequest, { type: "check" | "strategy" }>, "id">,
   ) {
-    if (worker.current) return;
+    if (
+      worker.current ||
+      (referencePending &&
+        (input.type === "check" || input.type === "strategy"))
+    )
+      return;
     if (input.type === "check") {
       if (liveCoaching) historySync.record({ type: "live-coaching" });
       savedAttempt.current = historySync.record({
@@ -323,9 +432,11 @@ export function GymLab({
     setBusy(
       input.type === "generate"
         ? "Preparing a fresh board…"
-        : input.type === "check"
-          ? "Checking your move…"
-          : "Thinking…",
+        : input.type === "refresh"
+          ? "Refreshing scores and hints…"
+          : input.type === "check"
+            ? "Checking your move…"
+            : "Thinking…",
     );
     setMessage("");
     const failureMessage = (text: string) =>
@@ -365,12 +476,48 @@ export function GymLab({
           setMessage(failureMessage(data.message));
           return;
         }
-        if (data.type === "generate") {
+        if (data.type === "restore") {
+          const snapshot = restoring.current;
+          if (!snapshot) return;
+          restoring.current = null;
+          setDraftOwner(recoveryKey);
+          setWords(input.words ?? words);
+          setReferencePending(false);
+          setReady({
+            puzzle: snapshot.puzzle,
+            answer: data.answer,
+            elapsedMs: 0,
+          });
+          saveDraft(snapshot.draft);
+          history.current = snapshot.undo;
+          setUndoCount(snapshot.undo.length);
+          setUndoSnapshots(snapshot.undo);
+          setHint(snapshot.hint);
+          setPointToHint(snapshot.pointToHint);
+          setReveal(snapshot.reveal);
+          setSolutionIndex(snapshot.solutionIndex);
+          setHelp(snapshot.help);
+          setReducedMotion(snapshot.reducedMotion);
+          reducedMotionRef.current = snapshot.reducedMotion;
+          setLiveCoaching(snapshot.liveCoaching);
+          setPetPaused(snapshot.petPaused);
+          setIntroduced(true);
+          setStrategy(null);
+          historySync.start(snapshot.puzzle);
+          historySync.record({ type: "resume" });
+          setMessage(
+            "Practice restored. Your tiles and help state are kept; analysis has been refreshed.",
+          );
+        } else if (data.type === "generate") {
+          setDraftOwner(recoveryKey);
+          setWords(input.words ?? words);
+          setReferencePending(false);
           const next = data as Ready;
           setReady(next);
           historySync.start(next.puzzle);
           history.current = [];
           setUndoCount(0);
+          setUndoSnapshots([]);
           saveDraft(emptyDraft(next.puzzle.position.rack));
           setReveal(false);
 
@@ -384,6 +531,16 @@ export function GymLab({
           if (timer.current) clearTimeout(timer.current);
           if (!reduce)
             timer.current = setTimeout(() => setIntroduced(true), 1600);
+        } else if (data.type === "refresh") {
+          setDraftOwner(recoveryKey);
+          setWords(input.words ?? words);
+          setReady((prior) =>
+            prior ? { ...prior, answer: data.answer } : prior,
+          );
+          setReferencePending(false);
+          setMessage(
+            "Word list updated. Scores, hints and solutions have been refreshed; your tiles are kept.",
+          );
         } else if (data.type === "check") {
           setGrade(data.grade);
           if (attemptId)
@@ -411,17 +568,46 @@ export function GymLab({
           );
         }
       };
-      instance.postMessage({ ...input, id });
+      instance.postMessage({ words, ...input, id });
     } catch {
       fail("This browser could not start the analysis worker. Please retry.");
     }
   }
   function generate() {
-    if (busy) return;
+    if (busy || !catalogLoaded) return;
     const seed = [...crypto.getRandomValues(new Uint32Array(4))]
       .map((n) => n.toString(16).padStart(8, "0"))
       .join("");
-    request({ type: "generate", seed });
+    request({ type: "generate", seed, words: catalog });
+  }
+  async function saveLookup(entries: VerifiedWord[]) {
+    const owner = lookupOwner.current;
+    if (profileHistory && !owner)
+      throw new Error("Reconnect your profile before saving words.");
+    const saved = await gymWordCatalog(
+      profileHistory ? owner : undefined,
+      entries,
+    );
+    if (profileHistory && lookupOwner.current !== owner)
+      throw new Error("Your account changed. Reload before continuing.");
+    setCatalog(saved);
+    if (
+      JSON.stringify(saved.map((entry) => entry.word).sort()) !==
+      JSON.stringify(words.map((entry) => entry.word).sort())
+    ) {
+      setGrade(null);
+      savedAttempt.current = null;
+      setStrategy(null);
+      setReveal(false);
+      setHint(0);
+      setPointToHint(false);
+      setSolutionIndex(0);
+      if (ready) {
+        setReferencePending(true);
+        request({ type: "refresh", puzzle: ready.puzzle, words: saved });
+      } else setWords(saved);
+    }
+    return true;
   }
   function put(id: number, target = currentDraft.current.cursor) {
     if (!ready || busy || reveal || !introduced) return;
@@ -706,11 +892,47 @@ export function GymLab({
           </div>
         ) : (
           <p className="gym-preview-note">
-            Local preview · Progress is not saved. Refresh clears the puzzle.
+            Local preview · Draft recovery stays on this device; profile history
+            is unavailable.
             {!ready && " Strategy coaching uses short-horizon estimates."}
           </p>
         )}
 
+        <p className="gym-preview-note" role="status">
+          {recovery.status}
+        </p>
+        {catalogError && (
+          <p role="alert">
+            {catalogError}{" "}
+            <button
+              className="text-button"
+              onClick={() => setCatalogRetry((n) => n + 1)}
+            >
+              Retry word list
+            </button>
+          </p>
+        )}
+        {!catalogLoaded && !catalogError && (
+          <p role="status">Loading word list…</p>
+        )}
+        {referencePending && !busy && (
+          <p role="alert">
+            Your additions are saved, but scores and hints need refreshing.{" "}
+            <button
+              className="button light"
+              onClick={() =>
+                ready &&
+                request({
+                  type: "refresh",
+                  puzzle: ready.puzzle,
+                  words: catalog,
+                })
+              }
+            >
+              Retry word list
+            </button>
+          </p>
+        )}
         {!ready ? (
           <section className="gym-welcome">
             <div className="gym-welcome-copy">
@@ -725,12 +947,30 @@ export function GymLab({
                 likely replies and the tiles you keep.
               </p>
               <p>Two players · Untimed · Seven tiles</p>
+              {recovery.saved && (
+                <button
+                  className="button primary"
+                  disabled={!!busy || !catalogLoaded}
+                  onClick={resumePractice}
+                >
+                  Resume practice
+                </button>
+              )}
               <button
-                className="button primary"
-                disabled={!!busy || (profileHistory && !historySync.identity)}
+                className={
+                  recovery.saved
+                    ? "button light gym-new-practice"
+                    : "button primary"
+                }
+                disabled={
+                  !!busy ||
+                  !catalogLoaded ||
+                  !recovery.loaded ||
+                  (profileHistory && !historySync.identity)
+                }
                 onClick={generate}
               >
-                Start practice
+                {recovery.saved ? "Start new practice" : "Start practice"}
               </button>
             </div>
             <Image
@@ -1091,7 +1331,11 @@ export function GymLab({
                   <div className="gym-play-controls">
                     <button
                       className="button primary"
-                      disabled={controlsDisabled || !draft.tiles.length}
+                      disabled={
+                        controlsDisabled ||
+                        referencePending ||
+                        !draft.tiles.length
+                      }
                       onClick={() =>
                         request({
                           type: "check",
@@ -1104,7 +1348,13 @@ export function GymLab({
                     </button>
                     <button
                       className="button light"
-                      disabled={!!busy || !introduced || reveal || hint === 3}
+                      disabled={
+                        !!busy ||
+                        referencePending ||
+                        !introduced ||
+                        reveal ||
+                        hint === 3
+                      }
                       onClick={() => {
                         historySync.record({
                           type: "hint",
@@ -1117,7 +1367,7 @@ export function GymLab({
                     </button>
                     <button
                       className="button light"
-                      disabled={!!busy || !introduced}
+                      disabled={!!busy || referencePending || !introduced}
                       onClick={() => {
                         if (!reveal) historySync.record({ type: "solve" });
                         setReveal(!reveal);
@@ -1127,6 +1377,23 @@ export function GymLab({
                       }}
                     >
                       {reveal ? "My move" : "Solve"}
+                    </button>
+                    <button
+                      className="button light"
+                      disabled={
+                        !!busy || !introduced || !!blank || !catalogLoaded
+                      }
+                      onClick={() => {
+                        historySync.record({ type: "word-lookup" });
+                        setOfficialQuery(
+                          (live.key === liveKey ? (live.words ?? []) : [])
+                            .filter((word) => !word.valid)
+                            .map((word) => word.word)
+                            .join(", "),
+                        );
+                      }}
+                    >
+                      Word lookup
                     </button>
                   </div>
                 </div>
@@ -1319,7 +1586,7 @@ export function GymLab({
                     {!reveal && (
                       <button
                         className="button light"
-                        disabled={!!busy || !introduced}
+                        disabled={!!busy || referencePending || !introduced}
                         aria-pressed={pointToHint}
                         onClick={() => setPointToHint((shown) => !shown)}
                       >
@@ -1608,8 +1875,8 @@ export function GymLab({
           >
             <p>
               {profileHistory
-                ? "Saved attempts remain in your history. Leaving clears the current tile draft; pending saves are kept on this device."
-                : "This local preview does not save puzzles. Leaving clears this board and your current move."}
+                ? "Saved attempts remain in your history. Your current practice is kept on this device when saving succeeds; choose Resume practice when you return."
+                : "Your current practice is kept on this device when saving succeeds. Choose Resume practice when you return."}
             </p>
             <div className="gym-header-actions">
               <button
@@ -1623,6 +1890,14 @@ export function GymLab({
               </button>
             </div>
           </Modal>
+        )}
+        {officialQuery !== null && (
+          <OfficialWordSearch
+            initialQuery={officialQuery}
+            storageScope={profileHistory ? "family" : "device"}
+            onSave={saveLookup}
+            onClose={() => setOfficialQuery(null)}
+          />
         )}
         {help && (
           <Modal title="How to play" onClose={() => setHelp(false)}>

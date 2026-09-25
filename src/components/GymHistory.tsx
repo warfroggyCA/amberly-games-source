@@ -62,6 +62,14 @@ export function GymHistory({
                     ? `${e.verifiedPoints} points (verified)`
                     : `Invalid move: ${e.reason}`}{" "}
                   · {e.assisted ? "Assisted" : "No recorded help"}
+                  {!!e.referenceWords?.length && (
+                    <details>
+                      <summary>
+                        Verified additions used ({e.referenceWords.length})
+                      </summary>
+                      <p>{e.referenceWords.join(", ")}</p>
+                    </details>
+                  )}
                   <p>
                     {e.payload.action.type === "play" &&
                       e.payload.action.placements
@@ -94,6 +102,10 @@ export function GymHistory({
                 `Hint ${e.payload.level} viewed`
               ) : e.payload.type === "solve" ? (
                 "Solution viewed"
+              ) : e.payload.type === "resume" ? (
+                <span>Resumed practice from this device</span>
+              ) : e.payload.type === "word-lookup" ? (
+                "Official word lookup used"
               ) : e.payload.type === "strategy-request" ? (
                 "Strategy comparison requested"
               ) : (
@@ -108,8 +120,8 @@ export function GymHistory({
     <section aria-label="Practice history">
       <p>
         Your personal practice, shared across signed-in devices. First attempts
-        and retries stay separate; live coaching, hints and solutions count as
-        assistance.
+        and retries stay separate; live coaching, word lookup, hints and
+        solutions count as assistance.
       </p>
       {!page?.sessions.length ? (
         <p>No saved practice yet.</p>

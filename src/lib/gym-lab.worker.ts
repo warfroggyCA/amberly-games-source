@@ -1,11 +1,16 @@
+import { validGymDraft, type GymDraft } from "./gym-draft";
+import { extendLexicon, type VerifiedWord } from "../domain/verified-words";
 import { analyseScore, gradeScore } from "../domain/gym/analysis";
 import { generatePuzzle, verifyPuzzle } from "../domain/gym/generator";
 import { makeBudget, type Action, type Puzzle } from "../domain/gym/model";
 import { coachStrategy } from "../domain/gym/coaching";
 import { defaultLexicon } from "./lexicons";
-export type LabRequest =
+export type LabRequest = (
   | { id: number; type: "generate"; seed: string }
-  | { id: number; type: "check" | "strategy"; puzzle: Puzzle; action: Action };
+  | { id: number; type: "refresh"; puzzle: Puzzle }
+  | { id: number; type: "restore"; puzzle: Puzzle; snapshot: GymDraft }
+  | { id: number; type: "check" | "strategy"; puzzle: Puzzle; action: Action }
+) & { words?: VerifiedWord[] };
 const scope = self as unknown as {
   onmessage: (event: MessageEvent<LabRequest>) => void;
   postMessage: (value: unknown) => void;
@@ -15,25 +20,46 @@ scope.onmessage = ({ data }) => {
   try {
     if (!Number.isSafeInteger(data.id) || data.id < 1)
       throw new Error("Invalid request.");
+    const lexicon = extendLexicon(defaultLexicon, data.words ?? []);
     if (data.type === "generate") {
       const result = generatePuzzle(data.seed, defaultLexicon, makeBudget());
       scope.postMessage({
         id: data.id,
         type: data.type,
         ...result,
+        answer: data.words?.length
+          ? analyseScore(result.puzzle.position, lexicon, makeBudget())
+          : result.answer,
         elapsedMs: performance.now() - start,
       });
       return;
     }
-    if (data.type !== "check" && data.type !== "strategy")
+    if (
+      data.type !== "check" &&
+      data.type !== "strategy" &&
+      data.type !== "refresh" &&
+      data.type !== "restore"
+    )
       throw new Error("Unknown operation.");
+    if (
+      data.type === "restore" &&
+      (!validGymDraft(data.snapshot) ||
+        JSON.stringify(data.snapshot.puzzle) !== JSON.stringify(data.puzzle))
+    )
+      throw new Error(
+        "Saved practice is invalid. Start a new puzzle when ready.",
+      );
     verifyPuzzle(data.puzzle, defaultLexicon);
     const budget = makeBudget();
-    const answer = analyseScore(data.puzzle.position, defaultLexicon, budget);
+    const answer = analyseScore(data.puzzle.position, lexicon, budget);
+    if (data.type === "refresh" || data.type === "restore") {
+      scope.postMessage({ id: data.id, type: data.type, answer });
+      return;
+    }
     const grade = gradeScore(
       data.puzzle.position,
       data.action,
-      defaultLexicon,
+      lexicon,
       answer,
     );
     if (data.type === "check")
@@ -46,7 +72,7 @@ scope.onmessage = ({ data }) => {
     else {
       const strategy = coachStrategy(
         data.puzzle.position,
-        defaultLexicon,
+        lexicon,
         answer,
         data.action,
         "lab-coaching-v1",

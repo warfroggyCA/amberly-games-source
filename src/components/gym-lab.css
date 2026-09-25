@@ -410,7 +410,7 @@
   font-size: 0.75rem;
 }
 .gym-active .gym-workspace {
-  grid-template-columns: minmax(330px, min(650px, calc(100dvh - 350px))) minmax(
+  grid-template-columns: minmax(330px, min(650px, calc(100dvh - 398px))) minmax(
       240px,
       1fr
     );
@@ -469,6 +469,7 @@
 }
 .gym-controls .gym-play-controls {
   flex: 1 1 235px;
+  flex-wrap: wrap;
 }
 .gym-controls .gym-play-controls .button {
   padding-inline: 10px;
@@ -1117,4 +1118,8 @@
   background: #922b26;
   border-color: #ffd2cb;
   color: white;
+}
+
+.gym-new-practice {
+  margin: 8px 0 0 8px;
 }

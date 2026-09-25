@@ -33,7 +33,7 @@ import {
 } from "../domain/verified-words";
 import { defaultLexicon, resolveLexicon } from "../lib/lexicons";
 import { isValidPlayerProfile } from "../lib/player-profile";
-import { fetchOfficialWord } from "../lib/official-word-server";
+import { lookupOfficialWordCached } from "./official-word-cache";
 import {
   normalizeOfficialWord,
   type OfficialWordResult,
@@ -441,7 +441,7 @@ export function createSharedRepository(
 ) {
   const resolve = options.resolveLexicon ?? resolveLexicon;
   const lexiconDefault = options.defaultLexicon ?? defaultLexicon;
-  const verifyWord = options.verifyWord ?? fetchOfficialWord;
+  const verifyWord = options.verifyWord ?? lookupOfficialWordCached;
   const context: CommandContext = {
     hasLegalMove: (board, rack, lexicon, tileSupply, verifiedWords) => {
       const base = resolve(lexicon);
@@ -2000,7 +2000,91 @@ export function createSharedRepository(
       return result.state as SpectatorState;
     })) as SpectatorState;
   }
+  // Additions are append-only and shared by scorer and Gym. Network work stays
+  // outside the family lock; authorization is checked again before insertion.
+  async function readWords(actor: VerifiedActor, familyId: string) {
+    return transaction(
+      actor,
+      familyId,
+      async (tx) => {
+        await activeMember(tx, actor, familyId, false);
+        const rows =
+          await tx`select evidence from scrabble.verified_words where family_id=${familyId}::uuid order by word limit 10001`;
+        if (rows.length > MAX_VERIFIED_WORDS)
+          reject("WORD_LIMIT", "The family word list has reached its limit.");
+        return rows.map((row) => row.evidence as VerifiedWord);
+      },
+      true,
+    );
+  }
+  async function confirmWords(
+    actor: VerifiedActor,
+    familyId: string,
+    input: unknown,
+  ) {
+    if (
+      !Array.isArray(input) ||
+      input.length < 1 ||
+      input.length > 8 ||
+      !input.every(
+        (word) => typeof word === "string" && /^[A-Z]{2,15}$/.test(word),
+      )
+    )
+      reject("INVALID_WORDS", "Check one to eight words of 2–15 letters.");
+    const wanted = [...new Set(input as string[])];
+    const prior = await readWords(actor, familyId);
+    const confirmed = new Map(prior.map((entry) => [entry.word, entry]));
+    for (const word of wanted) {
+      if (confirmed.has(word)) continue;
+      let result: OfficialWordResult;
+      try {
+        result = await verifyWord(word);
+      } catch {
+        reject(
+          "WORD_LOOKUP_UNAVAILABLE",
+          "The official check is unavailable. Your letters are kept; retry to save.",
+          502,
+        );
+      }
+      const { playable, ...evidence } = result;
+      if (!playable || evidence.word !== word || !isVerifiedWord(evidence))
+        reject("WORD_NOT_PLAYABLE", `${word} was not confirmed as playable.`);
+      confirmed.set(word, evidence);
+    }
+    return transaction(actor, familyId, async (tx) => {
+      await activeMember(tx, actor, familyId, true);
+      const rows =
+        await tx`select word,evidence from scrabble.verified_words where family_id=${familyId}::uuid order by word limit 10001`;
+      const current = new Map<string, VerifiedWord>(
+        rows.map((row) => [row.word, row.evidence]),
+      );
+      const additions = wanted.filter((word) => !current.has(word));
+      if (current.size + additions.length > MAX_VERIFIED_WORDS)
+        reject(
+          "WORD_LIMIT",
+          "The family word list has reached its limit. Nothing was added.",
+        );
+      for (const word of additions) {
+        const evidence = confirmed.get(word)!;
+        await tx`insert into scrabble.verified_words(family_id,word,evidence,verified_by) values(${familyId}::uuid,${word},${json(tx, evidence)},${actor.userId}::uuid)`;
+        current.set(word, evidence);
+      }
+      if (additions.length)
+        await audit(
+          tx,
+          actor,
+          familyId,
+          "words.confirmed",
+          "family-word-list",
+          null,
+          additions,
+        );
+      return [...current.values()].sort((a, b) => a.word.localeCompare(b.word));
+    });
+  }
   return {
+    readWords,
+    confirmWords,
     readState,
     mutate,
     admit,

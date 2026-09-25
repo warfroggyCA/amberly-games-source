@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { VerifiedWord } from "../domain/verified-words";
 import { lookupOfficialWord } from "../lib/official-word-client";
 import { Modal } from "./Modal";
+import "./official-word-search.css";
 
 type Result = {
   word: string;
@@ -16,8 +17,10 @@ export function OfficialWordSearch({
   initialQuery,
   onSave,
   onClose,
+  storageScope = "device",
 }: {
   initialQuery: string;
+  storageScope?: "device" | "family";
   onSave: (words: VerifiedWord[]) => Promise<boolean>;
   onClose: () => void;
 }) {
@@ -105,6 +108,13 @@ export function OfficialWordSearch({
             "The verified words were not saved. Your board letters are retained.",
           );
       }
+    } catch (cause) {
+      if (!controller.signal.aborted)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "The words could not be saved. Your board letters are kept; retry safely.",
+        );
     } finally {
       saving.current = false;
       if (request.current === controller) request.current = null;
@@ -120,8 +130,11 @@ export function OfficialWordSearch({
     <Modal title="Search official site" onClose={close}>
       <p>
         Check Merriam-Webster’s live Scrabble finder. Playable words are saved
-        on this device with their source and verification date, ready for future
-        games.
+        {storageScope === "family"
+          ? " to your family word list, shared across signed-in devices"
+          : " on this device"}{" "}
+        with their source and verification date, ready for future games and
+        practice.
       </p>
       <form
         onSubmit={(event) => {
@@ -153,8 +166,29 @@ export function OfficialWordSearch({
       )}
       <div className="official-results" aria-live="polite">
         {results.map((result) => (
-          <div key={result.word} className="official-result">
-            <strong>{result.word}</strong>
+          <div
+            key={result.word}
+            className={`official-result official-verdict ${result.playable === true ? "is-playable" : result.playable === false ? "is-unplayable" : "is-unknown"}`}
+          >
+            <h3 className="official-verdict-heading">
+              <span className="official-verdict-icon" aria-hidden="true">
+                {result.playable === true
+                  ? "✓"
+                  : result.playable === false
+                    ? "×"
+                    : "?"}
+              </span>
+              <span>
+                <span className="official-verdict-word">{result.word}</span>
+                <span className="official-verdict-label">
+                  {result.playable === true
+                    ? "Playable"
+                    : result.playable === false
+                      ? "Not playable"
+                      : "Could not verify"}
+                </span>
+              </span>
+            </h3>
             <p>{result.message}</p>
             {result.sourceUrl && (
               <a

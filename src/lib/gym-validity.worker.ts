@@ -1,3 +1,4 @@
+import { extendLexicon, type VerifiedWord } from "../domain/verified-words";
 import { draftWordFeedback } from "../domain/gym/word-feedback";
 import { scoreMove } from "../domain/scoring";
 import { consumedTiles, removeTiles, type Position } from "../domain/gym/model";
@@ -9,12 +10,14 @@ const scope = self as unknown as {
       id: number;
       position: Position;
       placements: Placement[];
+      words?: VerifiedWord[];
     }>,
   ) => void;
   postMessage: (value: unknown) => void;
 };
 scope.onmessage = ({ data }) => {
   try {
+    const lexicon = extendLexicon(defaultLexicon, data.words ?? []);
     removeTiles(
       data.position.rack,
       consumedTiles({ type: "play", placements: data.placements }),
@@ -22,7 +25,7 @@ scope.onmessage = ({ data }) => {
     const result = scoreMove(
       data.position.board,
       data.placements,
-      defaultLexicon,
+      lexicon,
       data.position.rack.length,
     );
     // Invalid words can have a potential point value; never present it as a legal score.
@@ -31,18 +34,14 @@ scope.onmessage = ({ data }) => {
         ? scoreMove(
             data.position.board,
             data.placements,
-            { ...defaultLexicon, has: () => true },
+            { ...lexicon, has: () => true },
             data.position.rack.length,
           )
         : null;
     scope.postMessage({
       id: data.id,
       result,
-      words: draftWordFeedback(
-        data.position.board,
-        data.placements,
-        defaultLexicon,
-      ),
+      words: draftWordFeedback(data.position.board, data.placements, lexicon),
       ...(tentative?.ok ? { tentativeScore: tentative.score } : {}),
     });
   } catch {

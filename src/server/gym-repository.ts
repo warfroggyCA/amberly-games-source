@@ -1,3 +1,4 @@
+import { extendLexicon, type VerifiedWord } from "../domain/verified-words";
 import { createHash } from "node:crypto";
 import type postgres from "postgres";
 import type { VerifiedActor } from "../lib/shared-contract";
@@ -167,21 +168,37 @@ export function createGymRepository(
     familyId: string,
     input: unknown,
   ) {
-    if (!isGymWrite(input) || JSON.stringify(input).length > 120000)
+    if (!isGymWrite(input) || JSON.stringify(input).length > 500000)
       fail("INVALID_EVENT", "Invalid practice event.");
     const data = input as GymWrite;
     // Authorize before validation work, then recheck inside the committing transaction.
-    await transaction(actor, familyId, false, async (_tx, i) => {
-      if (i.playerId !== data.playerId)
-        fail(
-          "PROFILE_CHANGED",
-          "Your linked profile changed. Pending practice has been kept.",
-          409,
-        );
-    });
-    const lexicon = (options.lexicon ?? resolveLexicon)(data.puzzle.reference);
+    const referenceEntries = await transaction(
+      actor,
+      familyId,
+      false,
+      async (tx, i) => {
+        if (i.playerId !== data.playerId)
+          fail(
+            "PROFILE_CHANGED",
+            "Your linked profile changed. Pending practice has been kept.",
+            409,
+          );
+        const wanted = data.event.referenceWords ?? [];
+        if (!wanted.length) return [] as VerifiedWord[];
+        const rows =
+          await tx`select word,evidence from scrabble.verified_words where family_id=${familyId}::uuid and word in ${tx(wanted)}`;
+        if (rows.length !== wanted.length)
+          fail(
+            "WORD_UNVERIFIED",
+            "The practice word list includes an unconfirmed word.",
+          );
+        return rows.map((row) => row.evidence as VerifiedWord);
+      },
+    );
+    const base = (options.lexicon ?? resolveLexicon)(data.puzzle.reference);
+    const lexicon = extendLexicon(base, referenceEntries);
     try {
-      verifyPuzzle(data.puzzle, lexicon);
+      verifyPuzzle(data.puzzle, base);
     } catch {
       fail(
         "INVALID_PUZZLE",
@@ -275,6 +292,14 @@ export function createGymRepository(
             "The original valid attempt must be saved first.",
           );
         if (
+          hash(data.event.referenceWords ?? []) !==
+          hash(target!.referenceWords ?? [])
+        )
+          fail(
+            "INVALID_ASSESSMENT",
+            "The word list changed after this attempt.",
+          );
+        if (
           payload.type === "score" &&
           payload.points !== target!.verifiedPoints
         )
@@ -286,9 +311,14 @@ export function createGymRepository(
       const assisted =
         session.replay ||
         previous.some((r) =>
-          ["hint", "solve", "live-coaching", "strategy-request"].includes(
-            r.event.payload.type,
-          ),
+          [
+            "hint",
+            "solve",
+            "live-coaching",
+            "strategy-request",
+            "word-lookup",
+            "resume",
+          ].includes(r.event.payload.type),
         );
       const stored: Omit<GymStoredEvent, "receivedAt"> = {
         ...data.event,

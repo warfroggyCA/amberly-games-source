@@ -42,7 +42,7 @@ async function response<T>(
     );
   return data;
 }
-export function useGymHistory(enabled: boolean) {
+export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
   const [identity, setIdentity] = useState<GymIdentity | null>(null),
     [status, setStatus] = useState(enabled ? "Connecting profile…" : ""),
     [page, setPage] = useState<GymHistory | null>(null),
@@ -229,6 +229,9 @@ export function useGymHistory(enabled: boolean) {
         sequence: ++s.sequence,
         occurredAt: new Date().toISOString(),
         payload,
+        ...(referenceWords.length
+          ? { referenceWords: [...referenceWords].sort() }
+          : {}),
       },
     };
     setStatus("Saving on this device…");

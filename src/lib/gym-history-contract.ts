@@ -1,7 +1,15 @@
+import { MAX_VERIFIED_WORDS } from "../domain/verified-words";
 import type { Puzzle, Action } from "../domain/gym/model";
 export type GymEventPayload =
   | { type: "hint"; level: number }
-  | { type: "solve" | "live-coaching" | "strategy-request" }
+  | {
+      type:
+        | "solve"
+        | "live-coaching"
+        | "strategy-request"
+        | "word-lookup"
+        | "resume";
+    }
   | { type: "attempt"; action: Action }
   | {
       type: "score";
@@ -27,6 +35,7 @@ export interface GymEvent {
   sequence: number;
   occurredAt: string;
   payload: GymEventPayload;
+  referenceWords?: string[];
 }
 export interface GymWrite {
   sessionId: string;
@@ -93,7 +102,15 @@ export function isGymWrite(v: unknown): v is GymWrite {
     typeof e.occurredAt !== "string" ||
     e.occurredAt.length > 32 ||
     !Number.isFinite(Date.parse(e.occurredAt)) ||
-    !object(e.payload)
+    !object(e.payload) ||
+    (e.referenceWords !== undefined &&
+      (!Array.isArray(e.referenceWords) ||
+        e.referenceWords.length > MAX_VERIFIED_WORDS ||
+        Object.keys(e.referenceWords).length !== e.referenceWords.length ||
+        !e.referenceWords.every(
+          (word) => typeof word === "string" && /^[A-Z]{2,15}$/.test(word),
+        ) ||
+        new Set(e.referenceWords).size !== e.referenceWords.length))
   )
     return false;
   const p = e.payload;
@@ -103,6 +120,8 @@ export function isGymWrite(v: unknown): v is GymWrite {
     case "solve":
     case "live-coaching":
     case "strategy-request":
+    case "resume":
+    case "word-lookup":
       return true;
     case "attempt": {
       const a = p.action;

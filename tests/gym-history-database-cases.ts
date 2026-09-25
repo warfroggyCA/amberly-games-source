@@ -62,6 +62,53 @@ export function gymHistoryDatabaseCases(
       });
       return { familyId, actor, other, repo, write, sessionId };
     }
+    it("marks a recovered practice attempt as assisted even without an earlier synced session", async () => {
+      const f = await fixture();
+      await f.repo.append(f.actor, f.familyId, f.write(1, { type: "resume" }));
+      await f.repo.append(f.actor, f.familyId, f.write(2, move));
+      const detail = (await f.repo.read(f.actor, f.familyId, {
+        sessionId: f.sessionId,
+      })) as GymSessionDetail;
+      expect(detail.events[1].assisted).toBe(true);
+      expect(detail.events[0].payload.type).toBe("resume");
+    });
+    it("preserves attempt word snapshots and rejects unconfirmed additions", async () => {
+      const f = await fixture();
+      const lookup = f.write(1, { type: "word-lookup" });
+      await f.repo.append(f.actor, f.familyId, lookup);
+      const attempt = f.write(2, move);
+      attempt.event.referenceWords = ["ZZTEST"];
+      await expect(f.repo.append(f.actor, f.familyId, attempt)).rejects.toThrow(
+        "unconfirmed",
+      );
+      const evidence = {
+        word: "ZZTEST",
+        source: "merriam-webster",
+        sourceUrl: "https://scrabble.merriam.com/finder/zztest",
+        verifiedAt: "2026-09-25T00:00:00.000Z",
+      };
+      await owner`insert into scrabble.verified_words(family_id,word,evidence,verified_by) values(${f.familyId}::uuid,'ZZTEST',${owner.json(evidence)},${f.actor.userId}::uuid)`;
+      await f.repo.append(f.actor, f.familyId, attempt);
+      const detail = (await f.repo.read(f.actor, f.familyId, {
+        sessionId: f.sessionId,
+      })) as GymSessionDetail;
+      expect(detail.events[0].referenceWords).toBeUndefined();
+      expect(detail.events[1]).toMatchObject({
+        referenceWords: ["ZZTEST"],
+        valid: true,
+        assisted: true,
+      });
+      const assessment = f.write(3, {
+        type: "score",
+        attemptId: attempt.event.id,
+        points: detail.events[1].verifiedPoints!,
+        rank: 1,
+        percentage: 100,
+      });
+      await expect(
+        f.repo.append(f.actor, f.familyId, assessment),
+      ).rejects.toThrow("word list changed");
+    });
     it("retrieves the same profile history through independent clients, deduplicates a lost receipt and preserves first attempts", async () => {
       const f = await fixture(),
         hint = f.write(1, { type: "hint", level: 1 });

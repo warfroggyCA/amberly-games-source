@@ -1819,6 +1819,7 @@ export function ScorerApp({
       )}
       {officialQuery !== null && game && (
         <OfficialWordSearch
+          storageScope={shared ? "family" : "device"}
           initialQuery={officialQuery}
           onClose={() => setOfficialQuery(null)}
           onSave={(words) =>
