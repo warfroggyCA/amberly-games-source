@@ -486,3 +486,22 @@
     font-size: 19px;
   }
 }
+
+/* Make rack entry unmistakable and keep its touch target comfortably sized. */
+.tile-rack-field > input:not([readonly]) {
+  border: 2px solid #527560;
+  background: #fffdf6;
+  min-height: 48px;
+}
+.tile-rack-field > input::placeholder {
+  color: #596657;
+  opacity: 1;
+  letter-spacing: normal;
+}
+.tile-rack-field:focus-within .physical-rack {
+  outline: 2px solid #246447;
+  outline-offset: 2px;
+}
+button.rack-empty-slot:not(:disabled) {
+  cursor: text;
+}

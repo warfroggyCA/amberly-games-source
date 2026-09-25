@@ -1,8 +1,8 @@
 "use client";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { LETTER_VALUES } from "../domain/board";
 import type { Letter } from "../domain/types";
-import { parseRackEntry } from "../lib/rack-entry";
+import { parseRackEntry, rackAvailabilityError } from "../lib/rack-entry";
 import "./playersetup.css";
 
 export function TileRackInput({
@@ -11,14 +11,17 @@ export function TileRackInput({
   onChange,
   readOnly = false,
   maxTiles = 7,
+  availableTiles,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   readOnly?: boolean;
   maxTiles?: number;
+  availableTiles?: Readonly<Record<string, number>>;
 }) {
   const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const parsed = parseRackEntry(value, maxTiles);
   const slotCount =
@@ -43,10 +46,13 @@ export function TileRackInput({
           const letter = tiles[index];
           if (!letter)
             return (
-              <span
+              <button
+                type="button"
                 key={index}
                 className="rack-empty-slot"
-                aria-hidden="true"
+                aria-label={`Enter letters for ${label}, space ${index + 1}`}
+                disabled={readOnly}
+                onClick={() => inputRef.current?.focus()}
               />
             );
           const points = letter === "?" ? 0 : LETTER_VALUES[letter as Letter];
@@ -72,6 +78,7 @@ export function TileRackInput({
         })}
       </div>
       <input
+        ref={inputRef}
         id={inputId}
         aria-label={label}
         aria-describedby={`${inputId}-hint${message ? ` ${inputId}-error` : ""}`}
@@ -90,6 +97,13 @@ export function TileRackInput({
             setError(next.error);
             return;
           }
+          const unavailable = availableTiles
+            ? rackAvailabilityError(next.value, availableTiles)
+            : null;
+          if (unavailable) {
+            setError(unavailable);
+            return;
+          }
           setError(null);
           onChange(next.value);
         }}
@@ -97,7 +111,7 @@ export function TileRackInput({
       <small id={`${inputId}-hint`} className="rack-entry-hint">
         {readOnly
           ? "These tiles come from the recorded rack."
-          : "Type or paste letters. Tap a tile to remove it. ? is a zero-point blank."}
+          : "Tap an empty rack space or the box below to type. Tap a letter to remove it. ? is a blank."}
       </small>
       {message && (
         <p id={`${inputId}-error`} className="rack-entry-error" role="alert">

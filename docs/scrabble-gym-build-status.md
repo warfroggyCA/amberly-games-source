@@ -212,3 +212,8 @@ Reproduced Add player failing with `crypto.randomUUID is not a function` when th
 ## Scorer clear-entry control — September 24, 2026
 
 Added the Gym-style double-down-arrow beside Backspace in the scorer toolbar. It clears only unrecorded placements, hides the current start indicator, resets automatic direction, closes letter tools and preserves recorded board/scores. Existing Clear letters uses the same action. Narrow-phone toolbar spacing retains all editing controls. All 36 scorer/keyboard browser cases passed across desktop, iPhone, iPad and landscape, including clear/reload/re-entry and recorded-score preservation; production build passed. Focused lint had no errors and retains the existing aria-description gridcell warning from the prior feedback change. iPad toolbar screenshot inspected.
+
+
+## Rack touch entry and immediate supply checks — September 24, 2026
+
+Empty rack spaces now focus their associated entry field on tap. Stronger input borders and placeholder contrast make entry clearer. Ending and assisted-finish rack inputs reject unavailable letters using the actual game supply minus board tiles and other entered racks, counting assigned blanks as blanks. Rejected additions preserve existing input; final domain validation remains intact. Seven domain tests and 32 scorer browser cases passed, plus an iPad screenshot check. Build and focused lint passed. Publication of this follow-up remains pending explicit authorization following automatic approval review.

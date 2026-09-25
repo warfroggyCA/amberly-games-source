@@ -49,3 +49,22 @@ describe("physical rack entry", () => {
     expect(original).toBe("a ? t");
   });
 });
+
+import {
+  availableRackTiles,
+  rackAvailabilityError,
+} from "../src/lib/rack-entry";
+import { createBoard, LETTER_COUNTS } from "../src/domain/board";
+it("accounts for board tiles, other racks, blanks and custom sets", () => {
+  const board = createBoard().map((row) => [...row]);
+  board[7][7] = { letter: "Z", blank: false };
+  board[7][8] = { letter: "Z", blank: true };
+  const available = availableRackTiles(board, LETTER_COUNTS, ["Q?"]);
+  expect(available.Z).toBe(0);
+  expect(available.Q).toBe(0);
+  expect(available["?"]).toBe(0);
+  expect(rackAvailabilityError("Z", available)).toContain("Only 0 Z tiles");
+  const custom = availableRackTiles(board, { ...LETTER_COUNTS, Z: 3 }, []);
+  expect(rackAvailabilityError("ZZ", custom)).toBeNull();
+  expect(rackAvailabilityError("ZZZ", custom)).toContain("Only 2 Z tiles");
+});

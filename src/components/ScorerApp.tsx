@@ -1,4 +1,5 @@
 "use client";
+import { availableRackTiles } from "../lib/rack-entry";
 import { browserId } from "../lib/browser-id";
 import { playerDisplayName } from "../lib/player-profile";
 import { PlayerName } from "./PlayerName";
@@ -2134,6 +2135,13 @@ function Ending({
                 <TileRackInput
                   label={`${nameOf(game, p)} remaining tiles`}
                   value={input[p]}
+                  availableTiles={availableRackTiles(
+                    game.board,
+                    getTileSupply(game),
+                    game.order
+                      .filter((id) => id !== p)
+                      .map((id) => input[id] ?? ""),
+                  )}
                   onChange={(value) => setInput({ ...input, [p]: value })}
                   readOnly={!!game.assistance || busy}
                 />

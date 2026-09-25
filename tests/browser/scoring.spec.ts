@@ -258,6 +258,7 @@ test("clear entered tiles preserves the recorded board and resets the start mark
 
 test("empty assisted racks stay editable and all exit controls work", async ({
   page,
+  isMobile,
 }) => {
   await startGame(page);
   await enter(page, "H8", "CAT");
@@ -292,12 +293,52 @@ test("empty assisted racks stay editable and all exit controls work", async ({
     .click();
   await expect(dialog).toHaveCount(0);
   await open();
-  await dialog
-    .getByRole("textbox", { name: "Ada remaining tiles", exact: true })
-    .fill("AAAAAAA");
-  await dialog
-    .getByRole("textbox", { name: "Ben remaining tiles", exact: true })
-    .fill("EEEEEEE");
+  const ada = dialog.getByRole("textbox", {
+    name: "Ada remaining tiles",
+    exact: true,
+  });
+  const ben = dialog.getByRole("textbox", {
+    name: "Ben remaining tiles",
+    exact: true,
+  });
+  const space = dialog.getByRole("button", {
+    name: "Enter letters for Ada remaining tiles, space 1",
+    exact: true,
+  });
+  if (isMobile) await space.tap();
+  else await space.click();
+  await expect(ada).toBeFocused();
+  await page.keyboard.type("Z");
+  await expect(ada).toHaveValue("Z");
+  await page.keyboard.type("Z");
+  await expect(ada).toHaveValue("Z");
+  await page.screenshot({
+    path: test.info().outputPath("rack-entry-availability.png"),
+  });
+  await expect(dialog.getByRole("alert")).toContainText("Only 1 Z tile");
+  await ben.fill("Z");
+  await expect(ben).toHaveValue("");
+  await expect(dialog.getByRole("alert").last()).toContainText(
+    "Only 0 Z tiles",
+  );
+  await ada.fill("");
+  await ben.fill("Z");
+  await expect(ben).toHaveValue("Z");
+  await ben.fill("");
+  for (const [name, letters] of [
+    ["Ada", "AAAAAAA"],
+    ["Ben", "EEEEEEE"],
+  ]) {
+    const field = dialog.getByRole("textbox", {
+      name: `${name} remaining tiles`,
+      exact: true,
+    });
+    if (isMobile) await field.tap();
+    else await field.click();
+    await expect(field).toBeFocused();
+    await page.keyboard.type(letters);
+    await expect(field).toHaveValue(letters);
+  }
   await expect(
     dialog.getByRole("button", { name: "Confirm assisted mode" }),
   ).toBeEnabled();
