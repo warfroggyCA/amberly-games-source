@@ -620,6 +620,51 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
   const box = (await ghost.boundingBox())!;
   expect(box.y + box.height).toBeLessThan(y);
   expect(box.width).toBeGreaterThan(source.width);
+  // Touch hover previews the exact cell used on release, including blocked cells.
+  const occupied = board.locator(".has-tile:not(.is-draft)").first();
+  const occupiedBox = (await occupied.boundingBox())!;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [
+      {
+        x: occupiedBox.x + occupiedBox.width / 2,
+        y: occupiedBox.y + occupiedBox.height / 2,
+      },
+    ],
+  });
+  await expect(occupied).toHaveAttribute("data-drop-preview", "blocked");
+  await expect(page.locator(".gym-drop-label")).toContainText("Occupied");
+  const emptyDestination = board
+    .locator("button:not(.has-tile):not(.is-draft)")
+    .nth(2);
+  const destination = board.locator(
+    `[data-row="${await emptyDestination.getAttribute("data-row")}"][data-col="${await emptyDestination.getAttribute("data-col")}"]`,
+  );
+  const destinationBox = (await destination.boundingBox())!;
+  const point = {
+    x: destinationBox.x + destinationBox.width / 2,
+    y: destinationBox.y + destinationBox.height / 2,
+  };
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [point],
+  });
+  await expect(destination).toHaveAttribute("data-drop-preview", "ready");
+  await expect(occupied).not.toHaveAttribute("data-drop-preview");
+  await page.screenshot({
+    path: testInfo.outputPath("touch-landing-preview.png"),
+  });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(destination).toHaveClass(/is-draft/);
+  await expect(board.locator("[data-drop-preview]")).toHaveCount(0);
+  await expect(ghost).toHaveCount(0);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [point],
+  });
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchMove",
     touchPoints: [{ x: 8, y: 180 }],

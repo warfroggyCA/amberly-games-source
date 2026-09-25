@@ -75,6 +75,7 @@ export function GymLab({
     y: number;
     touch: boolean;
     size: number;
+    target: (Square & { blocked: boolean }) | null;
   } | null>(null);
   const rackRef = useRef<HTMLDivElement>(null);
   const validityWorker = useRef<Worker | null>(null);
@@ -445,6 +446,11 @@ export function GymLab({
       ),
     );
   }
+  function dragTarget(x: number, y: number) {
+    return document
+      .elementFromPoint(x, y)
+      ?.closest<HTMLElement>("[data-gym-square]");
+  }
   function gestureStart(event: PointerEvent<HTMLButtonElement>, id: number) {
     if (busy || reveal || !introduced) return;
     if (
@@ -456,6 +462,7 @@ export function GymLab({
     suppressClick.current = null;
     setDragPreview({
       id,
+      target: null,
       x: event.clientX,
       y: event.clientY,
       touch: event.pointerType !== "mouse",
@@ -474,10 +481,29 @@ export function GymLab({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
   function gestureMove(event: PointerEvent<HTMLButtonElement>) {
-    if (gesture.current?.pointer === event.pointerId)
-      setDragPreview((previous) =>
-        previous ? { ...previous, x: event.clientX, y: event.clientY } : null,
-      );
+    const start = gesture.current;
+    if (!start || start.pointer !== event.pointerId) return;
+    const square = dragTarget(event.clientX, event.clientY);
+    const row = Number(square?.dataset.row),
+      col = Number(square?.dataset.col);
+    const target =
+      square &&
+      Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 12
+        ? {
+            row,
+            col,
+            blocked:
+              !!ready?.puzzle.position.board[row][col] ||
+              currentDraft.current.tiles.some(
+                (t) => t.id !== start.id && t.row === row && t.col === col,
+              ),
+          }
+        : null;
+    setDragPreview((previous) =>
+      previous
+        ? { ...previous, x: event.clientX, y: event.clientY, target }
+        : null,
+    );
   }
   function gestureCancel() {
     if (gesture.current) suppressClick.current = gesture.current.id;
@@ -494,7 +520,7 @@ export function GymLab({
     if (Math.hypot(dx, dy) < 12) return; // Native click handles a tap and keyboard activation.
     suppressClick.current = start.id;
     const hit = document.elementFromPoint(event.clientX, event.clientY);
-    const target = hit?.closest<HTMLElement>("[data-gym-square]");
+    const target = dragTarget(event.clientX, event.clientY);
     const fromBoard = currentDraft.current.tiles.some((t) => t.id === start.id);
     // A placed tile can be pulled off the board, including anywhere on the rack.
     // Only rack-origin gestures use the quick upward flick-to-cursor shortcut.
@@ -782,6 +808,11 @@ export function GymLab({
                               (p) => p.row === r && p.col === c,
                             ),
                         );
+                        const landing =
+                          dragPreview?.target?.row === r &&
+                          dragPreview.target.col === c
+                            ? dragPreview.target
+                            : null;
                         const wordFeedback = wordCells[`${r},${c}`];
                         // Stable per-puzzle scatter: re-renders never change a tile in flight.
                         const scatter = (r * 37 + c * 71 + introSeed) >>> 0;
@@ -792,6 +823,13 @@ export function GymLab({
                             key={`${r}-${c}`}
                             type="button"
                             data-gym-square
+                            data-drop-preview={
+                              landing
+                                ? landing.blocked
+                                  ? "blocked"
+                                  : "ready"
+                                : undefined
+                            }
                             data-row={r}
                             data-col={c}
                             className={`gym-square ${tile && introduced && !draggingSource ? "has-tile" : ""} ${draggingSource ? "is-drag-source" : ""} ${draftTile && placementInvalid && !draggingSource ? "is-placement-error" : ""} ${moving ? `is-draft${medal ? ` medal-${medal}` : ""}${reveal ? ` is-solution solution-${solutionIndex}` : ""}` : ""} ${selected ? "is-cursor" : ""} ${hinted ? "is-hint-target" : ""} premium-${premium ?? "plain"}`}
@@ -1533,6 +1571,16 @@ export function GymLab({
                 : {}),
             }}
           >
+            {dragPreview.target && (
+              <span
+                className={`gym-drop-label${dragPreview.target.blocked ? " is-blocked" : ""}`}
+              >
+                {dragPreview.target.blocked ? "× " : "↓ "}
+                {String.fromCharCode(65 + dragPreview.target.col)}
+                {dragPreview.target.row + 1}
+                {dragPreview.target.blocked ? " · Occupied" : ""}
+              </span>
+            )}
             <b>{dragTile.letter === "?" ? "" : dragTile.letter}</b>
             <small>
               {dragTile.blank ? 0 : LETTER_VALUES[dragTile.letter as Letter]}

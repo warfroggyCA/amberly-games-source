@@ -188,3 +188,10 @@ The isolated `codex/gym-history-release` candidate passed Node 24 lint, type che
 The first full browser run had one iPad strategy-success timeout on a random position (286 passed). The success-path test now uses a reproducible generated position with the real worker; the complete browser rerun passed. Random generation and timeout/cancellation preservation remain separate tests. This does not establish that every random strategy comparison completes on every device. A sync-status refinement also prevents reporting Saved to profile while additional queued events remain.
 
 Current hosted migration history was inspected read-only and does not include Gym history. Protected GitHub Verify, owner-approved hosted backup/restore, migration, deployment and physical-device/cross-device acceptance remain distinct rollout steps. The existing LAN preview still responds at port 4321 and remains unsaved standalone practice.
+
+
+## Touch landing preview — September 24, 2026
+
+Dragging now outlines the precise destination cell and shows its coordinate above the lifted tile, clear of the finger. Occupied cells use a red cross and Occupied label. Preview and release share the pointer hit-test; dropping, leaving the board and cancelling clear the preview. This indicates placement space, not whole-move or word validity.
+
+Type checking, focused lint, production build and five drag/drop browser cases passed (three native-touch cases intentionally skipped outside Chromium). Native touch injection covers blocked-to-empty preview transitions, exact-coordinate release, return to rack and undo. The rendered preview screenshot was inspected. Physical iPad acceptance remains with the owner.
