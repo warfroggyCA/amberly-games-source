@@ -207,3 +207,8 @@ Validation: 30 focused domain tests passed, including LOOT/RT, reversed input or
 ## HTTP preview player creation repair — September 24, 2026
 
 Reproduced Add player failing with `crypto.randomUUID is not a function` when that secure-context API is unavailable on a plain-HTTP LAN origin. Scorer player/game/command IDs and local verified-word events now use native UUIDs where supported, with a cryptographic getRandomValues UUID-v4 fallback. Existing IDs/data are unchanged. Eight ID/word-journal tests and all 24 scorer browser cases passed, including adding players, starting, recording and refreshing without randomUUID across four browser profiles. Production build and focused lint passed.
+
+
+## Scorer clear-entry control — September 24, 2026
+
+Added the Gym-style double-down-arrow beside Backspace in the scorer toolbar. It clears only unrecorded placements, hides the current start indicator, resets automatic direction, closes letter tools and preserves recorded board/scores. Existing Clear letters uses the same action. Narrow-phone toolbar spacing retains all editing controls. All 36 scorer/keyboard browser cases passed across desktop, iPhone, iPad and landscape, including clear/reload/re-entry and recorded-score preservation; production build passed. Focused lint had no errors and retains the existing aria-description gridcell warning from the prior feedback change. iPad toolbar screenshot inspected.

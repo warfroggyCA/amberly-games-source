@@ -227,3 +227,31 @@ test("LAN preview can add players, start and record without secure-context rando
     page.getByLabel("Ada, 10 points", { exact: true }),
   ).toBeVisible();
 });
+
+test("clear entered tiles preserves the recorded board and resets the start marker", async ({
+  page,
+}) => {
+  await startGame(page);
+  await enter(page, "H8", "CAT");
+  await review(page, 10);
+  await enter(page, "K8", "S");
+  const clear = page.getByRole("button", {
+    name: "Clear entered tiles",
+    exact: true,
+  });
+  await expect(clear).toBeVisible();
+  await clear.click();
+  await expect(page.locator(".square.fresh")).toHaveCount(0);
+  await expect(page.locator('.square[aria-selected="true"]')).toHaveCount(0);
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+  await expect(clear).toBeDisabled();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(page.locator(".square.fresh")).toHaveCount(0);
+  await enter(page, "K8", "S");
+  await review(page, 6);
+});

@@ -117,6 +117,7 @@ export function BoardEditor({
           direction: "across",
         };
   const [draft, setDraft] = useState(initial);
+  const [hasStart, setHasStart] = useState(true);
   const current = useRef(initial);
   const input = useRef<HTMLInputElement>(null);
   const workspace = useRef<HTMLDialogElement>(null);
@@ -422,6 +423,7 @@ export function BoardEditor({
   }
 
   function change(next: Draft) {
+    if (next.placements.length) setHasStart(true);
     current.current = next;
     setDraft(next);
     setMessage(null);
@@ -475,11 +477,12 @@ export function BoardEditor({
     const d = current.current;
     if (!canSelectDraftSquare(d, game.board, row, col)) {
       setMessage(
-        `Finish this word first. Your letters are kept. Review this turn, or ${fitScreen ? "clear letters in Letter tools" : "use Clear letters"} before starting elsewhere.`,
+        `Finish this word first. Your letters are kept. Review this turn, or ${fitScreen ? "use Clear entered tiles" : "use Clear letters"} before starting elsewhere.`,
       );
       focusInput();
       return;
     }
+    setHasStart(true);
     change({
       ...d,
       row,
@@ -490,6 +493,22 @@ export function BoardEditor({
         : inferDirection(game.board, row, col, d.direction, d.placements),
     });
     enterFocus();
+  }
+  function clearEntry() {
+    if (disabled) return;
+    input.current?.blur();
+    setHasStart(false);
+    setManualDirection(false);
+    setBlank(false);
+    setEntryOptions(false);
+    change({
+      ...current.current,
+      placements: [],
+      row: 7,
+      col: 7,
+      direction: "across",
+      atEdge: false,
+    });
   }
   function insert(text: string, asBlank = false) {
     if (disabled) return;
@@ -636,10 +655,7 @@ export function BoardEditor({
       <button
         className="text-button"
         disabled={disabled || !draft.placements.length}
-        onClick={() => {
-          change({ ...current.current, placements: [], atEdge: false });
-          if (focusedRef.current) focusInput();
-        }}
+        onClick={clearEntry}
       >
         Clear letters
       </button>
@@ -813,7 +829,10 @@ export function BoardEditor({
                         const wordFeedback = wordCells[`${r},${c}`];
                         const premium = premiumAt(r, c);
                         const selected =
-                          draft.row === r && draft.col === c && !disabled;
+                          hasStart &&
+                          draft.row === r &&
+                          draft.col === c &&
+                          !disabled;
                         const label = `${LETTERS[c]}${r + 1}${shown ? ` ${shown.letter}${shown.blank ? " blank, zero points" : `, ${LETTER_VALUES[shown.letter]} points`}` : ` empty${premium ? ` ${premium}` : ""}`}`;
                         return (
                           <button
@@ -1111,6 +1130,16 @@ export function BoardEditor({
               }}
             >
               <TabletopIcon name="erase" />
+            </button>
+            <button
+              type="button"
+              className="tabletop-tool entry-clear-button"
+              title="Clear entered tiles"
+              aria-label="Clear entered tiles"
+              disabled={disabled || !draft.placements.length}
+              onClick={clearEntry}
+            >
+              <span aria-hidden="true">⇊</span>
             </button>
             {onUndo && (
               <button

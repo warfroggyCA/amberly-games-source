@@ -679,3 +679,21 @@ body
     max-height: calc(var(--usable-game-height, 100dvh) - 8px);
   }
 }
+
+.entry-clear-button span {
+  font-size: 26px;
+  line-height: 1;
+}
+/* Keep editing actions reachable on narrow phones without shrinking touch targets. */
+@media (max-width: 420px) {
+  body .game-screen .persistent-entry-bar {
+    gap: 2px;
+  }
+  body .game-screen .persistent-entry-bar .entry-board-status {
+    display: none;
+  }
+  body .game-screen .persistent-entry-bar .entry-review-button {
+    width: 88px;
+    padding-inline: 6px;
+  }
+}
