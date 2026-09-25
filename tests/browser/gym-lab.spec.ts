@@ -844,6 +844,7 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
   });
   await expect(board).toBeVisible({ timeout: 25000 });
   await page.getByRole("button", { name: "Solve", exact: true }).click();
+  await page.getByRole("button", { name: /Bronze · Option/ }).click();
   const solution = await board.locator(".is-draft").evaluateAll((nodes) =>
     nodes.map((node) => ({
       row: node.getAttribute("data-row"),
@@ -902,7 +903,7 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
     page.getByRole("progressbar", { name: "Strategy comparison progress" }),
   ).toHaveAttribute("value", "75");
   await expect(page.locator(".gym-status")).toContainText(
-    "Checking the comparison with fresh racks",
+    "Trying a few more replies",
   );
   await expect(page.locator(".gym-status")).not.toContainText(
     "samples checked",
@@ -917,10 +918,29 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
     exact: true,
   });
   await expect(feedback).toBeVisible({ timeout: 20000 });
-  await expect(feedback).toContainText("Short-horizon estimate");
-  await expect(feedback).toContainText("Average opponent reply");
+  await expect(
+    feedback.getByRole("button", { name: /Your move/ }),
+  ).toBeVisible();
+  await expect(
+    feedback.getByRole("button", { name: /Another option/ }),
+  ).toBeVisible();
+  await expect(board.locator(".is-draft.comparison-requested")).toHaveCount(
+    draft.length,
+  );
+  await feedback.getByRole("button", { name: /Another option/ }).click();
+  await expect(board.locator(".comparison-recommended").first()).toBeVisible();
+  await feedback.getByRole("button", { name: /Your move/ }).click();
+  expect(await readDraft()).toEqual(draft);
   await expect(feedback.locator(".gym-strategy-takeaways")).toBeVisible();
   await feedback.screenshot({ path: info.outputPath("strategy-feedback.png") });
+  await page.screenshot({
+    path: info.outputPath("strategy-with-board.png"),
+    fullPage: true,
+  });
+  expect(await readDraft()).toEqual(draft);
+  await feedback
+    .getByRole("button", { name: "Back to my move", exact: true })
+    .click();
   expect(await readDraft()).toEqual(draft);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(feedback).toHaveCount(0);

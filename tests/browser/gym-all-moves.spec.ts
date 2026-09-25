@@ -49,7 +49,7 @@ test("all moves ranks placements and previews without changing my draft", async 
         .selectedStrategy,
   );
   expect(action.placements.length).toBe(previewCount);
-  await expect(explorer.getByText(/short-horizon estimate/)).toBeVisible({
+  await expect(explorer.getByText(/Think of this as advice/)).toBeVisible({
     timeout: 20000,
   });
   await page.screenshot({

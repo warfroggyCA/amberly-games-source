@@ -5,8 +5,8 @@ Strategy keeps the existing `sampled-reply-rack-v1` evaluator and its bounded se
 The main comparison and All moves now share:
 
 - An indeterminate preparation state, then a real work-progress bar. Shortlist discovery occupies the first half; fresh paired validation occupies the second half. This is sample progress, not a time estimate. No option counter is presented in the main loading state.
-- Plain-language trade-offs for points now, average sampled opponent reply, and the approximate rack-value difference after both players draw. This last term is not physical game points.
-- Explicit disagreement/tie wording when fresh samples do not all favour the alternative, and shortlist coverage limits when the requested move wins discovery.
+- Short coaching advice about extra points, the opponent’s scoring chances and the actual letters kept. Reply differences below one point read as about the same. Internal rack-value numbers stay in the expandable analysis details.
+- Plain-language uncertainty when neither move has a clear edge, and “of the moves we checked” when the requested move comes out on top. The introduction, result headings and loading text avoid engine terminology.
 
 Cancellation still terminates the worker and preserves the draft. Closing All moves cancels its worker. Request IDs reject obsolete worker replies. Main-view errors now preserve the actual failure reason rather than describing every failure as a timeout. Failed/capped simulations still abort the comparison; they are never silently omitted from an average.
 
@@ -15,3 +15,9 @@ Cancellation still terminates the worker and preserves the draft. Closing All mo
 Five deterministic full-dictionary cases were measured during development. Initial Node coaching times were approximately 0.55, 0.52, 7.71, 0.58 and 1.55 seconds. A proposed cache of shared sampled worlds returned identical results but did not improve timing (0.58, 0.53, 7.80, 0.57 and 1.65 seconds); it was discarded. These are local measurements, not iPad timing or a performance guarantee. No evaluation samples were reduced to make the progress indicator look faster.
 
 Unit tests cover progress endpoints/monotonicity, budget failure, immutable/reproducible comparisons and explanation signs/uncertainty. Browser checks cover cancellation, preserved drafts, a controlled intermediate progress event and completed comparisons through both entry points on desktop and iPhone/iPad profiles. Physical-device timing remains to be measured.
+
+## Board-linked comparison
+
+The result opens at the top of the board workspace. Move names and points lead the panel; blue identifies the checked move and purple the compared option. Tap either to preview its tiles and completed crossing words in the matching colour. Only one placement is shown at a time so overlapping options remain legible. A text label and pressed-button state identify the selected move without relying on colour. Hints and general feedback are hidden during comparison. The board stays sticky while reading, with a compact stacked layout on phones.
+
+Back to my move exits comparison and restores the untouched draft. Preview actions do not change the original tiles, rack, undo history or saved attempt. Comparison previews are not persisted as Solve state. The text names the other move explicitly and refers to the opponent’s next turn.

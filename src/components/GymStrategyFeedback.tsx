@@ -11,10 +11,10 @@ export function GymStrategyProgress({
 }) {
   const label =
     progress?.phase === "validation"
-      ? "Checking the comparison with fresh racks…"
+      ? "Trying a few more replies…"
       : progress?.phase === "discovery"
-        ? "Comparing moves and opponent replies…"
-        : "Preparing the comparison…";
+        ? "Looking at your options…"
+        : "Getting ready…";
   return (
     <div className="gym-strategy-progress">
       <span>{label}</span>
@@ -23,10 +23,7 @@ export function GymStrategyProgress({
         max={100}
         value={progress?.percentage}
       />
-      <small>
-        You can cancel and keep your tiles. Progress tracks completed samples,
-        not time remaining.
-      </small>
+      <small>Your tiles will stay put if you cancel.</small>
     </div>
   );
 }

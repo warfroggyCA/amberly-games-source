@@ -1,27 +1,32 @@
 import type { StrategyCoaching } from "./coaching";
 
-/** Describe the same three terms the evaluator uses, without inventing odds or a rank. */
+/** Player-facing advice uses measured points and actual retained tiles. */
 export function coachingTakeaways(result: StrategyCoaching): string[] {
   if (result.verdict === "same")
     return [
-      "Your move led the options tested. Other legal moves were not all compared strategically.",
-      `The sampled opponent replies averaged ${result.requested.replyPoints.toFixed(1)} points. These are possible replies, not a prediction of the opponent’s rack.`,
+      "Of the moves we checked, yours came out on top.",
+      "That’s a good sign, though we can’t know what your opponent will play next.",
     ];
+  const name = result.recommended.label.split(" at ")[0];
   const points = result.recommended.points - result.requested.points;
   const replies = result.requested.replyPoints - result.recommended.replyPoints;
-  const rack = result.recommended.rackBalance - result.requested.rackBalance;
+  const retained = result.recommended.retained
+    .map((tile) => (tile === "?" ? "blank" : tile))
+    .join(" · ");
   return [
     points === 0
-      ? "Both moves earn the same points now."
-      : `The alternative earns ${Math.abs(points)} ${points > 0 ? "more" : "fewer"} points now.`,
-    Math.abs(replies) < 0.05
-      ? "Average opponent reply scores are about the same."
-      : `The alternative leaves sampled opponent replies ${Math.abs(replies).toFixed(1)} points ${replies > 0 ? "lower" : "higher"} on average.`,
-    Math.abs(rack) < 0.05
-      ? "Estimated rack balance after both players draw is about the same."
-      : `The rough rack-balance estimate after both players draw favours ${rack > 0 ? "the alternative" : "your move"} by ${Math.abs(rack).toFixed(1)}. This is a heuristic, not scored points.`,
-    result.verdict === "uncertain"
-      ? "The fresh samples disagree or tie, so there is no clear winner."
-      : "The alternative led in every fresh sample tested; that does not guarantee it is best in the full game.",
+      ? "Both moves score the same points."
+      : `${name} scores ${Math.abs(points)} ${points > 0 ? "more" : "fewer"} points than yours.`,
+    Math.abs(replies) < 1
+      ? `${name} gives your opponent about the same scoring chances.`
+      : `After ${name}, we estimate your opponent could score about ${Math.abs(replies).toFixed(0)} ${replies > 0 ? "fewer" : "more"} ${Math.round(Math.abs(replies)) === 1 ? "point" : "points"} on their next turn.`,
+    retained
+      ? `With ${name}, you’d keep ${retained}${result.recommended.action.type === "pass" ? "." : ", then draw new tiles."}`
+      : "You’d use all your tiles and draw a fresh rack.",
+    ...(result.verdict === "uncertain"
+      ? [
+          "Neither move has a clear edge—it depends on what your opponent holds and what you draw.",
+        ]
+      : []),
   ];
 }

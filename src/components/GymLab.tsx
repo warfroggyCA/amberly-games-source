@@ -1,9 +1,11 @@
 "use client";
+import { GymStrategyProgress } from "./GymStrategyFeedback";
 import {
-  GymStrategyProgress,
-  GymStrategyTakeaways,
-} from "./GymStrategyFeedback";
+  GymStrategyComparison,
+  type StrategyView,
+} from "./GymStrategyComparison";
 import type { CoachingProgress } from "../domain/gym/coaching";
+import { comparisonCells } from "../domain/gym/comparison-cells";
 import { GymMoves } from "./GymMoves";
 import type { ScoredMove } from "../domain/solver";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
@@ -116,6 +118,7 @@ export function GymLab({
   const [grade, setGrade] = useState<Grade | null>(null);
   const [strategyProgress, setStrategyProgress] =
     useState<CoachingProgress | null>(null);
+  const [strategyView, setStrategyView] = useState<StrategyView>("requested");
   const [strategy, setStrategy] = useState<StrategyCoaching | null>(null);
   const [help, setHelp] = useState(false);
   const [blank, setBlank] = useState<{ id: number; target: Square } | null>(
@@ -199,7 +202,7 @@ export function GymLab({
           referenceWords: words.map((w) => w.word),
           hint,
           pointToHint,
-          reveal: reveal && !exploredMove,
+          reveal: reveal && !exploredMove && !strategy,
           solutionIndex,
           help,
           reducedMotion,
@@ -576,6 +579,14 @@ export function GymLab({
           setMessage("Your move is legal.");
         } else if (data.type === "strategy") {
           setStrategy(data.strategy);
+          setStrategyView("requested");
+          setReveal(true);
+          requestAnimationFrame(() =>
+            boardRef.current?.closest(".gym-workspace")?.scrollIntoView({
+              block: "start",
+              behavior: reducedMotionRef.current ? "auto" : "smooth",
+            }),
+          );
           if (attemptId) {
             const result = data.strategy as StrategyCoaching;
             historySync.record({
@@ -591,9 +602,7 @@ export function GymLab({
               samples: result.completedSamples,
             });
           }
-          setMessage(
-            "Strategy comparison ready. These are short-horizon estimates, not winning odds.",
-          );
+          setMessage("");
         }
       };
       instance.postMessage({ words, ...input, id });
@@ -810,8 +819,10 @@ export function GymLab({
   ) : null;
   const best = ready?.answer.best[0];
   const solution = exploredMove ?? ready?.answer.best[solutionIndex] ?? best;
-  const medal =
-    reveal && solution && ready
+  const comparisonAction = strategy?.[strategyView].action;
+  const medal = strategy
+    ? null
+    : reveal && solution && ready
       ? scoreMedal(solution.score, ready.answer)
       : strength?.medal;
   const solutionTone = exploredMove
@@ -823,7 +834,17 @@ export function GymLab({
           ? 2
           : "other"
     : solutionIndex;
-  const overlay: Placement[] = reveal ? (solution?.placements ?? []) : placed;
+  const overlay: Placement[] = comparisonAction
+    ? comparisonAction.type === "play"
+      ? comparisonAction.placements
+      : []
+    : reveal
+      ? (solution?.placements ?? [])
+      : placed;
+  const comparedCells =
+    strategy && ready
+      ? comparisonCells(ready.puzzle.position.board, overlay)
+      : new Set<string>();
   // Keep the nearby badge beyond the horizontal word, not on top of its letters.
   const lastPlaced = placed.at(-1);
   let scoreLocation = lastPlaced
@@ -1039,13 +1060,24 @@ export function GymLab({
               <span>{ready.puzzle.position.bagCount} in the bag</span>
               <span>Your turn</span>
             </div>
-            <div className="gym-workspace">
+            <div className={`gym-workspace${strategy ? " gym-comparing" : ""}`}>
               <section
                 className="gym-playing"
                 aria-label="Practice board and rack"
               >
                 <div className="gym-seat">
-                  Opponent · {ready.puzzle.position.opponentCount} tiles
+                  {strategy ? (
+                    <span
+                      className={`gym-comparison-board-label comparison-${strategyView}`}
+                    >
+                      Showing {strategy[strategyView].label.split(" at ")[0]} ·{" "}
+                      {strategyView === "requested"
+                        ? "Your move"
+                        : "Another option"}
+                    </span>
+                  ) : (
+                    <>Opponent · {ready.puzzle.position.opponentCount} tiles</>
+                  )}
                 </div>
                 <div className="gym-board-scroll">
                   <div
@@ -1093,7 +1125,9 @@ export function GymLab({
                           dragPreview.target.col === c
                             ? dragPreview.target
                             : null;
-                        const wordFeedback = wordCells[`${r},${c}`];
+                        const wordFeedback = strategy
+                          ? undefined
+                          : wordCells[`${r},${c}`];
                         // Stable per-puzzle scatter: re-renders never change a tile in flight.
                         const scatter = (r * 37 + c * 71 + introSeed) >>> 0;
                         const seat =
@@ -1112,7 +1146,7 @@ export function GymLab({
                             }
                             data-row={r}
                             data-col={c}
-                            className={`gym-square ${tile && introduced && !draggingSource ? "has-tile" : ""} ${draggingSource ? "is-drag-source" : ""} ${draftTile && placementInvalid && !draggingSource ? "is-placement-error" : ""} ${moving ? `is-draft${medal ? ` medal-${medal}` : ""}${reveal ? ` is-solution solution-${solutionTone}` : ""}` : ""} ${selected ? "is-cursor" : ""} ${hinted ? "is-hint-target" : ""} premium-${premium ?? "plain"}`}
+                            className={`gym-square ${tile && introduced && !draggingSource ? "has-tile" : ""} ${draggingSource ? "is-drag-source" : ""} ${draftTile && placementInvalid && !draggingSource ? "is-placement-error" : ""} ${comparedCells.has(`${r},${c}`) ? `comparison-${strategyView}` : ""} ${moving ? `is-draft${medal ? ` medal-${medal}` : ""}${reveal && !strategy ? ` is-solution solution-${solutionTone}` : ""}` : ""} ${selected ? "is-cursor" : ""} ${hinted ? "is-hint-target" : ""} premium-${premium ?? "plain"}`}
                             style={
                               {
                                 "--intro-delay": `${scatter % 480}ms`,
@@ -1408,6 +1442,11 @@ export function GymLab({
                       className="button light"
                       disabled={!!busy || referencePending || !introduced}
                       onClick={() => {
+                        if (strategy) {
+                          setStrategy(null);
+                          setReveal(false);
+                          return;
+                        }
                         setMovesOpen(false);
                         setExploredMove(null);
                         if (!reveal) historySync.record({ type: "solve" });
@@ -1456,382 +1495,297 @@ export function GymLab({
                 </div>
               </section>
               <aside className="gym-feedback" aria-label="Practice feedback">
-                {movesOpen && (
-                  <GymMoves
-                    puzzle={ready.puzzle}
-                    words={words}
-                    onPreview={(move) => {
-                      setExploredMove(move);
-                      setReveal(true);
-                      setStrategy(null);
-                      requestAnimationFrame(() =>
-                        boardRef.current?.scrollIntoView({
-                          block: "nearest",
-                          behavior: reducedMotion ? "auto" : "smooth",
-                        }),
-                      );
-                    }}
+                {strategy && (
+                  <GymStrategyComparison
+                    result={strategy}
+                    view={strategyView}
+                    onPreview={setStrategyView}
                     onClose={() => {
+                      setStrategy(null);
                       setReveal(false);
-                      setExploredMove(null);
-                      setMovesOpen(false);
                     }}
-                    onStrategy={() =>
-                      historySync.record({ type: "strategy-request" })
-                    }
                   />
                 )}
-                <div
-                  className={`gym-companion${petPaused ? " is-paused" : ""}`}
-                  aria-label="Scarlett, your practice companion"
-                >
-                  <Image
-                    className="gym-companion-image"
-                    src={
-                      reducedMotion || petPaused
-                        ? "/gym/scarlett-lift-still.png"
-                        : "/gym/scarlett-lift.webp"
-                    }
-                    unoptimized
-                    alt="Scarlett watching your practice"
-                    width={640}
-                    height={640}
-                    sizes="96px"
-                  />
-                  <h2>
-                    {exploredMove
-                      ? "Selected placement"
-                      : reveal
-                        ? solutionIndex === 0
-                          ? "Highest-scoring placement"
-                          : "Alternative scoring placement"
-                        : grade
-                          ? "Your move"
-                          : "Find your next move"}
-                  </h2>
-                </div>
-                {reveal && (
-                  <p className="gym-solve-lock" role="status">
-                    Viewing a solution · Choose My move to resume placing tiles,
-                    or ⇊ Return all to clear your entry.
-                  </p>
-                )}
-                {!grade && !reveal && (
-                  <p>
-                    Tap a start square, then tap or flick your rack tiles. You
-                    can also drag tiles onto the board. Tap the start again to
-                    switch direction.
-                  </p>
-                )}
-                {grade && !reveal && (
-                  <p className="gym-score">
-                    <strong>{grade.points}</strong> points
-                    <br />
-                    <span>
-                      {grade.rank === 1
-                        ? "Maximum score"
-                        : `Score rank #${grade.rank}`}
-                      {grade.percentage !== null
-                        ? ` · ${Math.round(grade.percentage)}% of maximum`
-                        : ""}
-                    </span>
-                  </p>
-                )}
-                {grade && !reveal && (
-                  <div className="gym-score-comparison">
-                    <label htmlFor="gym-score-meter">
-                      Your score compared with the maximum
-                    </label>
-                    <meter
-                      id="gym-score-meter"
-                      min={0}
-                      max={ready.answer.maximum}
-                      value={grade.points}
-                      aria-valuetext={`${grade.points} out of ${ready.answer.maximum} points`}
-                    />
-                    <span>
-                      {grade.points} / {ready.answer.maximum} points
-                    </span>
-                  </div>
-                )}
-                {!!placed.length && !reveal && (
-                  <p
-                    className={`gym-live-validity${placementInvalid ? " is-placement-error" : ""}`}
-                    role="status"
-                  >
-                    {live.key !== liveKey
-                      ? "Checking word validity…"
-                      : !live.result
-                        ? "Live validation unavailable. Use Check move to retry."
-                        : live.result.ok
-                          ? `Valid move: ${live.result.words.map((word) => word.word).join(" + ")} — ${live.result.score} points.`
-                          : `${placementInvalid ? "Invalid placement" : "Not valid yet"}: ${live.result.error.message}${placementInvalid ? " Adjust the outlined tiles; green letters still mean valid words." : ""}`}
-                  </p>
-                )}
-                {!reveal && live.key === liveKey && !!live.words?.length && (
-                  <ul
-                    className="gym-word-feedback"
-                    aria-label="Words in your move"
-                  >
-                    {live.words.map((word, i) => (
-                      <li
-                        key={i}
-                        className={word.valid ? "is-valid" : "is-invalid"}
-                      >
-                        {word.valid ? "✓" : "×"} {word.word} —{" "}
-                        {word.valid ? "valid" : "invalid"}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {!reveal && <WordFeedbackHelp cells={wordCells} />}
-                {strength && (
-                  <details className="gym-live-coaching">
-                    <summary>
-                      {strengthBars}{" "}
-                      <strong>
-                        {strength.best
-                          ? "★ Best possible score"
-                          : "Score strength"}
-                      </strong>{" "}
-                      · {Math.round(strength.percentage)}%
-                    </summary>
-                    <p>
-                      {live.result?.ok ? live.result.score : 0} points ·{" "}
-                      {strength.tied ? "tied " : ""}#{strength.rank} of{" "}
-                      {strength.total} legal placements ·{" "}
-                      {Math.round(strength.percentage)}% of maximum.
-                    </p>
-                    <p>
-                      Compared with every legal placement using this board and
-                      your full rack. Bars show points relative to the maximum.
-                    </p>
-                    <p>
-                      Exact strategy rank is not available; sampled analysis is
-                      separate.
-                    </p>
-                  </details>
-                )}
-                {reveal && solution && !movesOpen && (
+                {!strategy && (
                   <>
-                    <div
-                      className="gym-solution-options"
-                      role="group"
-                      aria-label="Top scoring placements"
-                    >
-                      {ready.answer.best.slice(0, 3).map((move, index) => (
-                        <button
-                          key={index}
-                          className={`button light solution-${index} medal-${scoreMedal(move.score, ready.answer)}`}
-                          aria-pressed={solutionIndex === index}
-                          onClick={() => setSolutionIndex(index)}
-                        >
-                          {scoreMedal(move.score, ready.answer)?.replace(
-                            /^./,
-                            (letter) => letter.toUpperCase(),
-                          )}{" "}
-                          · Option {index + 1} · {move.score} points
-                          {index > 0 &&
-                          move.score === ready.answer.best[index - 1].score
-                            ? " (tied)"
-                            : ""}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="gym-score">
-                      <strong>{solution.score}</strong> points
-                    </p>
-                    <p>
-                      {solution.words
-                        .map((w) => `${w.word} (${w.score})`)
-                        .join(" + ")}
-                      {solution.bingo ? ` + ${solution.bingo} bonus` : ""}
-                    </p>
-                    <p>
-                      {ready.answer.maximumCount} maximum-scoring placements ·{" "}
-                      {ready.answer.totalMoves} legal placements
-                    </p>
-                    <p>
-                      Highlighted tiles show option {solutionIndex + 1}. Medals
-                      mark the top three distinct scores; tied scores share a
-                      medal. Existing board tiles stay dark. These are score
-                      leaders; strategy may favour another move.
-                    </p>
-                  </>
-                )}
-                {!!hint && best && (
-                  <section className="gym-hints" aria-label="Revealed hints">
-                    <h3>Hints</h3>
-                    <ol aria-live="polite" aria-relevant="additions">
-                      {hints.slice(0, hint).map((text) => (
-                        <li key={text}>{text}</li>
-                      ))}
-                    </ol>
-                    {!reveal && (
-                      <button
-                        className="button light"
-                        disabled={!!busy || referencePending || !introduced}
-                        aria-pressed={pointToHint}
-                        onClick={() => setPointToHint((shown) => !shown)}
-                      >
-                        {pointToHint
-                          ? "Hide board pointer"
-                          : "Point to a square"}
-                      </button>
+                    {movesOpen && (
+                      <GymMoves
+                        puzzle={ready.puzzle}
+                        words={words}
+                        onPreview={(move) => {
+                          setExploredMove(move);
+                          setReveal(true);
+                          setStrategy(null);
+                          requestAnimationFrame(() =>
+                            boardRef.current?.scrollIntoView({
+                              block: "nearest",
+                              behavior: reducedMotion ? "auto" : "smooth",
+                            }),
+                          );
+                        }}
+                        onClose={() => {
+                          setReveal(false);
+                          setExploredMove(null);
+                          setMovesOpen(false);
+                        }}
+                        onStrategy={() =>
+                          historySync.record({ type: "strategy-request" })
+                        }
+                      />
                     )}
-                    {pointToHint && !reveal && (
-                      <p role="status">
-                        The arrow points to {hintCoordinate}, where one
-                        highest-scoring move places a tile. It does not
-                        necessarily start there.
+                    <div
+                      className={`gym-companion${petPaused ? " is-paused" : ""}`}
+                      aria-label="Scarlett, your practice companion"
+                    >
+                      <Image
+                        className="gym-companion-image"
+                        src={
+                          reducedMotion || petPaused
+                            ? "/gym/scarlett-lift-still.png"
+                            : "/gym/scarlett-lift.webp"
+                        }
+                        unoptimized
+                        alt="Scarlett watching your practice"
+                        width={640}
+                        height={640}
+                        sizes="96px"
+                      />
+                      <h2>
+                        {exploredMove
+                          ? "Selected placement"
+                          : reveal
+                            ? solutionIndex === 0
+                              ? "Highest-scoring placement"
+                              : "Alternative scoring placement"
+                            : grade
+                              ? "Your move"
+                              : "Find your next move"}
+                      </h2>
+                    </div>
+                    {reveal && (
+                      <p className="gym-solve-lock" role="status">
+                        Viewing a solution · Choose My move to resume placing
+                        tiles, or ⇊ Return all to clear your entry.
                       </p>
                     )}
-                  </section>
-                )}
-                {grade && (
-                  <details className="gym-strategy-experiment">
-                    <summary>About strategy coaching</summary>
-                    <p>
-                      Points rate this turn. Strategy also considers the letters
-                      you keep and the chances you leave your opponent, to
-                      compare how the rest of the game might go.
-                    </p>
-                    <p>
-                      Compare points, retained tiles and likely opponent
-                      replies. This samples hidden racks and uses approximate
-                      rack values; it is not a prediction of who wins. The
-                      15-second analysis limit keeps slow comparisons bounded.
-                    </p>
+                    {!grade && !reveal && (
+                      <p>
+                        Tap a start square, then tap or flick your rack tiles.
+                        You can also drag tiles onto the board. Tap the start
+                        again to switch direction.
+                      </p>
+                    )}
+                    {grade && !reveal && (
+                      <p className="gym-score">
+                        <strong>{grade.points}</strong> points
+                        <br />
+                        <span>
+                          {grade.rank === 1
+                            ? "Maximum score"
+                            : `Score rank #${grade.rank}`}
+                          {grade.percentage !== null
+                            ? ` · ${Math.round(grade.percentage)}% of maximum`
+                            : ""}
+                        </span>
+                      </p>
+                    )}
+                    {grade && !reveal && (
+                      <div className="gym-score-comparison">
+                        <label htmlFor="gym-score-meter">
+                          Your score compared with the maximum
+                        </label>
+                        <meter
+                          id="gym-score-meter"
+                          min={0}
+                          max={ready.answer.maximum}
+                          value={grade.points}
+                          aria-valuetext={`${grade.points} out of ${ready.answer.maximum} points`}
+                        />
+                        <span>
+                          {grade.points} / {ready.answer.maximum} points
+                        </span>
+                      </div>
+                    )}
+                    {!!placed.length && !reveal && (
+                      <p
+                        className={`gym-live-validity${placementInvalid ? " is-placement-error" : ""}`}
+                        role="status"
+                      >
+                        {live.key !== liveKey
+                          ? "Checking word validity…"
+                          : !live.result
+                            ? "Live validation unavailable. Use Check move to retry."
+                            : live.result.ok
+                              ? `Valid move: ${live.result.words.map((word) => word.word).join(" + ")} — ${live.result.score} points.`
+                              : `${placementInvalid ? "Invalid placement" : "Not valid yet"}: ${live.result.error.message}${placementInvalid ? " Adjust the outlined tiles; green letters still mean valid words." : ""}`}
+                      </p>
+                    )}
+                    {!reveal &&
+                      live.key === liveKey &&
+                      !!live.words?.length && (
+                        <ul
+                          className="gym-word-feedback"
+                          aria-label="Words in your move"
+                        >
+                          {live.words.map((word, i) => (
+                            <li
+                              key={i}
+                              className={word.valid ? "is-valid" : "is-invalid"}
+                            >
+                              {word.valid ? "✓" : "×"} {word.word} —{" "}
+                              {word.valid ? "valid" : "invalid"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    {!reveal && <WordFeedbackHelp cells={wordCells} />}
+                    {strength && (
+                      <details className="gym-live-coaching">
+                        <summary>
+                          {strengthBars}{" "}
+                          <strong>
+                            {strength.best
+                              ? "★ Best possible score"
+                              : "Score strength"}
+                          </strong>{" "}
+                          · {Math.round(strength.percentage)}%
+                        </summary>
+                        <p>
+                          {live.result?.ok ? live.result.score : 0} points ·{" "}
+                          {strength.tied ? "tied " : ""}#{strength.rank} of{" "}
+                          {strength.total} legal placements ·{" "}
+                          {Math.round(strength.percentage)}% of maximum.
+                        </p>
+                        <p>
+                          Compared with every legal placement using this board
+                          and your full rack. Bars show points relative to the
+                          maximum.
+                        </p>
+                        <p>
+                          Exact strategy rank is not available; sampled analysis
+                          is separate.
+                        </p>
+                      </details>
+                    )}
+                    {reveal && solution && !movesOpen && (
+                      <>
+                        <div
+                          className="gym-solution-options"
+                          role="group"
+                          aria-label="Top scoring placements"
+                        >
+                          {ready.answer.best.slice(0, 3).map((move, index) => (
+                            <button
+                              key={index}
+                              className={`button light solution-${index} medal-${scoreMedal(move.score, ready.answer)}`}
+                              aria-pressed={solutionIndex === index}
+                              onClick={() => setSolutionIndex(index)}
+                            >
+                              {scoreMedal(move.score, ready.answer)?.replace(
+                                /^./,
+                                (letter) => letter.toUpperCase(),
+                              )}{" "}
+                              · Option {index + 1} · {move.score} points
+                              {index > 0 &&
+                              move.score === ready.answer.best[index - 1].score
+                                ? " (tied)"
+                                : ""}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="gym-score">
+                          <strong>{solution.score}</strong> points
+                        </p>
+                        <p>
+                          {solution.words
+                            .map((w) => `${w.word} (${w.score})`)
+                            .join(" + ")}
+                          {solution.bingo ? ` + ${solution.bingo} bonus` : ""}
+                        </p>
+                        <p>
+                          {ready.answer.maximumCount} maximum-scoring placements
+                          · {ready.answer.totalMoves} legal placements
+                        </p>
+                        <p>
+                          Highlighted tiles show option {solutionIndex + 1}.
+                          Medals mark the top three distinct scores; tied scores
+                          share a medal. Existing board tiles stay dark. These
+                          are score leaders; strategy may favour another move.
+                        </p>
+                      </>
+                    )}
+                    {!!hint && best && (
+                      <section
+                        className="gym-hints"
+                        aria-label="Revealed hints"
+                      >
+                        <h3>Hints</h3>
+                        <ol aria-live="polite" aria-relevant="additions">
+                          {hints.slice(0, hint).map((text) => (
+                            <li key={text}>{text}</li>
+                          ))}
+                        </ol>
+                        {!reveal && (
+                          <button
+                            className="button light"
+                            disabled={!!busy || referencePending || !introduced}
+                            aria-pressed={pointToHint}
+                            onClick={() => setPointToHint((shown) => !shown)}
+                          >
+                            {pointToHint
+                              ? "Hide board pointer"
+                              : "Point to a square"}
+                          </button>
+                        )}
+                        {pointToHint && !reveal && (
+                          <p role="status">
+                            The arrow points to {hintCoordinate}, where one
+                            highest-scoring move places a tile. It does not
+                            necessarily start there.
+                          </p>
+                        )}
+                      </section>
+                    )}
+                    {grade && (
+                      <details className="gym-strategy-experiment">
+                        <summary>About strategy coaching</summary>
+                        <p>
+                          Is the biggest score always the best move? Compare
+                          what you score, the letters you keep, and the openings
+                          you leave for your opponent.
+                        </p>
+                        <p>
+                          We’ll look at what your opponent might score next to
+                          help you choose.
+                        </p>
+                        <button
+                          className="button light"
+                          disabled={!!busy}
+                          onClick={() =>
+                            request({
+                              type: "strategy",
+                              puzzle: ready.puzzle,
+                              action: { type: "play", placements: placed },
+                            })
+                          }
+                        >
+                          Compare strategy
+                        </button>
+                      </details>
+                    )}
                     <button
                       className="button light"
                       disabled={!!busy}
-                      onClick={() =>
-                        request({
-                          type: "strategy",
-                          puzzle: ready.puzzle,
-                          action: { type: "play", placements: placed },
-                        })
-                      }
+                      onClick={generate}
                     >
-                      Compare strategy
+                      Next random puzzle
                     </button>
-                  </details>
-                )}
-                {strategy && (
-                  <section
-                    className="gym-strategy-result"
-                    aria-label="Strategy comparison"
-                  >
-                    <h3>
-                      {strategy.verdict === "same"
-                        ? "Your move led the sampled shortlist"
-                        : strategy.verdict === "favoured"
-                          ? "An alternative was stronger in every fresh sample"
-                          : "No clear strategic winner"}
-                    </h3>
-                    <p>Short-horizon estimate · Not an exact strategy rank.</p>
-                    <GymStrategyTakeaways result={strategy} />
-                    <p>
-                      Your move: <strong>{strategy.requested.label}</strong>
+                    <p className="gym-measurement">
+                      Prepared in {(ready.elapsedMs / 1000).toFixed(2)}s · Fresh
+                      legal game
                     </p>
-                    {strategy.verdict !== "same" && (
-                      <p>
-                        Compared alternative:{" "}
-                        <strong>{strategy.recommended.label}</strong>
-                      </p>
-                    )}
-                    <table>
-                      <caption>Points and estimated trade-offs</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Measure</th>
-                          <th scope="col">Your move</th>
-                          {strategy.verdict !== "same" && (
-                            <th scope="col">Alternative</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <th scope="row">Points now</th>
-                          <td>{strategy.requested.points}</td>
-                          {strategy.verdict !== "same" && (
-                            <td>{strategy.recommended.points}</td>
-                          )}
-                        </tr>
-                        <tr>
-                          <th scope="row">Tiles kept</th>
-                          <td>
-                            {strategy.requested.retained.join(" ") || "None"}
-                          </td>
-                          {strategy.verdict !== "same" && (
-                            <td>
-                              {strategy.recommended.retained.join(" ") ||
-                                "None"}
-                            </td>
-                          )}
-                        </tr>
-                        <tr>
-                          <th scope="row">Average opponent reply</th>
-                          <td>
-                            {strategy.requested.replyPoints.toFixed(1)} points
-                          </td>
-                          {strategy.verdict !== "same" && (
-                            <td>
-                              {strategy.recommended.replyPoints.toFixed(1)}{" "}
-                              points
-                            </td>
-                          )}
-                        </tr>
-                      </tbody>
-                    </table>
-                    <p>
-                      A lower opponent reply can indicate a safer board.
-                      Retained tiles and new draws also affect the comparison.
-                    </p>
-                    <details>
-                      <summary>How this estimate was made</summary>
-                      <p>
-                        {strategy.considered} options considered from{" "}
-                        {strategy.available} legal actions.
-                      </p>
-                      <p>
-                        Each option used {strategy.discoverySamples} shared
-                        hidden-rack samples. The selected option and your move
-                        were then checked on {strategy.validationSamples} fresh
-                        paired samples. The opponent uses a points-and-rack
-                        policy and cannot see your rack or future draws.
-                      </p>
-                      <p>
-                        The estimate combines immediate points minus reply
-                        points plus an approximate rack-value difference after
-                        drawing. Rack values are hand-written heuristics, not a
-                        calibrated strength model. It does not model the rest of
-                        the game or score-dependent risk.
-                      </p>
-                      <p>
-                        Your estimate: {strategy.requested.estimate.toFixed(1)}.
-                        Alternative minus yours: {strategy.gap.toFixed(1)}.
-                        Observed sample differences:{" "}
-                        {strategy.sampleGapRange
-                          .map((n) => n.toFixed(1))
-                          .join(" to ")}
-                        . This observed range is not a confidence interval.
-                      </p>
-                    </details>
-                  </section>
+                  </>
                 )}
-                <button
-                  className="button light"
-                  disabled={!!busy}
-                  onClick={generate}
-                >
-                  Next random puzzle
-                </button>
-                <p className="gym-measurement">
-                  Prepared in {(ready.elapsedMs / 1000).toFixed(2)}s · Fresh
-                  legal game
-                </p>
               </aside>
             </div>
           </>

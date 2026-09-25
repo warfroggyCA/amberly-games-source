@@ -32,10 +32,10 @@ const result: StrategyCoaching = {
 };
 it("explains a lower scoring alternative without calling it a certain winner", () => {
   const text = coachingTakeaways(result).join(" ");
-  expect(text).toContain("2 fewer points now");
-  expect(text).toContain("4.0 points lower");
-  expect(text).toContain("alternative by 3.0");
-  expect(text).toContain("no clear winner");
+  expect(text).toContain("2 fewer points than yours");
+  expect(text).toContain("4 fewer");
+
+  expect(text).toContain("Neither move has a clear edge");
 });
 it("reverses the trade-offs and qualifies agreement and shortlist coverage", () => {
   const text = coachingTakeaways({
@@ -44,11 +44,10 @@ it("reverses the trade-offs and qualifies agreement and shortlist coverage", () 
     recommended: result.requested,
     verdict: "favoured",
   }).join(" ");
-  expect(text).toContain("2 more points now");
-  expect(text).toContain("4.0 points higher");
-  expect(text).toContain("your move by 3.0");
-  expect(text).toContain("does not guarantee");
+  expect(text).toContain("2 more points than yours");
+  expect(text).toContain("4 more");
+
   expect(coachingTakeaways({ ...result, verdict: "same" }).join(" ")).toContain(
-    "not all compared",
+    "Of the moves we checked",
   );
 });

@@ -252,12 +252,14 @@ export function GymMoves({
             <div role="status">
               {coaching.verdict !== "same" && (
                 <p>
-                  <strong>Compared alternative:</strong>{" "}
-                  {coaching.recommended.label}
+                  <strong>Another option:</strong> {coaching.recommended.label}
                 </p>
               )}
               <GymStrategyTakeaways result={coaching} />
-              <p>This is a short-horizon estimate, not winning odds.</p>
+              <p>
+                Think of this as advice, not a promise—we don’t know your
+                opponent’s letters.
+              </p>
             </div>
           )}
         </div>
