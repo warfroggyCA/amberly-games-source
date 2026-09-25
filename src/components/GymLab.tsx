@@ -1,4 +1,6 @@
 "use client";
+import { GymMoves } from "./GymMoves";
+import type { ScoredMove } from "../domain/solver";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
 import Image from "next/image";
 import Link from "next/link";
@@ -113,6 +115,8 @@ export function GymLab({
     null,
   );
   const [reveal, setReveal] = useState(false);
+  const [movesOpen, setMovesOpen] = useState(false);
+  const [exploredMove, setExploredMove] = useState<ScoredMove | null>(null);
   const [solutionIndex, setSolutionIndex] = useState(0);
   const [dragPreview, setDragPreview] = useState<{
     id: number;
@@ -188,7 +192,7 @@ export function GymLab({
           referenceWords: words.map((w) => w.word),
           hint,
           pointToHint,
-          reveal,
+          reveal: reveal && !exploredMove,
           solutionIndex,
           help,
           reducedMotion,
@@ -248,6 +252,8 @@ export function GymLab({
     rememberDraft(next);
     saveDraft(next);
     setReveal(false);
+    setExploredMove(null);
+    setMovesOpen(false);
   }
   async function leavePractice() {
     await recovery.flush();
@@ -261,6 +267,8 @@ export function GymLab({
     saveDraft(emptyDraft([]));
     setReady(null);
     setReveal(false);
+    setExploredMove(null);
+    setMovesOpen(false);
 
     setHint(0);
     setPointToHint(false);
@@ -483,6 +491,8 @@ export function GymLab({
           setDraftOwner(recoveryKey);
           setWords(input.words ?? words);
           setReferencePending(false);
+          setMovesOpen(false);
+          setExploredMove(null);
           setReady({
             puzzle: snapshot.puzzle,
             answer: data.answer,
@@ -520,6 +530,8 @@ export function GymLab({
           setUndoSnapshots([]);
           saveDraft(emptyDraft(next.puzzle.position.rack));
           setReveal(false);
+          setExploredMove(null);
+          setMovesOpen(false);
 
           setSolutionIndex(0);
           setDragPreview(null);
@@ -538,6 +550,8 @@ export function GymLab({
             prior ? { ...prior, answer: data.answer } : prior,
           );
           setReferencePending(false);
+          setMovesOpen(false);
+          setExploredMove(null);
           setMessage(
             "Word list updated. Scores, hints and solutions have been refreshed; your tiles are kept.",
           );
@@ -599,6 +613,8 @@ export function GymLab({
       savedAttempt.current = null;
       setStrategy(null);
       setReveal(false);
+      setExploredMove(null);
+      setMovesOpen(false);
       setHint(0);
       setPointToHint(false);
       setSolutionIndex(0);
@@ -779,11 +795,20 @@ export function GymLab({
     </span>
   ) : null;
   const best = ready?.answer.best[0];
-  const solution = ready?.answer.best[solutionIndex] ?? best;
+  const solution = exploredMove ?? ready?.answer.best[solutionIndex] ?? best;
   const medal =
     reveal && solution && ready
       ? scoreMedal(solution.score, ready.answer)
       : strength?.medal;
+  const solutionTone = exploredMove
+    ? medal === "gold"
+      ? 0
+      : medal === "silver"
+        ? 1
+        : medal === "bronze"
+          ? 2
+          : "other"
+    : solutionIndex;
   const overlay: Placement[] = reveal ? (solution?.placements ?? []) : placed;
   // Keep the nearby badge beyond the horizontal word, not on top of its letters.
   const lastPlaced = placed.at(-1);
@@ -1073,7 +1098,7 @@ export function GymLab({
                             }
                             data-row={r}
                             data-col={c}
-                            className={`gym-square ${tile && introduced && !draggingSource ? "has-tile" : ""} ${draggingSource ? "is-drag-source" : ""} ${draftTile && placementInvalid && !draggingSource ? "is-placement-error" : ""} ${moving ? `is-draft${medal ? ` medal-${medal}` : ""}${reveal ? ` is-solution solution-${solutionIndex}` : ""}` : ""} ${selected ? "is-cursor" : ""} ${hinted ? "is-hint-target" : ""} premium-${premium ?? "plain"}`}
+                            className={`gym-square ${tile && introduced && !draggingSource ? "has-tile" : ""} ${draggingSource ? "is-drag-source" : ""} ${draftTile && placementInvalid && !draggingSource ? "is-placement-error" : ""} ${moving ? `is-draft${medal ? ` medal-${medal}` : ""}${reveal ? ` is-solution solution-${solutionTone}` : ""}` : ""} ${selected ? "is-cursor" : ""} ${hinted ? "is-hint-target" : ""} premium-${premium ?? "plain"}`}
                             style={
                               {
                                 "--intro-delay": `${scatter % 480}ms`,
@@ -1369,6 +1394,8 @@ export function GymLab({
                       className="button light"
                       disabled={!!busy || referencePending || !introduced}
                       onClick={() => {
+                        setMovesOpen(false);
+                        setExploredMove(null);
                         if (!reveal) historySync.record({ type: "solve" });
                         setReveal(!reveal);
 
@@ -1377,6 +1404,22 @@ export function GymLab({
                       }}
                     >
                       {reveal ? "My move" : "Solve"}
+                    </button>
+                    <button
+                      className="button light"
+                      disabled={
+                        !!busy ||
+                        referencePending ||
+                        !introduced ||
+                        !!blank ||
+                        movesOpen
+                      }
+                      onClick={() => {
+                        historySync.record({ type: "all-moves" });
+                        setMovesOpen(true);
+                      }}
+                    >
+                      All moves
                     </button>
                     <button
                       className="button light"
@@ -1399,6 +1442,31 @@ export function GymLab({
                 </div>
               </section>
               <aside className="gym-feedback" aria-label="Practice feedback">
+                {movesOpen && (
+                  <GymMoves
+                    puzzle={ready.puzzle}
+                    words={words}
+                    onPreview={(move) => {
+                      setExploredMove(move);
+                      setReveal(true);
+                      setStrategy(null);
+                      requestAnimationFrame(() =>
+                        boardRef.current?.scrollIntoView({
+                          block: "nearest",
+                          behavior: reducedMotion ? "auto" : "smooth",
+                        }),
+                      );
+                    }}
+                    onClose={() => {
+                      setReveal(false);
+                      setExploredMove(null);
+                      setMovesOpen(false);
+                    }}
+                    onStrategy={() =>
+                      historySync.record({ type: "strategy-request" })
+                    }
+                  />
+                )}
                 <div
                   className={`gym-companion${petPaused ? " is-paused" : ""}`}
                   aria-label="Scarlett, your practice companion"
@@ -1417,13 +1485,15 @@ export function GymLab({
                     sizes="96px"
                   />
                   <h2>
-                    {reveal
-                      ? solutionIndex === 0
-                        ? "Highest-scoring placement"
-                        : "Alternative scoring placement"
-                      : grade
-                        ? "Your move"
-                        : "Find your next move"}
+                    {exploredMove
+                      ? "Selected placement"
+                      : reveal
+                        ? solutionIndex === 0
+                          ? "Highest-scoring placement"
+                          : "Alternative scoring placement"
+                        : grade
+                          ? "Your move"
+                          : "Find your next move"}
                   </h2>
                 </div>
                 {reveal && (
@@ -1528,7 +1598,7 @@ export function GymLab({
                     </p>
                   </details>
                 )}
-                {reveal && solution && (
+                {reveal && solution && !movesOpen && (
                   <>
                     <div
                       className="gym-solution-options"

@@ -102,6 +102,8 @@ export function GymHistory({
                 `Hint ${e.payload.level} viewed`
               ) : e.payload.type === "solve" ? (
                 "Solution viewed"
+              ) : e.payload.type === "all-moves" ? (
+                "Move list viewed"
               ) : e.payload.type === "resume" ? (
                 <span>Resumed practice from this device</span>
               ) : e.payload.type === "word-lookup" ? (

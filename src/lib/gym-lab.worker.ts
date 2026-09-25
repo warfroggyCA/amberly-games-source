@@ -1,3 +1,4 @@
+import { catalogueMoves } from "../domain/gym/move-catalog";
 import { validGymDraft, type GymDraft } from "./gym-draft";
 import { extendLexicon, type VerifiedWord } from "../domain/verified-words";
 import { analyseScore, gradeScore } from "../domain/gym/analysis";
@@ -8,6 +9,7 @@ import { defaultLexicon } from "./lexicons";
 export type LabRequest = (
   | { id: number; type: "generate"; seed: string }
   | { id: number; type: "refresh"; puzzle: Puzzle }
+  | { id: number; type: "all-moves"; puzzle: Puzzle }
   | { id: number; type: "restore"; puzzle: Puzzle; snapshot: GymDraft }
   | { id: number; type: "check" | "strategy"; puzzle: Puzzle; action: Action }
 ) & { words?: VerifiedWord[] };
@@ -38,7 +40,8 @@ scope.onmessage = ({ data }) => {
       data.type !== "check" &&
       data.type !== "strategy" &&
       data.type !== "refresh" &&
-      data.type !== "restore"
+      data.type !== "restore" &&
+      data.type !== "all-moves"
     )
       throw new Error("Unknown operation.");
     if (
@@ -50,6 +53,14 @@ scope.onmessage = ({ data }) => {
         "Saved practice is invalid. Start a new puzzle when ready.",
       );
     verifyPuzzle(data.puzzle, defaultLexicon);
+    if (data.type === "all-moves") {
+      scope.postMessage({
+        id: data.id,
+        type: data.type,
+        catalogue: catalogueMoves(data.puzzle.position, lexicon),
+      });
+      return;
+    }
     const budget = makeBudget();
     const answer = analyseScore(data.puzzle.position, lexicon, budget);
     if (data.type === "refresh" || data.type === "restore") {

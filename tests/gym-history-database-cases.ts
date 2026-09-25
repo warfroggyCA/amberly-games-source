@@ -62,16 +62,19 @@ export function gymHistoryDatabaseCases(
       });
       return { familyId, actor, other, repo, write, sessionId };
     }
-    it("marks a recovered practice attempt as assisted even without an earlier synced session", async () => {
-      const f = await fixture();
-      await f.repo.append(f.actor, f.familyId, f.write(1, { type: "resume" }));
-      await f.repo.append(f.actor, f.familyId, f.write(2, move));
-      const detail = (await f.repo.read(f.actor, f.familyId, {
-        sessionId: f.sessionId,
-      })) as GymSessionDetail;
-      expect(detail.events[1].assisted).toBe(true);
-      expect(detail.events[0].payload.type).toBe("resume");
-    });
+    it.each(["resume", "all-moves"] as const)(
+      "marks %s practice as assisted even without an earlier synced session",
+      async (type) => {
+        const f = await fixture();
+        await f.repo.append(f.actor, f.familyId, f.write(1, { type }));
+        await f.repo.append(f.actor, f.familyId, f.write(2, move));
+        const detail = (await f.repo.read(f.actor, f.familyId, {
+          sessionId: f.sessionId,
+        })) as GymSessionDetail;
+        expect(detail.events[1].assisted).toBe(true);
+        expect(detail.events[0].payload.type).toBe(type);
+      },
+    );
     it("preserves attempt word snapshots and rejects unconfirmed additions", async () => {
       const f = await fixture();
       const lookup = f.write(1, { type: "word-lookup" });

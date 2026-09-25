@@ -8,7 +8,8 @@ export type GymEventPayload =
         | "live-coaching"
         | "strategy-request"
         | "word-lookup"
-        | "resume";
+        | "resume"
+        | "all-moves";
     }
   | { type: "attempt"; action: Action }
   | {
@@ -120,6 +121,7 @@ export function isGymWrite(v: unknown): v is GymWrite {
     case "solve":
     case "live-coaching":
     case "strategy-request":
+    case "all-moves":
     case "resume":
     case "word-lookup":
       return true;

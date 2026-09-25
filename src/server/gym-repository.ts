@@ -318,6 +318,7 @@ export function createGymRepository(
             "strategy-request",
             "word-lookup",
             "resume",
+            "all-moves",
           ].includes(r.event.payload.type),
         );
       const stored: Omit<GymStoredEvent, "receivedAt"> = {

@@ -1123,3 +1123,79 @@
 .gym-new-practice {
   margin: 8px 0 0 8px;
 }
+
+.gym-move-explorer {
+  border-top: 3px solid var(--ink);
+  padding-top: 12px;
+  margin-bottom: 20px;
+}
+.gym-move-explorer h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.gym-move-list {
+  max-height: 45dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-block: 1px solid var(--line);
+}
+.gym-move-list details {
+  border-bottom: 1px solid var(--line);
+}
+.gym-move-list summary {
+  padding: 14px 4px;
+  cursor: pointer;
+}
+.gym-move-choices {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.gym-move-choices .button {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 6px;
+  white-space: normal;
+}
+.gym-move-choices .button span {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: normal;
+  margin-top: 4px;
+}
+.gym-move-choices [aria-pressed="true"] {
+  outline: 3px solid var(--ink);
+  outline-offset: -3px;
+}
+.gym-selected-move {
+  padding-block: 8px;
+}
+
+.solution-other {
+  --solution-color: #c9e2d3;
+}
+
+.gym-move-main {
+  display: block;
+  width: 100%;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  color: var(--ink);
+  background: transparent;
+}
+.gym-move-main span {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+.gym-move-main[aria-pressed="true"] {
+  background: #e8f2e9;
+  box-shadow: inset 4px 0 var(--forest);
+  padding-left: 12px;
+}
+.gym-move-main:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: -2px;
+}
