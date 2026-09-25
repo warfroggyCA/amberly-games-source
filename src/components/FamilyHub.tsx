@@ -394,22 +394,11 @@ export function FamilyHub({
         )}
       </AmberlyHeader>
       {!gameId && (
-        <nav className="hub-navigation" aria-label="Amberly Games">
-          {[
-            ["/family", "Games"],
-            ["/family/history", "History"],
-            ["/family/players", "Players"],
-            ["/family/settings", "Settings"],
-          ].map(([path, label]) => (
-            <button
-              key={path}
-              aria-current={pathname === path ? "page" : undefined}
-              onClick={() => void navigate(path)}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        <AmberlyNavigation
+          variant="tabs"
+          current={pathname}
+          onNavigate={(path) => void navigate(path)}
+        />
       )}
       {menu && (
         <Modal

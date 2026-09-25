@@ -896,6 +896,13 @@ export function ScorerApp({
           </span>
         )}
       </AmberlyHeader>
+      {onNavigate && view === "Players" && (
+        <AmberlyNavigation
+          variant="tabs"
+          current="/family/players"
+          onNavigate={onNavigate}
+        />
+      )}
       <main>
         {notice && (
           <p className="inline-message" role="status">

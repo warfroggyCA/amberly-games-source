@@ -285,3 +285,39 @@ test("Scrabble viewer photo is separate from highlighting a player's words", asy
   await highlight.click();
   await expect(highlight).toHaveAttribute("aria-pressed", "false");
 });
+
+test("Players retains the shared top navigation when opened from Settings", async ({
+  page,
+}) => {
+  await installFixture(page);
+  await page.goto("/family/settings");
+  let navigation = page.getByRole("navigation", {
+    name: "Amberly Games",
+    exact: true,
+  });
+  await navigation
+    .getByRole("button", { name: "Players", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "The players", exact: true }),
+  ).toBeVisible();
+  navigation = page.getByRole("navigation", {
+    name: "Amberly Games",
+    exact: true,
+  });
+  await expect(navigation.getByRole("button")).toHaveCount(4);
+  await expect(
+    navigation.getByRole("button", { name: "Players", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await fitsWidth(page);
+  await navigation
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Settings", exact: true }),
+  ).toBeVisible();
+  await navigation.getByRole("button", { name: "Games", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "What are we playing?" }),
+  ).toBeVisible();
+});

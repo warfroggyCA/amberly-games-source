@@ -50,12 +50,17 @@ export function AmberlyHeader({
 export function AmberlyNavigation({
   onNavigate,
   current,
+  variant = "menu",
 }: {
   onNavigate: (path: string) => void;
   current?: string;
+  variant?: "menu" | "tabs";
 }) {
   return (
-    <nav className="game-menu-nav" aria-label="Amberly Games">
+    <nav
+      className={variant === "tabs" ? "hub-navigation" : "game-menu-nav"}
+      aria-label="Amberly Games"
+    >
       {(
         [
           ["/family", "Games", "home"],
@@ -66,11 +71,11 @@ export function AmberlyNavigation({
       ).map(([path, label, icon]) => (
         <button
           key={path}
-          className="button light"
+          className={variant === "menu" ? "button light" : undefined}
           aria-current={current === path ? "page" : undefined}
           onClick={() => onNavigate(path)}
         >
-          <TabletopIcon name={icon} />
+          {variant === "menu" && <TabletopIcon name={icon} />}
           {label}
         </button>
       ))}
