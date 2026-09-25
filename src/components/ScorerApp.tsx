@@ -1,4 +1,5 @@
 "use client";
+import { browserId } from "../lib/browser-id";
 import { playerDisplayName } from "../lib/player-profile";
 import { PlayerName } from "./PlayerName";
 import {
@@ -75,7 +76,7 @@ type Action<T = GameCommand> = T extends GameCommand
   ? Omit<T, "id" | "expectedRevision">
   : never;
 const NAV: View[] = ["Home", "Play", "Records", "History", "Players"];
-const id = () => crypto.randomUUID();
+const id = browserId;
 const nameOf = (game: GameState, playerId: string) =>
   game.players.find((p) => p.id === playerId)?.name ?? "Player";
 const errorText = (error: unknown) =>

@@ -202,3 +202,8 @@ Type checking, focused lint, production build and five drag/drop browser cases p
 Gym and the typing-first scorer now share word-cell edge mapping and marker styling. Mixed crossings keep neutral letters and display green/red markers only toward actual neighbouring letters in each formed word, including both sides of interior crossings. Uniformly valid/invalid letters retain their colours; scorer blanks preserve blue faces with darker feedback ink. A Word feedback control explains mixed crossings without changing tile-edit gestures or keyboard entry. Word validity remains independent of turn legality.
 
 Validation: 30 focused domain tests passed, including LOOT/RT, reversed input order and four-edge interior crossings. 29 Gym browser cases passed (15 intentional skips); all 20 scorer browser cases passed after retaining stable cell names and exposing word feedback through accessible descriptions. Type checking, lint, formatting and production builds passed. Desktop/iPad screenshots were inspected. Physical iPad acceptance remains separate.
+
+
+## HTTP preview player creation repair — September 24, 2026
+
+Reproduced Add player failing with `crypto.randomUUID is not a function` when that secure-context API is unavailable on a plain-HTTP LAN origin. Scorer player/game/command IDs and local verified-word events now use native UUIDs where supported, with a cryptographic getRandomValues UUID-v4 fallback. Existing IDs/data are unchanged. Eight ID/word-journal tests and all 24 scorer browser cases passed, including adding players, starting, recording and refreshing without randomUUID across four browser profiles. Production build and focused lint passed.

@@ -203,3 +203,27 @@ test("typed crossings use directional word markers and retain invalid-turn check
     page.getByRole("button", { name: /^Record \d+ points$/ }),
   ).toHaveCount(0);
 });
+
+test("LAN preview can add players, start and record without secure-context randomUUID", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(crypto, "randomUUID", {
+      value: undefined,
+      configurable: true,
+    }),
+  );
+  await startGame(page);
+  await enter(page, "H8", "CAT");
+  await review(page, 10);
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+  await expect(
+    page.getByLabel("Ada, 10 points", { exact: true }),
+  ).toBeVisible();
+});
