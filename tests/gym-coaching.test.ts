@@ -16,7 +16,15 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
     type: "play" as const,
     placements: answer.best[0].placements,
   };
-  const options = { discoverySamples: 2, validationSamples: 2 };
+  const progress: { phase: string; percentage: number }[] = [];
+  const options = {
+    discoverySamples: 2,
+    validationSamples: 2,
+    progress: (
+      _completed: number,
+      state: { phase: string; percentage: number },
+    ) => progress.push(state),
+  };
   const first = coachStrategy(
     puzzle.position,
     defaultLexicon,
@@ -25,6 +33,11 @@ it("compares fresh paired reply samples reproducibly without changing the puzzle
     "paired",
     makeBudget(),
     options,
+  );
+  expect(progress[0]).toEqual({ phase: "discovery", percentage: 0 });
+  expect(progress.at(-1)).toEqual({ phase: "validation", percentage: 100 });
+  expect(progress.map((p) => p.percentage)).toEqual(
+    progress.map((p) => p.percentage).sort((a, b) => a - b),
   );
   const second = coachStrategy(
     puzzle.position,

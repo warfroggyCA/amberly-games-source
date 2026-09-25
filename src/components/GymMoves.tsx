@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import type { Puzzle } from "../domain/gym/model";
 import type { ScoredMove } from "../domain/solver";
 import type { VerifiedWord } from "../domain/verified-words";
-import type { StrategyCoaching } from "../domain/gym/coaching";
+import {
+  GymStrategyProgress,
+  GymStrategyTakeaways,
+} from "./GymStrategyFeedback";
+import type {
+  CoachingProgress,
+  StrategyCoaching,
+} from "../domain/gym/coaching";
 import {
   describeMove,
   groupMoves,
@@ -95,6 +102,7 @@ export function GymMoves({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
   const [selected, setSelected] = useState<ScoredMove | null>(null);
+  const [progress, setProgress] = useState<CoachingProgress | null>(null);
   const [coaching, setCoaching] = useState<StrategyCoaching | null>(null);
   const [limit, setLimit] = useState(25);
   const [retry, setRetry] = useState(0);
@@ -130,7 +138,11 @@ export function GymMoves({
     timeout.current = setTimeout(fail, 18000);
     instance.onerror = fail;
     instance.onmessage = ({ data }) => {
-      if (data.id !== serial.current || data.type === "progress") return;
+      if (data.id !== serial.current) return;
+      if (data.type === "progress") {
+        setProgress(data.progress ?? null);
+        return;
+      }
       if (timeout.current) clearTimeout(timeout.current);
       setBusy(false);
       if (data.type === "error") {
@@ -157,6 +169,7 @@ export function GymMoves({
   function compare() {
     if (!selected || busy || !worker.current) return;
     onStrategy();
+    setProgress(null);
     setBusy(true);
     setError("");
     setCoaching(null);
@@ -197,11 +210,16 @@ export function GymMoves({
           : "Searching your full rack and this board. Your draft is kept."}
       </p>
       {busy && (
-        <p role="status">
-          {catalog
-            ? "Thinking about this placement…"
-            : "Finding legal placements…"}
-        </p>
+        <div role="status">
+          {catalog ? (
+            <>
+              <p>Thinking about this placement…</p>
+              <GymStrategyProgress progress={progress} />
+            </>
+          ) : (
+            <p>Finding legal placements…</p>
+          )}
+        </div>
       )}
       {error && <p role="alert">{error}</p>}
       {!busy && (error || (catalog && !catalog.complete)) && (
@@ -231,15 +249,16 @@ export function GymMoves({
             Compare strategy for this move
           </button>
           {coaching && (
-            <p role="status">
-              {coaching.verdict === "same"
-                ? "This is also the suggested strategy move."
-                : `Suggested: ${coaching.recommended.label}. Your selected placement: ${coaching.requested.label}.`}{" "}
-              Sampled opponent reply:{" "}
-              {coaching.requested.replyPoints.toFixed(1)} points; recommended
-              move’s reply: {coaching.recommended.replyPoints.toFixed(1)}. This
-              is a short-horizon estimate, not winning odds.
-            </p>
+            <div role="status">
+              {coaching.verdict !== "same" && (
+                <p>
+                  <strong>Compared alternative:</strong>{" "}
+                  {coaching.recommended.label}
+                </p>
+              )}
+              <GymStrategyTakeaways result={coaching} />
+              <p>This is a short-horizon estimate, not winning odds.</p>
+            </div>
           )}
         </div>
       )}

@@ -89,8 +89,13 @@ scope.onmessage = ({ data }) => {
         "lab-coaching-v1",
         budget,
         {
-          progress: (completed) =>
-            scope.postMessage({ id: data.id, type: "progress", completed }),
+          progress: (completed, progress) =>
+            scope.postMessage({
+              id: data.id,
+              type: "progress",
+              completed,
+              progress,
+            }),
         },
       );
       scope.postMessage({

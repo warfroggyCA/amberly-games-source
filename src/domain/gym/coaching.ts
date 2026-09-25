@@ -43,10 +43,15 @@ export interface StrategyCoaching {
   validationSamples: number;
   completedSamples: number;
 }
+export interface CoachingProgress {
+  phase: "discovery" | "validation";
+  /** Work completed, not an estimate of time remaining. */
+  percentage: number;
+}
 export interface CoachingOptions {
   discoverySamples?: number;
   validationSamples?: number;
-  progress?: (completed: number) => void;
+  progress?: (completed: number, progress: CoachingProgress) => void;
 }
 
 /** Midgame heuristic, never a winning-odds estimator. No synthetic hidden state is accepted. */
@@ -90,7 +95,22 @@ export function coachStrategy(
     ]),
   );
   let completedSamples = 0;
-  const run = (action: Action, phase: string, index: number): CoachingMove => {
+  let validationWork = validationSamples * 2;
+  const discoveryWork = candidates.size * discoverySamples;
+  const report = (phase: CoachingProgress["phase"]) =>
+    options.progress?.(completedSamples, {
+      phase,
+      percentage:
+        phase === "discovery"
+          ? (50 * completedSamples) / discoveryWork
+          : 50 + (50 * (completedSamples - discoveryWork)) / validationWork,
+    });
+  report("discovery");
+  const run = (
+    action: Action,
+    phase: CoachingProgress["phase"],
+    index: number,
+  ): CoachingMove => {
     checkBudget(budget);
     const worldSeed = `${seed}:${phase}:${index}`;
     const started = advance(
@@ -121,7 +141,8 @@ export function coachStrategy(
     const rackBalance =
       leaveValue(replied.racks[0]) - leaveValue(replied.racks[1]);
     completedSamples++;
-    options.progress?.(completedSamples);
+    report(phase);
+    checkBudget(budget);
     return {
       action,
       label,
@@ -147,6 +168,8 @@ export function coachStrategy(
     }
   }
   const same = actionKey(recommended) === actionKey(requested);
+  validationWork = validationSamples * (same ? 1 : 2);
+  report("validation");
   const chosen: CoachingMove[] = [];
   const played: CoachingMove[] = [];
   for (let i = 0; i < validationSamples; i++) {

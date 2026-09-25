@@ -1272,3 +1272,24 @@
 .gym-progress li {
   margin-block: 8px;
 }
+
+.gym-strategy-progress {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+}
+.gym-strategy-progress progress {
+  width: 100%;
+  height: 0.7rem;
+  accent-color: var(--forest, #1c503e);
+}
+.gym-strategy-progress small {
+  line-height: 1.45;
+}
+.gym-strategy-takeaways {
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}
+.gym-strategy-takeaways li + li {
+  margin-top: 0.5rem;
+}

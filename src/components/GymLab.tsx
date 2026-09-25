@@ -1,4 +1,9 @@
 "use client";
+import {
+  GymStrategyProgress,
+  GymStrategyTakeaways,
+} from "./GymStrategyFeedback";
+import type { CoachingProgress } from "../domain/gym/coaching";
 import { GymMoves } from "./GymMoves";
 import type { ScoredMove } from "../domain/solver";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
@@ -109,6 +114,8 @@ export function GymLab({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [grade, setGrade] = useState<Grade | null>(null);
+  const [strategyProgress, setStrategyProgress] =
+    useState<CoachingProgress | null>(null);
   const [strategy, setStrategy] = useState<StrategyCoaching | null>(null);
   const [help, setHelp] = useState(false);
   const [blank, setBlank] = useState<{ id: number; target: Square } | null>(
@@ -435,6 +442,7 @@ export function GymLab({
       });
     } else if (input.type === "strategy")
       historySync.record({ type: "strategy-request" });
+    setStrategyProgress(null);
     const attemptId = savedAttempt.current;
     const id = ++serial.current;
     setBusy(
@@ -449,7 +457,7 @@ export function GymLab({
     setMessage("");
     const failureMessage = (text: string) =>
       input.type === "strategy"
-        ? "Strategy comparison unavailable: the analysis could not finish within its limits. Your exact score and tiles are unchanged. You can keep practising."
+        ? `Strategy comparison unavailable. ${text} Your exact score and tiles are unchanged; you can retry or keep practising.`
         : text;
     const fail = (text: string) => {
       if (id !== serial.current) return;
@@ -476,6 +484,7 @@ export function GymLab({
       instance.onmessage = ({ data }) => {
         if (id !== serial.current || data.id !== id) return;
         if (data.type === "progress") {
+          setStrategyProgress(data.progress ?? null);
           setBusy("Thinking…");
           return;
         }
@@ -1721,6 +1730,7 @@ export function GymLab({
                           : "No clear strategic winner"}
                     </h3>
                     <p>Short-horizon estimate · Not an exact strategy rank.</p>
+                    <GymStrategyTakeaways result={strategy} />
                     <p>
                       Your move: <strong>{strategy.requested.label}</strong>
                     </p>
@@ -1921,13 +1931,7 @@ export function GymLab({
             <div className="gym-status-content">
               <span>{busy ?? message}</span>
               {busy === "Thinking…" && (
-                <div
-                  className="gym-thinking"
-                  role="progressbar"
-                  aria-label="Strategy analysis"
-                >
-                  <span />
-                </div>
+                <GymStrategyProgress progress={strategyProgress} />
               )}
             </div>
             {busy && (

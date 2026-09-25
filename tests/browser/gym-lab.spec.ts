@@ -805,7 +805,7 @@ test("family game selection offers Gym alongside existing games and returns corr
 // Exercise the real worker separately from the injected timeout case above.
 test("sampled strategy returns useful feedback and preserves the draft", async ({
   page,
-}) => {
+}, info) => {
   await page.addInitScript(() => {
     const OriginalWorker = window.Worker;
     let stalled = false;
@@ -817,6 +817,19 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
           message = { ...message, seed: "gym-feasibility-v1-0" };
         if (message.type === "strategy" && !stalled) {
           stalled = true;
+          setTimeout(
+            () =>
+              this.dispatchEvent(
+                new MessageEvent("message", {
+                  data: {
+                    id: message.id,
+                    type: "progress",
+                    progress: { phase: "validation", percentage: 75 },
+                  },
+                }),
+              ),
+            50,
+          );
           return;
         }
         super.postMessage(message);
@@ -882,9 +895,15 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
     .getByRole("button", { name: "Compare strategy", exact: true })
     .click();
   await expect(
-    page.getByRole("progressbar", { name: "Strategy analysis" }),
+    page.getByRole("progressbar", { name: "Strategy comparison progress" }),
   ).toBeVisible();
   await expect(page.locator(".gym-status")).toContainText("Thinking…");
+  await expect(
+    page.getByRole("progressbar", { name: "Strategy comparison progress" }),
+  ).toHaveAttribute("value", "75");
+  await expect(page.locator(".gym-status")).toContainText(
+    "Checking the comparison with fresh racks",
+  );
   await expect(page.locator(".gym-status")).not.toContainText(
     "samples checked",
   );
@@ -900,6 +919,8 @@ test("sampled strategy returns useful feedback and preserves the draft", async (
   await expect(feedback).toBeVisible({ timeout: 20000 });
   await expect(feedback).toContainText("Short-horizon estimate");
   await expect(feedback).toContainText("Average opponent reply");
+  await expect(feedback.locator(".gym-strategy-takeaways")).toBeVisible();
+  await feedback.screenshot({ path: info.outputPath("strategy-feedback.png") });
   expect(await readDraft()).toEqual(draft);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(feedback).toHaveCount(0);
