@@ -507,6 +507,8 @@ function FamilyAdmin({
   );
   const [email, setEmail] = useState("");
   const [invitePlayerId, setInvitePlayerId] = useState("");
+  const [invitationLink, setInvitationLink] = useState("");
+  const [copyNotice, setCopyNotice] = useState("");
   const [working, setWorking] = useState(false);
   const ref = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -692,6 +694,42 @@ function FamilyAdmin({
               Allow this person to join
             </button>
           </form>
+          <button
+            type="button"
+            className="button light"
+            onClick={async () => {
+              const link = new URL("/family", window.location.origin).href;
+              setInvitationLink(link);
+              try {
+                await navigator.clipboard.writeText(link);
+                setCopyNotice(
+                  "Invitation link copied. Send it to the person you added.",
+                );
+              } catch {
+                setCopyNotice("Select the link below and copy it manually.");
+              }
+            }}
+          >
+            Copy invitation link
+          </button>
+          {copyNotice && <p role="status">{copyNotice}</p>}
+          {invitationLink && (
+            <label className="field">
+              Invitation link
+              <input
+                aria-label="Invitation link"
+                readOnly
+                value={invitationLink}
+                onFocus={(event) => event.target.select()}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <small>
+                Only people whose email you have added can join. They must sign
+                in with that email.
+              </small>
+            </label>
+          )}
           {error && (
             <p role="alert" className="error-banner">
               {error}

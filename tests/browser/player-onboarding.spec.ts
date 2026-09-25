@@ -186,4 +186,40 @@ test("administrator can reserve a roster profile and sees account links", async 
     email: "erin@example.test",
     playerId: "erin",
   });
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text: string) => {
+          document.documentElement.dataset.copiedInvitation = text;
+        },
+      },
+    });
+  });
+  await dialog.getByRole("button", { name: "Copy invitation link" }).click();
+  const expectedLink = new URL("/family", page.url()).href;
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-copied-invitation",
+    expectedLink,
+  );
+  await expect(
+    dialog.getByRole("status").filter({ hasText: "Invitation link copied" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel("Invitation link", { exact: true }),
+  ).toHaveValue(expectedLink);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await dialog.getByRole("button", { name: "Copy invitation link" }).click();
+  await expect(
+    dialog.getByRole("status").filter({ hasText: "copy it manually" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByLabel("Invitation link", { exact: true }),
+  ).toHaveValue(expectedLink);
+  await fitsWidth(page);
 });

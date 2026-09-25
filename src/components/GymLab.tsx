@@ -1565,15 +1565,8 @@ export function GymLab({
                 : {}),
             }}
           >
-            {dragPreview.target && (
-              <span
-                className={`gym-drop-label${dragPreview.target.blocked ? " is-blocked" : ""}`}
-              >
-                {dragPreview.target.blocked ? "× " : "↓ "}
-                {String.fromCharCode(65 + dragPreview.target.col)}
-                {dragPreview.target.row + 1}
-                {dragPreview.target.blocked ? " · Occupied" : ""}
-              </span>
+            {dragPreview.target?.blocked && (
+              <span className="gym-drop-label is-blocked">× Occupied</span>
             )}
             <b>{dragTile.letter === "?" ? "" : dragTile.letter}</b>
             <small>

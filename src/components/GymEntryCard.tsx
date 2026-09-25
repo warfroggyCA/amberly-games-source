@@ -9,13 +9,15 @@ export function GymEntryCard({
 }) {
   return (
     <section className="hub-game">
-      <Image
-        src="/gym/scarlett-lift.webp"
-        alt="Scarlett lifting Scrabble weights"
-        width={120}
-        height={120}
-        unoptimized
-      />
+      <div className="hub-board-art hub-gym-art">
+        <Image
+          src="/gym/scarlett-lift.webp"
+          alt="Scarlett lifting Scrabble weights"
+          width={180}
+          height={180}
+          unoptimized
+        />
+      </div>
       <div>
         <h2>Scrabble Gym</h2>
         <p>Practice &amp; training</p>

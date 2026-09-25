@@ -109,6 +109,19 @@
   height: 120px;
   box-sizing: border-box;
 }
+/* The transparent mascot needs more scale than the solid board illustrations. */
+.hub-gym-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hub-gym-art img {
+  width: 150%;
+  height: 150%;
+  max-width: none;
+  flex: none;
+  object-fit: contain;
+}
 .hub-scrabble {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
