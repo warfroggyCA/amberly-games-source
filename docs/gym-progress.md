@@ -1,0 +1,9 @@
+# Profile practice progress
+
+My practice history shows an all-time summary of the signed-in profile's synced events, independent of the current history page. Existing authorization and RLS still scope both summary and detail reads. No migration or history rewrite is required.
+
+Activity counts include saved sessions, checked moves and retries. First-move legality includes invalid attempts in the denominator; a successful retry never replaces a first result. The separate no-recorded-help figure excludes assistance before the first move, resumed sessions and all copies of a repeated board fingerprint. A later offline upload can therefore remove earlier eligibility. Upload timestamps are not treated as proof of independent first exposure. Pending device saves are not counted; no sessions or no eligible moves show an empty state, not 0% success.
+
+First-move score summaries use only the earliest complete-score-v1 rating linked to each valid first attempt. Retries and duplicate assessments cannot inflate them. Older unversioned scores and missing/null percentages are omitted. The UI labels these as browser-calculated and explicitly includes assisted/repeated practice; they are not server-verified rank claims or winning odds. Points and move validity retain server verification against the saved reference. Strategy estimates are not combined across policies or folded into this measure. Summary method is verified-first-moves-v1.
+
+Counts are computed on read from immutable journals, with no derived persistent state to go stale. Profile changes, membership revocation and other-account requests retain existing repository authorization. Database tests exercise exclusions, late copies, assessment versions/duplicates, pagination and profile separation. Browser fixtures verify the presentation across desktop and mobile layouts; these are not physical-device or hosted cross-device proof.

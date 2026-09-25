@@ -62,6 +62,134 @@ export function gymHistoryDatabaseCases(
       });
       return { familyId, actor, other, repo, write, sessionId };
     }
+    it("reports zero progress without treating an empty denominator as failure", async () => {
+      const f = await fixture();
+      const history = (await f.repo.read(f.actor, f.familyId)) as GymHistory;
+      expect(history.progress).toEqual({
+        version: "verified-first-moves-v1",
+        sessions: 0,
+        attempts: 0,
+        retries: 0,
+        firstAttempts: 0,
+        validFirstAttempts: 0,
+        assistedFirstAttempts: 0,
+        eligibleFirstAttempts: 0,
+        eligibleValidFirstAttempts: 0,
+        repeatedSessions: 0,
+        resumedSessions: 0,
+        score: {
+          evaluator: "complete-score-v1",
+          ratedFirstMoves: 0,
+          maximumFirstMoves: 0,
+          averagePercentage: null,
+        },
+      });
+    });
+    it("uses one versioned rating of the first move and excludes retries and legacy ratings", async () => {
+      const f = await fixture();
+      const first = f.write(1, move);
+      await f.repo.append(f.actor, f.familyId, first);
+      const detail = (await f.repo.read(f.actor, f.familyId, {
+        sessionId: f.sessionId,
+      })) as GymSessionDetail;
+      const points = detail.events[0].verifiedPoints!;
+      const score: GymEventPayload = {
+        type: "score",
+        attemptId: first.event.id,
+        points,
+        rank: 1,
+        percentage: 100,
+      };
+      await f.repo.append(f.actor, f.familyId, f.write(2, score));
+      expect(
+        ((await f.repo.read(f.actor, f.familyId)) as GymHistory).progress?.score
+          .ratedFirstMoves,
+      ).toBe(0);
+      await f.repo.append(
+        f.actor,
+        f.familyId,
+        f.write(3, { ...score, evaluator: "complete-score-v1" }),
+      );
+      await f.repo.append(
+        f.actor,
+        f.familyId,
+        f.write(4, {
+          ...score,
+          evaluator: "complete-score-v1",
+          rank: 2,
+          percentage: 50,
+        }),
+      );
+      const retry = f.write(5, move);
+      await f.repo.append(f.actor, f.familyId, retry);
+      await f.repo.append(
+        f.actor,
+        f.familyId,
+        f.write(6, {
+          ...score,
+          evaluator: "complete-score-v1",
+          attemptId: retry.event.id,
+        }),
+      );
+      expect(
+        ((await f.repo.read(f.actor, f.familyId)) as GymHistory).progress
+          ?.score,
+      ).toEqual({
+        evaluator: "complete-score-v1",
+        ratedFirstMoves: 1,
+        maximumFirstMoves: 1,
+        averagePercentage: 100,
+      });
+    });
+    it("keeps an invalid first move in the denominator even after a valid retry", async () => {
+      const f = await fixture();
+      const invalid = f.write(1, {
+        type: "attempt",
+        action: {
+          type: "play",
+          placements: [{ row: 0, col: 0, tile: { letter: "Q", blank: false } }],
+        },
+      });
+      await f.repo.append(f.actor, f.familyId, invalid);
+      await f.repo.append(f.actor, f.familyId, f.write(2, move));
+      const progress = ((await f.repo.read(f.actor, f.familyId)) as GymHistory)
+        .progress;
+      expect(progress).toMatchObject({
+        sessions: 1,
+        attempts: 2,
+        retries: 1,
+        firstAttempts: 1,
+        validFirstAttempts: 0,
+        eligibleFirstAttempts: 1,
+        eligibleValidFirstAttempts: 0,
+      });
+      expect(
+        ((await f.repo.read(f.other, f.familyId)) as GymHistory).progress
+          ?.sessions,
+      ).toBe(0);
+    });
+    it("excludes both copies of a repeated position regardless of upload timestamps", async () => {
+      const f = await fixture();
+      await f.repo.append(f.actor, f.familyId, f.write(1, move));
+      expect(
+        ((await f.repo.read(f.actor, f.familyId)) as GymHistory).progress
+          ?.eligibleValidFirstAttempts,
+      ).toBe(1);
+      const repeat = f.write(1, move);
+      repeat.sessionId = randomUUID();
+      repeat.event.occurredAt = "2026-01-01T00:00:00.000Z";
+      await f.repo.append(f.actor, f.familyId, repeat);
+      expect(
+        ((await f.repo.read(f.actor, f.familyId)) as GymHistory).progress,
+      ).toMatchObject({
+        sessions: 2,
+        firstAttempts: 2,
+        validFirstAttempts: 2,
+        repeatedSessions: 2,
+        eligibleFirstAttempts: 0,
+        eligibleValidFirstAttempts: 0,
+      });
+    });
     it.each(["resume", "all-moves"] as const)(
       "marks %s practice as assisted even without an earlier synced session",
       async (type) => {
@@ -73,6 +201,13 @@ export function gymHistoryDatabaseCases(
         })) as GymSessionDetail;
         expect(detail.events[1].assisted).toBe(true);
         expect(detail.events[0].payload.type).toBe(type);
+        expect(
+          ((await f.repo.read(f.actor, f.familyId)) as GymHistory).progress,
+        ).toMatchObject({
+          assistedFirstAttempts: 1,
+          eligibleFirstAttempts: 0,
+          resumedSessions: type === "resume" ? 1 : 0,
+        });
       },
     );
     it("preserves attempt word snapshots and rejects unconfirmed additions", async () => {
@@ -131,6 +266,13 @@ export function gymHistoryDatabaseCases(
       const detail = (await second.read(f.actor, f.familyId, {
         sessionId: f.sessionId,
       })) as GymSessionDetail;
+      expect(history.progress).toMatchObject({
+        sessions: 1,
+        attempts: 2,
+        retries: 1,
+        assistedFirstAttempts: 1,
+        eligibleFirstAttempts: 0,
+      });
       expect(detail.events).toHaveLength(3);
       expect(detail.events[1]).toMatchObject({
         valid: true,
@@ -209,6 +351,8 @@ export function gymHistoryDatabaseCases(
         cursor: first.nextCursor!,
       })) as GymHistory;
       expect(second.sessions).toHaveLength(2);
+      expect(first.progress?.sessions).toBe(22);
+      expect(second.progress).toEqual(first.progress);
       expect(
         new Set([...first.sessions, ...second.sessions].map((s) => s.id)).size,
       ).toBe(22);

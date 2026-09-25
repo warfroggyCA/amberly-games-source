@@ -14,6 +14,7 @@ export type GymEventPayload =
   | { type: "attempt"; action: Action }
   | {
       type: "score";
+      evaluator?: "complete-score-v1";
       attemptId: string;
       points: number;
       rank: number | null;
@@ -65,9 +66,29 @@ export interface GymSessionSummary {
   firstPoints: number | null;
   assisted: boolean;
 }
+export interface GymProgress {
+  version: "verified-first-moves-v1";
+  sessions: number;
+  attempts: number;
+  retries: number;
+  firstAttempts: number;
+  validFirstAttempts: number;
+  assistedFirstAttempts: number;
+  eligibleFirstAttempts: number;
+  eligibleValidFirstAttempts: number;
+  repeatedSessions: number;
+  resumedSessions: number;
+  score: {
+    evaluator: "complete-score-v1";
+    ratedFirstMoves: number;
+    maximumFirstMoves: number;
+    averagePercentage: number | null;
+  };
+}
 export interface GymHistory {
   identity: GymIdentity;
   sessions: GymSessionSummary[];
+  progress?: GymProgress;
   nextCursor: string | null;
 }
 export interface GymSessionDetail {
@@ -148,6 +169,7 @@ export function isGymWrite(v: unknown): v is GymWrite {
     case "score":
       return (
         gymId(p.attemptId) &&
+        (p.evaluator === undefined || p.evaluator === "complete-score-v1") &&
         integer(p.points, 0, 3000) &&
         (p.rank === null || integer(p.rank, 1, 10000000)) &&
         (p.percentage === null || number(p.percentage, 0, 100))

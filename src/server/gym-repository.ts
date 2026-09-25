@@ -143,9 +143,79 @@ export function createGymRepository(
        from scrabble.gym_sessions s where s.family_id=${familyId}::uuid and s.player_id=${player}
        ${cursor ? tx`and (s.created_at,s.id)<(${cursor.date}::timestamptz,${cursor.id}::uuid)` : tx``}
        order by s.created_at desc,s.id desc limit 21`;
+      // Aggregate the owned profile, independently of the history page. Treat
+      // every copy of a repeated position as ineligible: arrival order cannot
+      // establish which offline encounter was genuinely first.
+      const [progress] = await tx`
+        with scoped as (
+          select s.id,s.replay,
+            count(*) over (partition by s.fingerprint) copies
+          from scrabble.gym_sessions s
+          where s.family_id=${familyId}::uuid and s.player_id=${player}
+        ), activity as (
+          select s.id,s.replay,s.copies,
+            count(e.id) filter (where e.event->'payload'->>'type'='attempt') attempts,
+            (array_agg(e.event order by e.sequence) filter
+              (where e.event->'payload'->>'type'='attempt'))[1] first,
+            coalesce(bool_or(e.event->'payload'->>'type'='resume'),false) resumed
+          from scoped s left join scrabble.gym_events e
+            on e.family_id=${familyId}::uuid and e.player_id=${player} and e.session_id=s.id
+          group by s.id,s.replay,s.copies
+        ), classified as (
+          select *, (not replay and copies=1 and not resumed
+            and first->>'assisted'='false') eligible
+          from activity
+        ), rated as (
+          select c.*, (
+            select e.event->'payload' from scrabble.gym_events e
+            where e.family_id=${familyId}::uuid and e.player_id=${player}
+              and e.session_id=c.id
+              and e.event->'payload'->>'type'='score'
+              and e.event->'payload'->>'attemptId'=c.first->>'id'
+              and e.event->'payload'->>'evaluator'='complete-score-v1'
+              and c.first->>'valid'='true'
+            order by e.sequence limit 1
+          ) rating from classified c
+        )
+        select count(*) sessions,
+          coalesce(sum(attempts),0) attempts,
+          coalesce(sum(greatest(attempts-1,0)),0) retries,
+          count(*) filter(where first is not null) first_attempts,
+          count(*) filter(where first->>'valid'='true') valid_first,
+          count(*) filter(where first->>'assisted'='true') assisted_first,
+          count(*) filter(where eligible) eligible_first,
+          count(*) filter(where eligible and first->>'valid'='true') eligible_valid,
+          count(*) filter(where replay or copies>1) repeated_sessions,
+          count(*) filter(where resumed) resumed_sessions,
+          count(*) filter(where rating->>'percentage' is not null) rated_first,
+          count(*) filter(where rating->>'percentage' is not null and rating->>'rank'='1') maximum_first,
+          avg((rating->>'percentage')::numeric) average_percentage
+        from rated`;
       const last = rows[19];
       return {
         identity,
+        progress: {
+          version: "verified-first-moves-v1",
+          sessions: Number(progress.sessions),
+          attempts: Number(progress.attempts),
+          retries: Number(progress.retries),
+          firstAttempts: Number(progress.first_attempts),
+          validFirstAttempts: Number(progress.valid_first),
+          assistedFirstAttempts: Number(progress.assisted_first),
+          eligibleFirstAttempts: Number(progress.eligible_first),
+          eligibleValidFirstAttempts: Number(progress.eligible_valid),
+          repeatedSessions: Number(progress.repeated_sessions),
+          resumedSessions: Number(progress.resumed_sessions),
+          score: {
+            evaluator: "complete-score-v1",
+            ratedFirstMoves: Number(progress.rated_first),
+            maximumFirstMoves: Number(progress.maximum_first),
+            averagePercentage:
+              progress.average_percentage === null
+                ? null
+                : Number(progress.average_percentage),
+          },
+        },
         sessions: rows.slice(0, 20).map((r) => ({
           id: r.id,
           createdAt: r.created_at.toISOString(),

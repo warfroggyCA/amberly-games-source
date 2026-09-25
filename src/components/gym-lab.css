@@ -1239,3 +1239,36 @@
   outline: 2px solid var(--forest);
   outline-offset: -2px;
 }
+
+.gym-progress {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin-bottom: 24px;
+}
+.gym-progress-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+}
+.gym-progress-stats dt {
+  font-size: 0.9rem;
+}
+.gym-progress-stats dd {
+  margin: 4px 0 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--forest);
+}
+.gym-progress progress {
+  width: min(100%, 480px);
+  height: 18px;
+  accent-color: var(--forest);
+}
+.gym-progress summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 12px;
+}
+.gym-progress li {
+  margin-block: 8px;
+}

@@ -558,7 +558,12 @@ export function GymLab({
         } else if (data.type === "check") {
           setGrade(data.grade);
           if (attemptId)
-            historySync.record({ type: "score", attemptId, ...data.grade });
+            historySync.record({
+              type: "score",
+              attemptId,
+              ...data.grade,
+              evaluator: "complete-score-v1",
+            });
           setMessage("Your move is legal.");
         } else if (data.type === "strategy") {
           setStrategy(data.strategy);

@@ -57,6 +57,28 @@ describe("Gym pending saves", () => {
       },
     };
     expect(isGymWrite(data)).toBe(true);
+    for (const evaluator of [
+      undefined,
+      "complete-score-v1",
+      "unknown-version",
+    ]) {
+      expect(
+        isGymWrite({
+          ...data,
+          event: {
+            ...data.event,
+            payload: {
+              type: "score",
+              attemptId: crypto.randomUUID(),
+              points: 10,
+              rank: 1,
+              percentage: 100,
+              ...(evaluator ? { evaluator } : {}),
+            },
+          },
+        }),
+      ).toBe(evaluator !== "unknown-version");
+    }
     expect(isGymWrite({ ...data, event: { ...data.event, sequence: 0 } })).toBe(
       false,
     );
