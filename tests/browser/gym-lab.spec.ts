@@ -10,9 +10,7 @@ async function startPractice(page: Page, animate = false) {
       .getByRole("button", { name: "Close dialog", exact: true })
       .click();
   }
-  await page
-    .getByRole("button", { name: "Start practice", exact: true })
-    .click();
+  await page.getByRole("button", { name: /^Start (new )?practice$/ }).click();
 }
 
 test("fresh board, direction toggle, owned tile placement, undo, clear and solve", async ({
@@ -773,7 +771,7 @@ test("local game chooser opens Gym and Back to Games returns to it", async ({
   ).toBeVisible();
   await page.getByRole("link", { name: "Open Gym", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Start practice", exact: true }),
+    page.getByRole("button", { name: /^Start (new )?practice$/ }),
   ).toBeVisible();
   await expect(page.locator(".gym-welcome img")).toHaveAttribute(
     "src",
