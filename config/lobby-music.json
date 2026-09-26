@@ -1,0 +1,18 @@
+{
+  "title": "Somewhere in the Elevator",
+  "artist": "Peachtea @ You're Perfect Studio",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "source": "https://opengameart.org/content/somewhere-in-the-elevator",
+  "originalUrl": "https://opengameart.org/sites/default/files/Peachtea%20-%20Somewhere%20in%20the%20Elevator.wav",
+  "originalSha256": "52478b76bf603f7e5650bf3e5ff8b1138b5d8f9a147ffc9b318641fa1ee8c80c",
+  "auditionSha256": "3954c1c15440c08b595ebb515b2d391576ffe8809d81bb20dd38a3bb7a0fd7f7",
+  "asset": "public/music/somewhere-in-the-elevator.flac",
+  "sha256": "3e53f188800ce7d3c3c2b3f16478ee3ce5c8e9aaf3f75eac6bdcaa5b165896ae",
+  "bytes": 4754862,
+  "sampleRate": 44100,
+  "frames": 2709319,
+  "channels": 2,
+  "changes": "Matched audition loudness; 10 ms linear overlap at loop seam; lossless FLAC encoding of audition PCM.",
+  "selection": "B: A little lounge, confirmed September 26, 2026"
+}

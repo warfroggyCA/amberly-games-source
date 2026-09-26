@@ -68,3 +68,17 @@
 .lobby-music-credit p {
   margin: 0;
 }
+.lobby-music-slot {
+  display: block;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+@media (max-width: 650px) {
+  .lobby-music > .lobby-music-toggle {
+    width: 44px;
+    padding: 6px;
+  }
+  .lobby-music > .lobby-music-toggle > span {
+    display: none;
+  }
+}
