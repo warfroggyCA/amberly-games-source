@@ -1,6 +1,6 @@
 # Results presentation
 
-Approved September 26, 2026. This describes the implementation on `codex/results-portraits-drawer`, not the currently deployed Preview. See `release-status.md` for the running revision.
+Approved September 26, 2026. This describes the implementation reviewed in PR #14. See `release-status.md` and its annotated release receipt for publication status; source presence alone does not prove deployment.
 
 Scrabble's finalized result banner uses each winning player's current saved profile photo in a gold circular frame with a crown above it. Tied winners retain separate portraits; a missing or unreadable photo uses the crown. The saved game names and scores remain authoritative. Historical game records are not rewritten when profiles change.
 
