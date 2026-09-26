@@ -31,7 +31,7 @@ test("fresh board, direction toggle, owned tile placement, undo, clear and solve
                   data: {
                     id: message.id,
                     type: "error",
-                    message: "Analysis reached its time budget.",
+                    message: "Strategy search did not complete.",
                   },
                 }),
               ),
@@ -289,7 +289,10 @@ test("fresh board, direction toggle, owned tile placement, undo, clear and solve
     }),
   ).not.toBeVisible();
   await page.getByText("About strategy coaching", { exact: true }).click();
-  await expect(page.getByText(/15-second analysis/)).toBeVisible();
+  await expect(
+    page.getByText(/Is the biggest score always the best move/),
+  ).toBeVisible();
+  await expect(page.getByText(/15-second analysis/)).toHaveCount(0);
   await expect(
     page.getByRole("button", {
       name: "Compare strategy",
