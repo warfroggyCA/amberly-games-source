@@ -63,3 +63,9 @@ Superadmins can remove regular Scrabble and Crokinole games from game details. A
 Removal is terminal: further scoring is blocked and the game disappears from Home, History and player records. It does not fabricate a scored finish or winner. Original definitions, scores, events and results remain unchanged for operator recovery, with an audit record of who removed the game and why. There is no user-facing restore button. Unsaved entries are excluded. Concurrent changes require reviewing the refreshed game before retrying.
 
 Deploy migration `20260924011827_superadmin_game_removal.sql` before the matching application; the schema-v2 guard prevents use against an older database. No existing games are removed by the migration.
+
+## Player archiving and permanent deletion
+
+Only superadmins can archive or restore players, or permanently delete an unused archived profile. These permissions are fixed by role and cannot be granted to other members through a permission switch. Players exposes Active and Archived lists, swipe-to-archive, an Actions menu, and Undo after archive/restore. Invitations & access opens account management directly.
+
+An archive retains profile photos, results, statistics and account access. Permanent deletion is restricted to archived profiles without membership, invitation, Scrabble, Crokinole or Gym references, and requires explicit confirmation. Historical profiles should remain archived. API authorization, revision checks, database guards and deletion tombstones enforce the lifecycle independently of the UI. See `family-experience.md` and migration 15 in `releasing.md` before rollout.

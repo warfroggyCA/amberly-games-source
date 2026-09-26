@@ -1,115 +1,172 @@
 "use client";
 import { useState } from "react";
-import type { Standing } from "../lib/standings";
-type Sort = "rank" | "name" | "played" | "wins" | "ties";
+import {
+  rankStandings,
+  type Standing,
+  type StandingsView,
+} from "../lib/standings";
+import { playerDisplayName } from "../lib/player-profile";
+import "./family-standings.css";
+
+type Sort = "rank" | "name" | "played" | "wins" | "ties" | "winRate";
+const views = [
+  ["overall", "Overall"],
+  ["scrabble", "Scrabble"],
+  ["crokinole", "Crokinole"],
+] as const;
 export function FamilyStandings({
   rows,
   players,
   gameFilter,
 }: {
   rows: Standing[];
-  players: { id: string; name: string }[];
+  players: { id: string; name: string; nickname?: string }[];
   gameFilter: string;
 }) {
+  const [selection, setSelection] = useState<{
+    filter: string;
+    view: StandingsView;
+  } | null>(null);
+  const view =
+    selection?.filter === gameFilter
+      ? selection.view
+      : gameFilter === "scrabble" || gameFilter === "crokinole"
+        ? gameFilter
+        : "overall";
   const [sort, setSort] = useState<Sort>("rank");
   const [ascending, setAscending] = useState(true);
+  const profiles = new Map(players.map((player) => [player.id, player]));
+  const entries = rankStandings(rows, view).map((row) => ({
+    ...row,
+    name: profiles.has(row.playerId)
+      ? playerDisplayName(profiles.get(row.playerId)!)
+      : "Former player",
+  }));
+  entries.sort(
+    (a, b) =>
+      (sort === "name" ? a.name.localeCompare(b.name) : a[sort] - b[sort]) *
+        (ascending ? 1 : -1) ||
+      a.name.localeCompare(b.name) ||
+      a.playerId.localeCompare(b.playerId),
+  );
+  const title = views.find(([key]) => key === view)![1];
   return (
     <section className="family-standings">
       <h2>Family standings</h2>
+      <div className="standings-views" role="group" aria-label="Standings game">
+        {views.map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={view === key}
+            onClick={() => setSelection({ filter: gameFilter, view: key })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <p>
-        Completed competitive games across the full history. Private tests,
-        early finishes and disputed results are excluded. Ties are separate from
-        wins; each doubles teammate receives the team result.
+        {view === "overall"
+          ? "Total wins across all games. "
+          : "Ranked by wins. "}
+        Equal wins share a rank.
       </p>
-      {(["scrabble", "crokinole"] as const)
-        .filter((type) => !gameFilter || type === gameFilter)
-        .map((type) => {
-          const entries = rows
-            .filter((r) => r.gameType === type)
-            .map((r) => ({
-              ...r,
-              name:
-                players.find((p) => p.id === r.playerId)?.name ??
-                "Former player",
-              rank:
-                1 +
-                rows.filter(
-                  (other) => other.gameType === type && other.wins > r.wins,
-                ).length,
-            }));
-          entries.sort(
-            (a, b) =>
-              (sort === "name"
-                ? a.name.localeCompare(b.name)
-                : a[sort] - b[sort]) * (ascending ? 1 : -1) ||
-              a.name.localeCompare(b.name) ||
-              a.playerId.localeCompare(b.playerId),
-          );
-          return (
-            <div key={type}>
-              <h3>{type === "scrabble" ? "Scrabble" : "Crokinole"}</h3>
-              {entries.length ? (
-                <div className="standings-scroll">
-                  <table>
-                    <thead>
-                      <tr>
-                        {(
-                          [
-                            ["rank", "Rank"],
-                            ["name", "Player"],
-                            ["played", "Played"],
-                            ["wins", "Wins"],
-                            ["ties", "Ties"],
-                          ] as const
-                        ).map(([key, label]) => (
-                          <th
-                            key={key}
-                            aria-sort={
-                              sort === key
-                                ? ascending
-                                  ? "ascending"
-                                  : "descending"
-                                : "none"
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setSort(key);
-                                setAscending(
-                                  sort === key
-                                    ? !ascending
-                                    : key === "name" || key === "rank",
-                                );
-                              }}
-                            >
-                              {label}
-                              {sort === key ? (ascending ? " ↑" : " ↓") : " ↕"}
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entries.map((r) => (
-                        <tr key={r.playerId}>
-                          <td>{r.rank}</td>
-                          <th scope="row">{r.name}</th>
-                          <td>{r.played}</td>
-                          <td>
-                            <strong>{r.wins}</strong>
-                          </td>
-                          <td>{r.ties}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p>No eligible completed games yet.</p>
-              )}
-            </div>
-          );
-        })}
+      {entries.length ? (
+        <div
+          className="standings-scroll"
+          role="region"
+          aria-label={`${title} standings table`}
+          tabIndex={0}
+        >
+          <table>
+            <thead>
+              <tr>
+                {(
+                  [
+                    ["rank", "Rank"],
+                    ["name", "Player"],
+                    ["played", "Played"],
+                    ["wins", "Wins"],
+                    ["ties", "Ties"],
+                    ["winRate", "Win %"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <th
+                    key={key}
+                    scope="col"
+                    aria-sort={
+                      sort === key
+                        ? ascending
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSort(key);
+                        setAscending(
+                          sort === key
+                            ? !ascending
+                            : key === "name" || key === "rank",
+                        );
+                      }}
+                    >
+                      {label}
+                      {sort === key ? (ascending ? " ↑" : " ↓") : " ↕"}
+                    </button>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((row) => (
+                <tr key={row.playerId}>
+                  <td>{row.rank}</td>
+                  <th scope="row">
+                    {row.name}
+                    {view === "overall" && (
+                      <small className="standings-breakdown">
+                        {views
+                          .filter(([key]) => key !== "overall")
+                          .map(([key, label]) => {
+                            const game =
+                              row.byGame[key as Standing["gameType"]];
+                            return game
+                              ? `${label}: ${game.wins} ${game.wins === 1 ? "win" : "wins"} / ${game.played} played`
+                              : null;
+                          })
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </small>
+                    )}
+                  </th>
+                  <td>{row.played}</td>
+                  <td>
+                    <strong>{row.wins}</strong>
+                  </td>
+                  <td>{row.ties}</td>
+                  <td>
+                    {row.played ? `${(row.winRate * 100).toFixed(1)}%` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p>No eligible completed games yet.</p>
+      )}
+      <details className="standings-rules">
+        <summary>How rankings work</summary>
+        <p>
+          Completed competitive games across the full history. Private tests,
+          early finishes and disputed results are excluded. Ties are separate
+          from wins; each doubles teammate receives the team result. Win % is
+          wins divided by games played.
+        </p>
+      </details>
     </section>
   );
 }

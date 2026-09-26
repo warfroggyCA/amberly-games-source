@@ -1,4 +1,5 @@
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
+import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
 import { createCrokinoleRepository } from "../src/server/crokinole-repository";
 import { crokinoleDatabaseCases } from "./crokinole-database-cases";
 import { gameSummaryDatabaseCases } from "./game-summary-database-cases";
@@ -139,6 +140,7 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   gymHistoryDatabaseCases(owner, runtime);
+  playerArchiveDatabaseCases(owner, runtime);
   it("shares confirmed words with scorer and Gym, retries without duplicates, and isolates families", async () => {
     const f = await fixture(),
       other = await fixture();
@@ -1266,7 +1268,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
       await owner`select count(*)::int count from scrabble.audit where family_id=${familyId}::uuid and action='family.bootstrapped'`;
     expect(count).toBe(1);
   });
-  it("uses a private schema, RLS on every table and no runtime erasure privileges", async () => {
+  it("uses a private schema, RLS on every table and permits only guarded player erasure", async () => {
     const tables =
       await owner`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='scrabble' and c.relkind='r'`;
     expect(tables.length).toBeGreaterThanOrEqual(13);
@@ -1274,7 +1276,10 @@ suite("isolated real PostgreSQL shared family repository", () => {
     for (const t of tables) {
       const [rights] =
         await owner`select has_table_privilege('scrabble_runtime',${`scrabble.${t.relname}`},'delete') deleted,has_table_privilege('scrabble_runtime',${`scrabble.${t.relname}`},'truncate') truncated`;
-      expect(rights).toMatchObject({ deleted: false, truncated: false });
+      expect(rights).toMatchObject({
+        deleted: t.relname === "players",
+        truncated: false,
+      });
     }
     const [functions] =
       await owner`select count(*)::int count from pg_proc p join pg_namespace n on n.oid=p.pronamespace, lateral aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where n.nspname='scrabble' and a.grantee=0 and a.privilege_type='EXECUTE'`;

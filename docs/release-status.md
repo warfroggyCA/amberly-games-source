@@ -2,6 +2,10 @@
 
 The public app is **Amberly Games** at https://amberly-games.vercel.app/family.
 
+## Family experience candidate — September 26
+
+Branch `codex/family-experience` contains the next Gym, profile/history, overall standings and player archive update. This candidate is **not published**. Details and local evidence are in [family-experience.md](family-experience.md). The owner selected “Somewhere in the Elevator” for lobby music; the approved audition is bundled with attribution. Archive migration 15 must be rehearsed and applied before the matching API is released; no hosted schema or data changes have been made by this candidate's implementation checks.
+
 ## Canonical address — September 26
 
 The address migration is complete only when annotated tag `amberly-games-2026-09-26-address` exists. Its receipt records the configuration-only deployment, redirect, authentication settings and live verification. The application source remains the verified results release below. The former `amberly-games-preview.vercel.app` address is retained as a permanent redirect, preserving paths and query strings; browsers carry URL fragments forward. Existing bookmarks continue to resolve. Users may need to sign in again because browser sessions are scoped to the original address. Installed home-screen app behavior requires physical-device acceptance. Browser-only local previews are origin-scoped and are not migrated by a redirect.

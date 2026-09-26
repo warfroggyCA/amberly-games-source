@@ -115,7 +115,9 @@ test("viewers can inspect original Crokinole results and excluded entries after 
     }),
   );
   await page.goto("/family/history");
-  await expect(page.locator(".history-winner")).toContainText("Doug");
+  await expect(page.locator(".history-participant-winner")).toContainText(
+    "Doug",
+  );
   await page
     .getByText("Family standings · wins & ranks", { exact: true })
     .click();
@@ -136,7 +138,7 @@ test("viewers can inspect original Crokinole results and excluded entries after 
   await page.screenshot({
     path: info.outputPath("history-winner-standings.png"),
   });
-  await page.getByRole("button").filter({ hasText: "Doug vs Erin" }).click();
+  await page.getByRole("button", { name: /Doug vs Erin/ }).click();
   const badge = page.getByRole("dialog", { name: "Well played!" });
   if (await badge.count())
     await badge.getByRole("button", { name: "Close dialog" }).click();

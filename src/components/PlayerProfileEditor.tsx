@@ -186,21 +186,27 @@ export function PlayerProfileEditor({
         </div>
       </div>
       {photo && !framing && (
-        <button
-          type="button"
-          className="text-button"
-          disabled={saving || processing}
-          onClick={() => {
-            const bytes = Uint8Array.from(atob(photo.slice(23)), (c) =>
-              c.charCodeAt(0),
-            );
-            setFraming(
-              new File([bytes], "profile.jpg", { type: "image/jpeg" }),
-            );
-          }}
-        >
-          Adjust photo
-        </button>
+        <div>
+          <button
+            type="button"
+            className="text-button"
+            disabled={saving || processing}
+            onClick={() => {
+              const bytes = Uint8Array.from(atob(photo.slice(23)), (c) =>
+                c.charCodeAt(0),
+              );
+              setFraming(
+                new File([bytes], "profile.jpg", { type: "image/jpeg" }),
+              );
+            }}
+          >
+            Adjust photo
+          </button>
+          <small className="muted profile-reframe-help">
+            Adjust the saved crop with a crown preview. Choose the original
+            photo again if you need a wider view.
+          </small>
+        </div>
       )}
       {processing && <p role="status">Preparing photo…</p>}
       <label className="field">

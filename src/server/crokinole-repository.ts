@@ -496,7 +496,7 @@ export function createCrokinoleRepository(
                 409,
               );
             const roster =
-              await tx`select id from scrabble.players where family_id=${familyId}::uuid`;
+              await tx`select id from scrabble.players where family_id=${familyId}::uuid and not archived`;
             if (
               source.definition.players.some(
                 (p) => !roster.some((r) => r.id === p.id),
@@ -562,7 +562,7 @@ export function createCrokinoleRepository(
                 fail("INVALID_COLOUR", "Choose an available piece colour.");
             }
             const players =
-              await tx`select id,coalesce(nickname,name) as name from scrabble.players where family_id=${familyId}::uuid`;
+              await tx`select id,coalesce(nickname,name) as name from scrabble.players where family_id=${familyId}::uuid and not archived`;
             for (const player of op.definition.players) {
               if (
                 !players.some(

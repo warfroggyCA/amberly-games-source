@@ -178,9 +178,16 @@ test("review: complete Scrabble scoring journey through final deductions and ano
   await page.getByRole("button", { name: "History", exact: true }).click();
   await expect(page.getByText("Ada").first()).toBeVisible();
   await expect(page.getByText("Ben").first()).toBeVisible();
-  const rows = page.locator(".game-list-score");
+  const rows = page.locator(".game-list .history-participants");
   await expect(rows).toHaveCount(2);
-  await expect(rows).toContainText(["0 / 0", "3 / -7"]);
+  await expect(rows.nth(0).locator(".history-participant-score")).toHaveText([
+    "0 points",
+    "0 points",
+  ]);
+  await expect(rows.nth(1).locator(".history-participant-score")).toHaveText([
+    "3 points",
+    "-7 points",
+  ]);
 });
 
 for (const accessLost of [false, true]) {

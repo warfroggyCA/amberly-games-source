@@ -191,6 +191,8 @@ const operations = [
   "save-equipment",
   "create-player",
   "update-player",
+  "archive-player",
+  "delete-player",
   "create-game",
   "game-commands",
   "verify-words",
@@ -261,6 +263,19 @@ function validMutation(value: unknown): value is SharedMutation {
     id(value.requestId) &&
     record(value.operation) &&
     operations.includes(value.operation.type as string) &&
+    (!["archive-player", "delete-player"].includes(
+      value.operation.type as string,
+    ) ||
+      (keys(value.operation, [
+        "type",
+        "id",
+        "expectedRevision",
+        ...(value.operation.type === "archive-player" ? ["archived"] : []),
+      ]) &&
+        id(value.operation.id) &&
+        revision(value.operation.expectedRevision) &&
+        (value.operation.type !== "archive-player" ||
+          typeof value.operation.archived === "boolean"))) &&
     validProtestOperation(value.operation) &&
     plainJson(value.operation) &&
     JSON.stringify(value).length <= 400000
@@ -397,7 +412,11 @@ function validPlayerAccess(value: unknown): boolean {
   return (
     record(value) &&
     revision(value.revision) &&
-    (value.userId === null || id(value.userId))
+    (value.userId === null || id(value.userId)) &&
+    (value.archived === undefined || typeof value.archived === "boolean") &&
+    (value.deletionBlock === undefined ||
+      value.deletionBlock === null ||
+      boundedText(value.deletionBlock, 500, true))
   );
 }
 function validateShared(
@@ -465,6 +484,7 @@ function validateResult(
     !keys(value, [
       "equipment",
       "removedGameId",
+      "removedPlayerId",
       "replayed",
       "game",
       "gameAccess",
@@ -474,6 +494,21 @@ function validateResult(
     ]) ||
     (value.equipment !== undefined && !isEquipment(value.equipment)) ||
     (operation.type === "save-equipment" && value.equipment === undefined) ||
+    (operation.type === "archive-player" &&
+      (value.game !== undefined ||
+        value.gameAccess !== undefined ||
+        value.removedGameId !== undefined ||
+        value.equipment !== undefined ||
+        value.verifiedWords !== undefined)) ||
+    (value.removedPlayerId !== undefined &&
+      (!id(value.removedPlayerId) ||
+        value.player !== undefined ||
+        value.playerAccess !== undefined ||
+        value.removedGameId !== undefined ||
+        value.game !== undefined ||
+        value.gameAccess !== undefined ||
+        value.equipment !== undefined ||
+        value.verifiedWords !== undefined)) ||
     (value.removedGameId !== undefined &&
       (!id(value.removedGameId) ||
         value.game !== undefined ||
@@ -494,6 +529,44 @@ function validateResult(
     );
   }
   const result = value as SharedMutationResult;
+  if (result.removedPlayerId) {
+    if (
+      !("id" in operation) ||
+      result.removedPlayerId !== operation.id ||
+      (operation.type !== "delete-player" &&
+        !(
+          [
+            "create-player",
+            "update-player",
+            "archive-player",
+            "complete-profile",
+          ].includes(operation.type) && result.replayed
+        ))
+    )
+      throw new FamilyRequestError(
+        "The removal response did not match this player. Retry safely.",
+        0,
+      );
+    return result;
+  }
+  if (operation.type === "delete-player")
+    throw new FamilyRequestError(
+      "Player deletion was not confirmed. Retry the saved action.",
+      0,
+    );
+  if (
+    operation.type === "archive-player" &&
+    (!result.playerAccess ||
+      typeof result.playerAccess.archived !== "boolean" ||
+      result.playerAccess.revision < operation.expectedRevision + 1 ||
+      (!result.replayed &&
+        (result.playerAccess.archived !== operation.archived ||
+          result.playerAccess.revision !== operation.expectedRevision + 1)))
+  )
+    throw new FamilyRequestError(
+      "The player’s archive status was not confirmed. Retry the saved action.",
+      0,
+    );
   if (result.removedGameId) {
     const gameId =
       operation.type === "create-game"
@@ -530,9 +603,12 @@ function validateResult(
       0,
     );
   if (
-    (["create-player", "update-player", "complete-profile"].includes(
-      operation.type,
-    ) &&
+    ([
+      "create-player",
+      "update-player",
+      "archive-player",
+      "complete-profile",
+    ].includes(operation.type) &&
       (!result.player ||
         result.player.id !== (operation as { id: string }).id)) ||
     ([
@@ -883,11 +959,15 @@ export function createSharedStore(userId: string): SharedScorerStore {
               ...shared.players.filter((p) => p.id !== result.player!.id),
               result.player,
             ]
-          : shared.players,
+          : shared.players.filter((p) => p.id !== result.removedPlayerId),
       playerAccess:
         result.player && result.playerAccess && !keepCurrentPlayer
           ? { ...shared.playerAccess, [result.player.id]: result.playerAccess }
-          : shared.playerAccess,
+          : Object.fromEntries(
+              Object.entries(shared.playerAccess).filter(
+                ([id]) => id !== result.removedPlayerId,
+              ),
+            ),
       games,
       gameAccess:
         result.game && result.gameAccess && !keepCurrentAccess

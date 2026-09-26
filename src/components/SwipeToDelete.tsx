@@ -8,13 +8,18 @@ export function SwipeToDelete({
   disabled,
   onDelete,
   actionLabel = "Delete practice game…",
+  action = "delete",
+  toggleLabel,
 }: {
   children: ReactNode;
   disabled: boolean;
   onDelete: () => void;
   actionLabel?: string;
+  action?: "delete" | "archive";
+  toggleLabel?: string;
 }) {
   const actionId = useId();
+  const actionText = action === "archive" ? "Archive" : "Delete";
   const toggleRef = useRef<HTMLButtonElement>(null);
   const [revealed, setRevealed] = useState(false);
   const [dragOffset, setDragOffset] = useState<number | null>(null);
@@ -34,7 +39,7 @@ export function SwipeToDelete({
   };
   return (
     <div
-      className="swipe-game"
+      className={`swipe-game${action === "archive" ? " swipe-game-archive" : ""}`}
       onKeyDown={(e) => {
         if (e.key === "Escape" && revealed) {
           e.stopPropagation();
@@ -114,8 +119,11 @@ export function SwipeToDelete({
           type="button"
           className="swipe-game-toggle"
           ref={toggleRef}
-          aria-label={revealed ? "Hide delete action" : "Show delete action"}
-          title="Swipe left or tap to show Delete"
+          aria-label={
+            toggleLabel ??
+            (revealed ? `Hide ${action} action` : `Show ${action} action`)
+          }
+          title={`Swipe left or tap to show ${actionText}`}
           aria-expanded={revealed && !disabled}
           aria-controls={actionId}
           disabled={disabled}
@@ -147,9 +155,15 @@ export function SwipeToDelete({
           strokeWidth="1.8"
           aria-hidden="true"
         >
-          <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" />
+          <path
+            d={
+              action === "archive"
+                ? "M4 9h16v11H4zM3 4h18v5H3zM9 13h6"
+                : "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7"
+            }
+          />
         </svg>
-        Delete
+        {actionText}
       </button>
     </div>
   );

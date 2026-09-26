@@ -293,3 +293,9 @@ Solve now displays one representative placement for each available medal tier, i
 ### Solve review and feedback presentation
 
 While a solution is visible, tile editing is locked. My move restores the draft and immediately unlocks editing. Return all clears the current entry and cursor; neither action resets assistance for that puzzle. New puzzles reset the lock. Scarlett's animation control belongs in Settings; the feedback header uses the mascot without status chatter. Show the checked score before supporting word details. Strategy work uses a Thinking activity bar, not a running options counter or fabricated percentage; retain cancellation and detailed methodology after completion.
+
+### Phone drag view
+
+On a small board, a deliberate touch or stylus drag magnifies the board twofold within its existing frame. The aimed-at square stays anchored as zoom begins; moving near an edge pans the enlarged board within its boundaries. Keep the lifted tile and exact landing-square indication above the finger. The rack and surrounding controls do not move. Taps, short flicks, keyboard input and large-board dragging retain their existing behavior.
+
+Resolve the drop against the displayed enlarged board before restoring the fitted view. Magnification is presentation only: it never changes the draft, tile ownership, Undo history or saved practice progress. Cancellation, a second touch, orientation/viewport changes and backgrounding restore the fitted board without completing a placement. The existing Gym Reduced motion choice makes zoom and restoration immediate. Native touch checks cover small-board placement, occupied squares, edge pan and interruption; physical iPhone/iPad Safari acceptance remains separate from browser automation.

@@ -31,3 +31,9 @@ Playback uses short excerpts with fades and reduced gain (especially crowd and t
 ## Personal turn-bell refinement
 
 The linked player ID already returned by family sign-in now limits the turn cue to that player. It does not affect shared celebrations and adds no identity fields to anonymous spectator responses. Local verification of this refinement passed TypeScript, focused lint, formatting, production build, 931 unit tests and 20 sound browser tests across all four profiles. The prior complete browser run passed 364 tests with 32 profile-specific skips; the revised commit still requires its own protected CI before publication.
+
+## Lobby music — family experience candidate
+
+The owner selected B, “Somewhere in the Elevator” by Peachtea @ You're Perfect Studio, on September 26. This separate lobby track does not replace any celebration or personal turn sound. Source and asset receipts: `config/lobby-music.json`; distributed attribution: `public/music/README.md`. The original offers CC BY 4.0, allowing redistribution with attribution and indicated changes. The recording is stored as a lossless FLAC of the exact loudness-matched, seam-blended audition PCM, so deployment does not depend on third-party music delivery.
+
+Open Music in the lobby header and tap Play music. Volume is remembered on that device. Playback stays continuous through Games, History, Players and Settings; entering a game fades it out, and Gym unmounts it. Returning from a game or browser interruption requires an explicit Resume tap. Fresh sessions remain off. The same-origin recording is loaded only when requested, and a failed or slow load can be retried without blocking the app. Music and game-effect controls are independent.

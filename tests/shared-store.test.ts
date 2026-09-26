@@ -1501,3 +1501,147 @@ it("retains an initial profile save when the server does not confirm its player 
     },
   });
 });
+
+describe("player archive acknowledgements", () => {
+  const archive = {
+    type: "archive-player" as const,
+    id: "player-1",
+    archived: true,
+    expectedRevision: 0,
+  };
+  const deleted = {
+    type: "delete-player" as const,
+    id: "player-1",
+    expectedRevision: 1,
+  };
+  it("retains an uncertain archive, retries the same request, and preserves game drafts", async () => {
+    const first = create();
+    await first.load();
+    await first.update((data) => ({ ...data, drafts: { "game-1": draft() } }));
+    fetchMock.mockRejectedValueOnce(
+      new Error("Connection interrupted after archive"),
+    );
+    await expect(first.administer(archive)).rejects.toThrow("interrupted");
+    const original = sent()[0];
+    expect((await stored()).pending).toMatchObject({ mutation: original });
+    first.close();
+    await Promise.resolve();
+    const second = create();
+    await second.load();
+    fetchMock.mockResolvedValueOnce(
+      response({
+        player: { id: "player-1", name: "Ada" },
+        playerAccess: {
+          revision: 1,
+          userId,
+          archived: true,
+          deletionBlock: "Saved history is retained.",
+        },
+        replayed: true,
+      }),
+    );
+    await second.retry!();
+    expect(sent()[1]).toEqual(original);
+    expect(second.getSnapshot().shared?.playerAccess["player-1"]).toMatchObject(
+      { archived: true, deletionBlock: "Saved history is retained." },
+    );
+    expect(second.getSnapshot().data.games).toHaveLength(1);
+    expect((await stored()).drafts).toEqual({ "game-1": draft() });
+    expect((await stored()).pending).toBeNull();
+  });
+  it.each([
+    {},
+    { removedPlayerId: null },
+    { removedPlayerId: "other-player" },
+    {
+      removedPlayerId: "player-1",
+      player: { id: "player-1", name: "Ada" },
+      playerAccess: { revision: 1, userId },
+    },
+    { removedPlayerId: "player-1", removedGameId: "game-1" },
+  ])(
+    "does not clear a pending deletion for a malformed or mismatched reply %j",
+    async (result) => {
+      const store = create();
+      await store.load();
+      fetchMock.mockResolvedValueOnce(response(result));
+      await expect(store.administer(deleted)).rejects.toThrow();
+      expect(store.getSnapshot().unresolved).toBe(true);
+      expect(store.getSnapshot().data.players).toHaveLength(1);
+      fetchMock.mockResolvedValueOnce(
+        response({ removedPlayerId: "player-1", replayed: true }),
+      );
+      await store.retry!();
+      expect(store.getSnapshot().data.players).toHaveLength(0);
+      expect(store.getSnapshot().shared?.playerAccess).toEqual({});
+      expect(store.getSnapshot().data.games).toHaveLength(1);
+    },
+  );
+  it.each([
+    { archived: undefined, revision: 1 },
+    { archived: false, revision: 1 },
+    { archived: true, revision: 0 },
+    { archived: true, revision: 2 },
+  ])(
+    "rejects missing or wrong archive status or revision %j in a new save",
+    async ({ archived, revision }) => {
+      const store = create();
+      await store.load();
+      fetchMock.mockResolvedValueOnce(
+        response({
+          player: { id: "player-1", name: "Ada" },
+          playerAccess: { revision, userId, archived },
+        }),
+      );
+      await expect(store.administer(archive)).rejects.toThrow(
+        "archive status was not confirmed",
+      );
+      expect(store.getSnapshot().unresolved).toBe(true);
+    },
+  );
+  it("accepts current restored state when retrying a historical archive", async () => {
+    const store = create();
+    await store.load();
+    fetchMock.mockRejectedValueOnce(new Error("Disconnected"));
+    await expect(store.administer(archive)).rejects.toThrow();
+    fetchMock.mockResolvedValueOnce(
+      response({
+        player: { id: "player-1", name: "Ada" },
+        playerAccess: { revision: 2, userId, archived: false },
+        replayed: true,
+      }),
+    );
+    await store.retry!();
+    expect(store.getSnapshot().shared?.playerAccess["player-1"]).toMatchObject({
+      archived: false,
+      revision: 2,
+    });
+    expect(store.getSnapshot().unresolved).toBe(false);
+  });
+  it("accepts a deleted-player receipt for a delayed create retry without resurrecting it", async () => {
+    const store = create();
+    await store.load();
+    fetchMock.mockRejectedValueOnce(new Error("Disconnected"));
+    await expect(addPlayer(store)).rejects.toThrow();
+    fetchMock.mockResolvedValueOnce(
+      response({ removedPlayerId: "player-2", replayed: true }),
+    );
+    await store.retry!();
+    expect(store.getSnapshot().data.players.map((p) => p.id)).toEqual([
+      "player-1",
+    ]);
+    expect(store.getSnapshot().unresolved).toBe(false);
+  });
+  it("rejects malformed archive operations before saving or sending them", async () => {
+    const store = create();
+    await store.load();
+    await expect(
+      store.administer({
+        ...archive,
+        archived: "yes",
+      } as unknown as SharedOperation),
+    ).rejects.toThrow("invalid details");
+    expect(sent()).toHaveLength(0);
+    expect(await stored()).toBeUndefined();
+  });
+});

@@ -5,6 +5,7 @@ import {
   photoCrop,
   prepareProfilePhoto,
 } from "../lib/player-profile";
+import { PortraitCrown } from "./PortraitCrown";
 
 export function ProfilePhotoFramer({
   file,
@@ -18,6 +19,7 @@ export function ProfilePhotoFramer({
   const imageRef = useRef<HTMLImageElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [frame, setFrame] = useState(DEFAULT_PHOTO_FRAME);
+  const [showCrown, setShowCrown] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const abort = useRef<AbortController | null>(null);
@@ -61,77 +63,90 @@ export function ProfilePhotoFramer({
       <strong>Frame your photo</strong>
       <p className="muted">
         Drag to position, then zoom to fill the circle. You can also use the
-        position sliders.
+        position sliders. The crown previews your winner portrait; it is not
+        saved in your photo.
       </p>
-      <div
-        className="profile-crop-window"
-        onPointerDown={(e) => {
-          if (busy || !crop) return;
-          e.currentTarget.setPointerCapture(e.pointerId);
-          drag.current = { x: e.clientX, y: e.clientY, frame };
-        }}
-        onPointerMove={(e) => {
-          if (!drag.current || !crop || busy) return;
-          const scale =
-            e.currentTarget.getBoundingClientRect().width / crop.size;
-          const start = drag.current;
-          const clamp = (n: number) => Math.max(0, Math.min(1, n));
-          setFrame({
-            ...start.frame,
-            x:
-              dimensions.width === crop.size
-                ? 0.5
-                : clamp(
-                    start.frame.x -
-                      (e.clientX - start.x) /
-                        scale /
-                        (dimensions.width - crop.size),
-                  ),
-            y:
-              dimensions.height === crop.size
-                ? 0.5
-                : clamp(
-                    start.frame.y -
-                      (e.clientY - start.y) /
-                        scale /
-                        (dimensions.height - crop.size),
-                  ),
-          });
-        }}
-        onPointerUp={() => {
-          drag.current = null;
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-        }}
-        onLostPointerCapture={() => {
-          drag.current = null;
-        }}
-      >
-        {/* Local object URL, never uploaded or persisted. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          ref={imageRef}
-          alt="Circular photo preview"
-          draggable={false}
-          onLoad={(e) =>
-            setDimensions({
-              width: e.currentTarget.naturalWidth,
-              height: e.currentTarget.naturalHeight,
-            })
-          }
-          onError={() => setError("This photo could not be opened.")}
-          style={
-            crop
-              ? {
-                  width: `${(dimensions.width / crop.size) * 100}%`,
-                  height: `${(dimensions.height / crop.size) * 100}%`,
-                  left: `${(-crop.x / crop.size) * 100}%`,
-                  top: `${(-crop.y / crop.size) * 100}%`,
-                }
-              : { visibility: "hidden" }
-          }
+      <label className="profile-crown-toggle">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={showCrown}
+          onChange={(e) => setShowCrown(e.target.checked)}
         />
+        Show crown
+      </label>
+      <div className="profile-crop-stage">
+        <div
+          className="profile-crop-window"
+          onPointerDown={(e) => {
+            if (busy || !crop) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            drag.current = { x: e.clientX, y: e.clientY, frame };
+          }}
+          onPointerMove={(e) => {
+            if (!drag.current || !crop || busy) return;
+            const scale =
+              e.currentTarget.getBoundingClientRect().width / crop.size;
+            const start = drag.current;
+            const clamp = (n: number) => Math.max(0, Math.min(1, n));
+            setFrame({
+              ...start.frame,
+              x:
+                dimensions.width === crop.size
+                  ? 0.5
+                  : clamp(
+                      start.frame.x -
+                        (e.clientX - start.x) /
+                          scale /
+                          (dimensions.width - crop.size),
+                    ),
+              y:
+                dimensions.height === crop.size
+                  ? 0.5
+                  : clamp(
+                      start.frame.y -
+                        (e.clientY - start.y) /
+                          scale /
+                          (dimensions.height - crop.size),
+                    ),
+            });
+          }}
+          onPointerUp={() => {
+            drag.current = null;
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+          }}
+          onLostPointerCapture={() => {
+            drag.current = null;
+          }}
+        >
+          {/* Local object URL, never uploaded or persisted. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={imageRef}
+            alt="Circular photo preview"
+            draggable={false}
+            onLoad={(e) =>
+              setDimensions({
+                width: e.currentTarget.naturalWidth,
+                height: e.currentTarget.naturalHeight,
+              })
+            }
+            onError={() => setError("This photo could not be opened.")}
+            style={
+              crop
+                ? {
+                    width: `${(dimensions.width / crop.size) * 100}%`,
+                    height: `${(dimensions.height / crop.size) * 100}%`,
+                    left: `${(-crop.x / crop.size) * 100}%`,
+                    top: `${(-crop.y / crop.size) * 100}%`,
+                  }
+                : { visibility: "hidden" }
+            }
+          />
+        </div>
+        {showCrown && <PortraitCrown />}
       </div>
       <label>
         Zoom{" "}
