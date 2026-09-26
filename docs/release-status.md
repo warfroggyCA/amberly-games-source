@@ -1,6 +1,16 @@
-# Current Amberly Games release
+# Amberly Games Preview release record
 
-The running app is **Amberly Games Preview** at https://amberly-games-preview.vercel.app.
+The public app is **Amberly Games Preview** at https://amberly-games-preview.vercel.app.
+
+## Results portraits and score drawers — September 26
+
+The results update is published only when the annotated tag **`preview-2026-09-26-results`** exists in `warfroggyCA/amberly-games-source`. That tag is the release receipt: it points to the exact deployed commit and records the Ready deployment ID, deployment URL, Preview alias, and successful Verify run. Read it with `git show preview-2026-09-26-results` after fetching tags. Until that receipt exists, the previously verified release below remains the published baseline.
+
+The implementation is commit `3fb5b3d8694d150780ef0beb7a6c6a8c55e25b08`, reviewed in [PR #14](https://github.com/warfroggyCA/amberly-games-source/pull/14). Subsequent release-documentation commits do not change its application files. It adds crowned profile photos to Scrabble result banners and shared images, crown-only fallback, distinct share/viewing-link controls, and overlay score drawers on all screen sizes. See [results presentation](results-presentation.md).
+
+Local verification passed 920 unit, 103 database, 352 browser and one integrated test, plus build/type checking and formatting. Lint retains one pre-existing BoardEditor warning. Physical iPhone/iPad acceptance remains separate. No migration, authentication change or feature-flag change is required. Preserve Crokinole, Gym, Gym history, Google/email sign-in, and the existing Preview origin.
+
+## Previous verified deployment / rollback baseline
 
 | Item | Verified release |
 | --- | --- |
@@ -32,7 +42,7 @@ New timing and correction commands require the released journal reader. After th
 
 ## Historical release notes
 
-The entries below describe earlier milestones. Any statement of “current,” “pending,” or “unreleased” below applies only to its historical entry; the table above is the current deployment record.
+The entries below describe earlier milestones. Any statement of “current,” “pending,” or “unreleased” below applies only to its historical entry; the annotated release receipt described above identifies the published revision; the table preserves the previous deployment baseline.
 
 ## Strategy coaching published — 2026-09-26T03:07:41.463662+00:00
 

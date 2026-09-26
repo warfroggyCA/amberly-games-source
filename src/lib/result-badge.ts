@@ -1,9 +1,10 @@
+import { isValidProfilePhoto } from "./player-profile";
 import { LETTER_VALUES } from "../domain/board";
 
 export type BadgeResult = {
   gameId: string;
   game: "Scrabble" | "Crokinole";
-  winners: { name: string; score: number }[];
+  winners: { name: string; score: number; photoDataUrl?: string }[];
   note?: string;
 };
 
@@ -54,6 +55,60 @@ async function loadArtwork(
   }
 }
 
+/** Optional photos must never prevent a result from being shared. Only saved JPEGs
+ * are accepted, avoiding remote tracking requests and tainted export canvases. */
+async function loadProfilePhoto(
+  value: string | undefined,
+  signal: AbortSignal,
+) {
+  if (!isValidProfilePhoto(value)) return null;
+  try {
+    return await loadArtwork(value, signal);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return null;
+  }
+}
+
+function drawPortrait(
+  ctx: CanvasRenderingContext2D,
+  photo: HTMLImageElement,
+  x: number,
+  y: number,
+  radius: number,
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.clip();
+  const side = Math.min(photo.naturalWidth, photo.naturalHeight);
+  ctx.drawImage(
+    photo,
+    (photo.naturalWidth - side) / 2,
+    (photo.naturalHeight - side) / 2,
+    side,
+    side,
+    x - radius,
+    y - radius,
+    radius * 2,
+    radius * 2,
+  );
+  ctx.restore();
+  const gold = ctx.createLinearGradient(
+    x - radius,
+    y - radius,
+    x + radius,
+    y + radius,
+  );
+  gold.addColorStop(0, "#fff0a7");
+  gold.addColorStop(0.4, "#b67b22");
+  gold.addColorStop(0.7, "#f9d475");
+  gold.addColorStop(1, "#a26c1b");
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 10;
+  ctx.stroke();
+}
+
 function fitText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -79,6 +134,19 @@ export async function makeResultBadge(
       signal,
     ),
   ]);
+  const photos = await Promise.all(
+    result.winners.map((winner) =>
+      loadProfilePhoto(winner.photoDataUrl, signal),
+    ),
+  );
+  const hasPhotos = photos.some(Boolean);
+  // The optional crown uses the same vector artwork as the in-app portrait.
+  const crown = hasPhotos
+    ? await loadArtwork("/results/crown.svg", signal).catch((error) => {
+        if (signal.aborted) throw error;
+        return null;
+      })
+    : null;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1080;
   const ctx = canvas.getContext("2d");
@@ -90,13 +158,46 @@ export async function makeResultBadge(
   fitText(ctx, "GAME NIGHT WINNER", 33, 870);
   ctx.fillText("GAME NIGHT WINNER", 540, 264);
 
+  if (hasPhotos && crown) {
+    // Opaque framed medallion covers the original artwork's central crown.
+    ctx.beginPath();
+    ctx.arc(540, 530, 198, 0, Math.PI * 2);
+    ctx.fillStyle = "#12392b";
+    ctx.fill();
+    ctx.strokeStyle = "#d8ae50";
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    if (photos.length === 1 && photos[0]) {
+      drawPortrait(ctx, photos[0], 540, 530, 190);
+    } else {
+      const columns = Math.min(2, photos.length);
+      const rows = Math.ceil(photos.length / columns);
+      const radius = rows > 1 ? 70 : 80;
+      photos.forEach((photo, index) => {
+        const x = 540 + ((index % columns) - (columns - 1) / 2) * 174;
+        const y = 530 + (Math.floor(index / columns) - (rows - 1) / 2) * 164;
+        if (photo) drawPortrait(ctx, photo, x, y, radius);
+        else
+          ctx.drawImage(
+            crown,
+            x - radius,
+            y - radius * 0.8,
+            radius * 2,
+            radius * 1.6,
+          );
+      });
+    }
+    ctx.drawImage(crown, 430, 286, 220, 176);
+  }
+
   // One band per winner; long team names use readable lettering rather than tiny tiles.
   const names = result.winners.flatMap((winner) => badgeNameRows(winner.name));
-  const band = 190 / names.length;
+  const portraitsDrawn = hasPhotos && !!crown;
+  const band = (portraitsDrawn ? 120 : 190) / names.length;
   names.forEach((name, index) => {
     const chars = badgeCharacters(name);
     const size = Math.min(170, band - 8, 880 / Math.max(chars.length, 1));
-    const cy = 660 + band * (index + 0.5);
+    const cy = (portraitsDrawn ? 730 : 660) + band * (index + 0.5);
     if (size < 42) {
       ctx.fillStyle = "#fff4d5";
       fitText(ctx, name, Math.min(52, band * 0.7), 900);

@@ -1,7 +1,14 @@
 import { ResultBadge } from "./ResultBadge";
-import { CrownIcon } from "./CrownIcon";
+import { WinnerPortrait } from "./WinnerPortrait";
+import type { SavedPlayer } from "../lib/preview-store";
 import type { GameState } from "../domain/game";
-function WinnerDetails({ game }: { game: GameState }) {
+function WinnerDetails({
+  game,
+  profiles,
+}: {
+  game: GameState;
+  profiles: SavedPlayer[];
+}) {
   if (!game.result) return null;
   // Solo results deliberately have no competitive winners.
   const featuredPlayers = game.players.filter(
@@ -10,7 +17,17 @@ function WinnerDetails({ game }: { game: GameState }) {
   const names = featuredPlayers.map((p) => p.name).join(" & ");
   return (
     <section className="winner-banner" aria-label="Game result">
-      <CrownIcon className="winner-crown" />
+      <div className="winner-portraits">
+        {featuredPlayers.map((player) => (
+          <WinnerPortrait
+            key={player.id}
+            name={player.name}
+            photoDataUrl={
+              profiles.find((profile) => profile.id === player.id)?.photoDataUrl
+            }
+          />
+        ))}
+      </div>
       <div>
         <span className="eyebrow">
           {game.mode === "solo"
@@ -54,7 +71,13 @@ function WinnerDetails({ game }: { game: GameState }) {
   );
 }
 
-export function WinnerBanner({ game }: { game: GameState }) {
+export function WinnerBanner({
+  game,
+  profiles = [],
+}: {
+  game: GameState;
+  profiles?: SavedPlayer[];
+}) {
   return (
     <>
       <ResultBadge
@@ -68,6 +91,9 @@ export function WinnerBanner({ game }: { game: GameState }) {
                   .filter((p) => game.result!.winnerIds.includes(p.id))
                   .map((p) => ({
                     name: p.name,
+                    photoDataUrl: profiles.find(
+                      (profile) => profile.id === p.id,
+                    )?.photoDataUrl,
                     score: game.result!.scores[p.id],
                   })),
                 note:
@@ -84,7 +110,7 @@ export function WinnerBanner({ game }: { game: GameState }) {
             : null
         }
       />
-      <WinnerDetails game={game} />
+      <WinnerDetails game={game} profiles={profiles} />
     </>
   );
 }

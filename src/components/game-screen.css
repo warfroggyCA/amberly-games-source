@@ -217,36 +217,6 @@ body:has(> .game-screen) > .error-banner {
   flex-wrap: wrap;
   gap: 10px;
 }
-/* Native modal gives the small-screen score sheet focus containment and Escape. */
-.score-sheet-modal.modal {
-  inset: 0 0 0 auto;
-  margin: 0;
-  height: 100dvh;
-  max-height: 100dvh;
-  width: min(100%, 420px);
-  max-width: 100%;
-  border-radius: 0;
-  padding: max(16px, env(safe-area-inset-top)) 16px
-    max(16px, env(safe-area-inset-bottom));
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.score-sheet-modal .modal-heading {
-  position: sticky;
-  top: -16px;
-  background: var(--surface);
-  z-index: 1;
-  padding: 12px 0;
-}
-.score-sheet-modal .score-panel {
-  border: 0;
-}
-.score-sheet-modal .panel-heading h2 {
-  display: none;
-}
-.score-sheet-modal .panel-heading {
-  justify-content: flex-end;
-}
 @media (max-width: 900px) {
   .game-screen > .site-header {
     padding: 6px 12px;

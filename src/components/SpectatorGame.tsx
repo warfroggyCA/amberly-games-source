@@ -3,6 +3,7 @@ import { PlayerElapsedTime } from "./TurnTiming";
 import { TurnClock, TimingSummary } from "./TurnTiming";
 import "./game-feedback.css";
 import { BingoBanner } from "./BingoBanner";
+import "./score-drawer.css";
 import { ResultBadge } from "./ResultBadge";
 import { PlayerName } from "./PlayerName";
 import "./live-draft.css";
@@ -174,7 +175,8 @@ export function SpectatorGame({
         title="Scores and game history"
         aria-haspopup="dialog"
         aria-expanded={scoresOpen}
-        onClick={() => {
+        onClick={(event) => {
+          event.currentTarget.focus({ preventScroll: true });
           playback.finish();
           setScoresOpen(true);
         }}
@@ -206,6 +208,9 @@ export function SpectatorGame({
                   .filter((p) => game.result!.winnerIds.includes(p.id))
                   .map((p) => ({
                     name: p.name,
+                    photoDataUrl: profiles.find(
+                      (profile) => profile.id === p.id,
+                    )?.photoDataUrl,
                     score: game.result!.scores[p.id],
                   })),
                 note:
@@ -510,6 +515,7 @@ export function SpectatorGame({
       )}
       {scoresOpen && (
         <Modal
+          className="score-sheet-modal"
           title={game.status === "finalized" ? "Final scores" : "Scores"}
           onClose={() => setScoresOpen(false)}
         >

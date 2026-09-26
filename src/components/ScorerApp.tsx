@@ -18,7 +18,6 @@ import {
   useState,
   useSyncExternalStore,
   type FormEvent,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -66,7 +65,7 @@ import type { GameAccess } from "../lib/shared-contract";
 import "./scorer-refinements.css";
 import "./amberly.css";
 import "./game-screen.css";
-import { GameScorePanel, useNarrowGameScreen } from "./GameScorePanel";
+import { GameScorePanel } from "./GameScorePanel";
 import { SpectatorGame } from "./SpectatorGame";
 import { useLiveDraft, type LiveContext } from "./useLiveDraft";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
@@ -151,11 +150,7 @@ export function ScorerApp({
   >({});
   const [notice, setNotice] = useState<string | null>(null);
   const [viewerTools, setViewerTools] = useState<HTMLDivElement | null>(null);
-  const [panel, setPanel] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState(false);
-  const narrowScreen = useNarrowGameScreen();
-  const [panelWidth, setPanelWidth] = useState(320);
-  const panelDrag = useRef<{ x: number; width: number } | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [extraTiles, setExtraTiles] = useState<{
     gameId: string;
     revision: number;
@@ -496,11 +491,8 @@ export function ScorerApp({
     game.status !== "finalized" &&
     !readOnly &&
     state.status === "ready";
-  const overlayPanel = fitGame && narrowScreen;
-  const panelOpen = overlayPanel ? mobilePanel : panel;
   function togglePanel() {
-    if (overlayPanel) setMobilePanel((value) => !value);
-    else setPanel((value) => !value);
+    setPanelOpen((value) => !value);
   }
   useEffect(() => {
     if (fitGame) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -614,17 +606,20 @@ export function ScorerApp({
             : undefined
         }
       />
-      {fitGame && (
-        <button
-          className="tabletop-tool"
-          aria-label={panelOpen ? "Collapse score panel" : "Expand score panel"}
-          title="Scores"
-          aria-expanded={panelOpen}
-          onClick={togglePanel}
-        >
-          <TabletopIcon name="scores" />
-        </button>
-      )}
+      <button
+        className="tabletop-tool scores-open-button"
+        aria-label={panelOpen ? "Collapse score panel" : "Expand score panel"}
+        title="Scores"
+        aria-expanded={panelOpen}
+        onClick={(event) => {
+          // Safari taps do not focus buttons automatically.
+          event.currentTarget.focus({ preventScroll: true });
+          togglePanel();
+        }}
+      >
+        <TabletopIcon name="scores" />
+        <span>Scores</span>
+      </button>
       {!fitGame && game.status !== "finalized" && (
         <button
           className="tabletop-tool tabletop-end-game"
@@ -1233,11 +1228,11 @@ export function ScorerApp({
                             : "Current game"}
                       </h1>
                     </div>
-                    {gameActions}
+                    {!fitGame && gameActions}
                   </div>
                   <div className="game-notices">
                     {!fitGame && renderGameStatus?.(game)}
-                    <WinnerBanner game={game} />
+                    <WinnerBanner game={game} profiles={state.data.players} />
                     {!fitGame && game.tileSupply && (
                       <p className="nonstandard-banner">
                         Nonstandard tile set · {getTileTotal(game)} tiles · Kept
@@ -1313,97 +1308,7 @@ export function ScorerApp({
                       </div>
                     )}
                   </div>
-                  <div
-                    className={`play-layout resizable-play ${panelOpen && !overlayPanel ? "" : "panel-hidden"}`}
-                    style={
-                      {
-                        "--panel-size": `${panelWidth}px`,
-                        "--panel-space":
-                          panelOpen && !overlayPanel
-                            ? `${panelWidth}px`
-                            : "0px",
-                      } as CSSProperties
-                    }
-                  >
-                    {!fitGame && (
-                      <button
-                        className="panel-chevron"
-                        aria-label={
-                          panelOpen
-                            ? "Collapse score panel"
-                            : "Expand score panel"
-                        }
-                        aria-expanded={panelOpen}
-                        aria-controls="score-drawer"
-                        onClick={togglePanel}
-                      >
-                        <span aria-hidden="true">{panelOpen ? "›" : "‹"}</span>
-                      </button>
-                    )}
-                    {panelOpen && !overlayPanel && (
-                      <div
-                        className="panel-resizer"
-                        role="separator"
-                        tabIndex={0}
-                        aria-label="Score panel width"
-                        aria-orientation="vertical"
-                        aria-valuemin={250}
-                        aria-valuemax={440}
-                        aria-valuenow={panelWidth}
-                        onPointerDown={(event) => {
-                          panelDrag.current = {
-                            x: event.clientX,
-                            width: panelWidth,
-                          };
-                          event.currentTarget.setPointerCapture(
-                            event.pointerId,
-                          );
-                        }}
-                        onPointerMove={(event) => {
-                          const drag = panelDrag.current;
-                          if (drag)
-                            setPanelWidth(
-                              Math.max(
-                                250,
-                                Math.min(
-                                  440,
-                                  drag.width + drag.x - event.clientX,
-                                ),
-                              ),
-                            );
-                        }}
-                        onPointerUp={() => {
-                          panelDrag.current = null;
-                        }}
-                        onPointerCancel={() => {
-                          panelDrag.current = null;
-                        }}
-                        onLostPointerCapture={() => {
-                          panelDrag.current = null;
-                        }}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key === "ArrowLeft" ||
-                            event.key === "ArrowRight"
-                          ) {
-                            event.preventDefault();
-                            setPanelWidth((width) =>
-                              Math.max(
-                                250,
-                                Math.min(
-                                  440,
-                                  width +
-                                    (event.key === "ArrowLeft" ? 20 : -20),
-                                ),
-                              ),
-                            );
-                          }
-                          if (event.key === "Home") setPanelWidth(250);
-                          if (event.key === "End") setPanelWidth(440);
-                        }}
-                        onDoubleClick={() => setPanelWidth(320)}
-                      />
-                    )}
+                  <div className="play-layout resizable-play panel-hidden">
                     <div className="table-area">
                       {fitGame && turnActions}
                       <AnimatedBoardEditor
@@ -1447,8 +1352,7 @@ export function ScorerApp({
                     </div>
                     <GameScorePanel
                       open={panelOpen}
-                      overlay={overlayPanel}
-                      onClose={() => setMobilePanel(false)}
+                      onClose={() => setPanelOpen(false)}
                     >
                       <aside className="score-panel">
                         <div className="panel-heading">

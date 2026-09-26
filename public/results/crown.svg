@@ -1,0 +1,60 @@
+<svg width="80" height="64" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 64" >
+      <defs>
+        <linearGradient id="crown-gold" x1="0" y1="0" x2="1" y2="0.8">
+          <stop offset="0" stop-color="#fff3aa" />
+          <stop offset=".2" stop-color="#f6c94e" />
+          <stop offset=".39" stop-color="#ad660e" />
+          <stop offset=".52" stop-color="#ffe99a" />
+          <stop offset=".7" stop-color="#f3bc35" />
+          <stop offset="1" stop-color="#a96214" />
+        </linearGradient>
+        <linearGradient id="crown-rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#fff1a0" />
+          <stop offset=".35" stop-color="#f6c342" />
+          <stop offset=".7" stop-color="#b17312" />
+          <stop offset="1" stop-color="#efc350" />
+        </linearGradient>
+        <radialGradient id="crown-tip" cx=".32" cy=".22" r=".8">
+          <stop offset="0" stop-color="#fffadd" />
+          <stop offset=".28" stop-color="#ffdf73" />
+          <stop offset=".65" stop-color="#e9a626" />
+          <stop offset="1" stop-color="#976010" />
+        </radialGradient>
+      </defs>
+      <path
+        d="M10 17 25 30 40 8 55 30 70 17 62 48Q40 55 18 48Z"
+        fill="url(#crown-gold)"
+        stroke="#895310"
+        stroke-width="1.4"
+        stroke-linejoin="round"
+      />
+      <path
+        d="m14 21 7 23q19 6 38 0l7-23M28 31l12-18 12 18"
+        fill="none"
+        stroke="#fff0a7"
+        stroke-width="1.5"
+        stroke-linecap="round"
+      />
+      <path
+        d="m19 49 1 8q20 5 40 0l1-8q-21 6-42 0Z"
+        fill="url(#crown-rim)"
+        stroke="#895310"
+        stroke-width="1.2"
+      />
+      <path
+        d="M23 51q17 4 34 0"
+        fill="none"
+        stroke="#fff4b8"
+        stroke-width="1.4"
+      />
+      <g fill="url(#crown-tip)" stroke="#986218" stroke-width="1">
+        <circle cx="10" cy="14" r="5" />
+        <circle cx="70" cy="14" r="5" />
+        <circle cx="40" cy="7" r="5" />
+      </g>
+      <path
+        d="m56 25 1.2 4.8L62 31l-4.8 1.2L56 37l-1.2-4.8L50 31l4.8-1.2Z"
+        fill="#fff9d5"
+        stroke="none"
+      />
+    </svg>

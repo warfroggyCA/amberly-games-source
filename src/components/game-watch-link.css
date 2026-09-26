@@ -184,3 +184,11 @@
     font-size: 14px;
   }
 }
+
+.watch-link-button {
+  gap: 7px;
+}
+.game-screen .watch-link-label,
+.spectator-shell .watch-link-label {
+  display: none;
+}

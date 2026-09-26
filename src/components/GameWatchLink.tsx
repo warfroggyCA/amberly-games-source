@@ -79,6 +79,7 @@ export function GameWatchLink({
         >
           <path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l2-2" />
         </svg>
+        <span className="watch-link-label">Viewing link</span>
       </button>
       {open && (
         <Modal
