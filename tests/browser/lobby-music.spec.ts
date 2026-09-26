@@ -7,79 +7,128 @@ interface AudioAudit {
   contexts: number;
   starts: number;
   closes: number;
+  resumeAttempts: number;
+  blockedAttempts: number;
+  maxActiveLoops: number;
   activeLoops: number[];
   decoded: { duration: number; channels: number; signature: string }[];
 }
 
-async function auditRealAudio(page: Page) {
+async function auditRealAudio(page: Page, blockUntilGesture = false) {
   // Decode, schedule and stop real Web Audio. A final zero-gain node keeps CI silent.
-  await page.addInitScript(() => {
-    const NativeContext = window.AudioContext;
-    const audit: AudioAudit = {
-      contexts: 0,
-      starts: 0,
-      closes: 0,
-      activeLoops: [],
-      decoded: [],
-    };
-    const live = new Set<number>();
-    let serial = 0;
-    class AuditedContext extends NativeContext {
-      private silent: GainNode;
-      constructor() {
-        super();
-        audit.contexts++;
-        this.silent = NativeContext.prototype.createGain.call(this);
-        this.silent.gain.value = 0;
-        this.silent.connect(this.destination);
-      }
-      createGain() {
-        const gain = super.createGain();
-        const connect = gain.connect.bind(gain);
-        gain.connect = ((destination: AudioNode) =>
-          connect(
-            destination === this.destination ? this.silent : destination,
-          )) as typeof gain.connect;
-        return gain;
-      }
-      async decodeAudioData(bytes: ArrayBuffer) {
-        const signature = String.fromCharCode(
-          ...new Uint8Array(bytes.slice(0, 4)),
+  await page.addInitScript(
+    ({ blockUntilGesture }) => {
+      const NativeContext = window.AudioContext;
+      const audit: AudioAudit = {
+        contexts: 0,
+        starts: 0,
+        closes: 0,
+        resumeAttempts: 0,
+        blockedAttempts: 0,
+        maxActiveLoops: 0,
+        activeLoops: [],
+        decoded: [],
+      };
+      const live = new Set<number>();
+      let serial = 0;
+      let trustedGesture = false;
+      for (const type of ["click", "keydown"])
+        window.addEventListener(
+          type,
+          (event) => {
+            if (event.isTrusted) trustedGesture = true;
+          },
+          { capture: true },
         );
-        const buffer = await super.decodeAudioData(bytes);
-        audit.decoded.push({
-          duration: buffer.duration,
-          channels: buffer.numberOfChannels,
-          signature,
-        });
-        return buffer;
+      class AuditedContext extends NativeContext {
+        private silent: GainNode;
+        private permissionGranted = false;
+        constructor() {
+          super();
+          audit.contexts++;
+          this.silent = NativeContext.prototype.createGain.call(this);
+          this.silent.gain.value = 0;
+          this.silent.connect(this.destination);
+        }
+        get state(): AudioContextState {
+          const nativeState = super.state;
+          // Headless engines may start running before resume is called. Keep the
+          // permission boundary suspended until a trusted resume actually occurs.
+          return blockUntilGesture &&
+            !this.permissionGranted &&
+            nativeState !== "closed"
+            ? "suspended"
+            : nativeState;
+        }
+        async resume() {
+          audit.resumeAttempts++;
+          // Only the autoplay permission boundary is simulated; all audio stays real.
+          if (blockUntilGesture && !trustedGesture) {
+            audit.blockedAttempts++;
+            throw new DOMException(
+              "A user gesture is required",
+              "NotAllowedError",
+            );
+          }
+          this.permissionGranted = true;
+          await super.resume();
+        }
+        createGain() {
+          const gain = super.createGain();
+          const connect = gain.connect.bind(gain);
+          gain.connect = ((destination: AudioNode) =>
+            connect(
+              destination === this.destination ? this.silent : destination,
+            )) as typeof gain.connect;
+          return gain;
+        }
+        async decodeAudioData(bytes: ArrayBuffer) {
+          const signature = String.fromCharCode(
+            ...new Uint8Array(bytes.slice(0, 4)),
+          );
+          const buffer = await super.decodeAudioData(bytes);
+          audit.decoded.push({
+            duration: buffer.duration,
+            channels: buffer.numberOfChannels,
+            signature,
+          });
+          return buffer;
+        }
+        createBufferSource() {
+          const source = super.createBufferSource();
+          const start = source.start.bind(source);
+          const id = ++serial;
+          source.start = (...args: Parameters<typeof source.start>) => {
+            start(...args);
+            audit.starts++;
+            if (source.loop) live.add(id);
+            audit.activeLoops = [...live];
+            audit.maxActiveLoops = Math.max(audit.maxActiveLoops, live.size);
+          };
+          const retired = () => {
+            live.delete(id);
+            audit.activeLoops = [...live];
+          };
+          source.addEventListener("ended", retired);
+          const disconnect = source.disconnect.bind(source);
+          source.disconnect = (() => {
+            disconnect();
+            retired();
+          }) as typeof source.disconnect;
+          return source;
+        }
+        async close() {
+          audit.closes++;
+          await super.close();
+        }
       }
-      createBufferSource() {
-        const source = super.createBufferSource();
-        const start = source.start.bind(source);
-        const id = ++serial;
-        source.start = (...args: Parameters<typeof source.start>) => {
-          start(...args);
-          audit.starts++;
-          if (source.loop) live.add(id);
-          audit.activeLoops = [...live];
-        };
-        source.addEventListener("ended", () => {
-          live.delete(id);
-          audit.activeLoops = [...live];
-        });
-        return source;
-      }
-      async close() {
-        audit.closes++;
-        await super.close();
-      }
-    }
-    Object.assign(window, {
-      AudioContext: AuditedContext,
-      lobbyAudioAudit: audit,
-    });
-  });
+      Object.assign(window, {
+        AudioContext: AuditedContext,
+        lobbyAudioAudit: audit,
+      });
+    },
+    { blockUntilGesture },
+  );
 }
 const audio = (page: Page) =>
   page.evaluate(
@@ -87,8 +136,8 @@ const audio = (page: Page) =>
       (window as unknown as { lobbyAudioAudit: AudioAudit }).lobbyAudioAudit,
   );
 
-async function setup(page: Page) {
-  await auditRealAudio(page);
+async function setup(page: Page, blockUntilGesture = false) {
+  await auditRealAudio(page, blockUntilGesture);
   const fixture = await installFixture(page);
   const created = createGame({
     id: "lobby-music-game",
@@ -140,126 +189,121 @@ async function setup(page: Page) {
   ).toBeVisible();
 }
 
-async function musicMenu(page: Page) {
-  const menu = page.locator(".lobby-music");
-  await expect(menu).toBeVisible();
-  if ((await menu.getAttribute("open")) === null)
-    await menu.locator("summary").click();
-  return menu;
+const toggle = (page: Page) => page.locator("button[data-lobby-music-toggle]");
+async function expectPlaying(page: Page) {
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => (await audio(page)).resumeAttempts)
+    .toBeGreaterThan(0);
+  // Native browser policies differ. A neutral real gesture may unlock a blocked
+  // automatic attempt, but must not be needed as an explicit Play control.
+  if ((await toggle(page).getAttribute("data-playing")) !== "true")
+    await page.getByRole("heading").first().click();
+  await expect(toggle(page)).toHaveAttribute("data-playing", "true");
+  await expect.poll(async () => (await audio(page)).activeLoops.length).toBe(1);
 }
-async function playMusic(page: Page, resume = false) {
-  const menu = await musicMenu(page);
-  await menu
-    .getByRole("button", {
-      name: resume ? "Resume lobby music" : "Enable lobby music",
-      exact: true,
-    })
+async function navigateLobby(page: Page, name: string) {
+  await page
+    .getByRole("navigation", { name: "Amberly Games", exact: true })
+    .getByRole("button", { name, exact: true })
     .click();
-  await expect(
-    menu.getByRole("button", { name: "Turn off lobby music", exact: true }),
-  ).toBeVisible();
-  await menu.locator("summary").click();
+  await expect(page).toHaveURL(new RegExp(`/family/${name.toLowerCase()}$`));
 }
 
-test("chosen lobby FLAC decodes and loops after a tap, with remembered volume and a fitting phone menu", async ({
+test("background music automatically attempts the real FLAC and remembers mute and Settings volume", async ({
   page,
 }, info) => {
-  await page.setViewportSize({ width: 390, height: 844 });
   await setup(page);
-  expect(await audio(page)).toMatchObject({
-    contexts: 0,
-    starts: 0,
-    activeLoops: [],
-  });
-  const menu = await musicMenu(page);
+  await expect(toggle(page)).toHaveAccessibleName("Mute background music");
+  await expectPlaying(page);
   await expect(
-    menu.getByText("Somewhere in the Elevator", { exact: true }),
+    page.locator(".lobby-music-panel, details.lobby-music"),
+  ).toHaveCount(0);
+  const control = (await toggle(page).boundingBox())!;
+  const brand = (await page.locator("header .brand").boundingBox())!;
+  expect(control.x).toBeGreaterThanOrEqual(brand.x + brand.width - 1);
+  expect(control.x + control.width).toBeLessThanOrEqual(
+    page.viewportSize()!.width + 1,
+  );
+  expect(
+    Math.abs(control.y + control.height / 2 - brand.y - brand.height / 2),
+  ).toBeLessThan(24);
+  const playing = await audio(page);
+  expect(playing.contexts).toBe(1);
+  expect(playing.starts).toBe(1);
+  expect(playing.maxActiveLoops).toBe(1);
+  expect(playing.decoded.length).toBeGreaterThan(0);
+  expect(playing.decoded[0].signature).toBe("fLaC");
+  expect(playing.decoded[0].duration).toBeGreaterThan(10);
+  await navigateLobby(page, "Settings");
+  const settings = page.getByRole("region", {
+    name: "Background music settings",
+  });
+  await expect(
+    settings.getByRole("heading", { name: "Background music", exact: true }),
   ).toBeVisible();
   await expect(
-    menu.getByRole("link", { name: "Licence", exact: true }),
-  ).toHaveAttribute("href", /creativecommons\.org\/licenses\/by\/4\.0/);
-  const panel = (await menu.locator(".lobby-music-panel").boundingBox())!;
-  expect(panel.x).toBeGreaterThanOrEqual(0);
-  expect(panel.x + panel.width).toBeLessThanOrEqual(391);
-  const summary = (await menu.locator("summary").boundingBox())!;
-  const brand = (await page.locator("header .brand").boundingBox())!;
-  expect(summary.x).toBeGreaterThanOrEqual(brand.x + brand.width - 1);
-  expect(
-    Math.abs(summary.y + summary.height / 2 - brand.y - brand.height / 2),
-  ).toBeLessThan(24);
-  const slider = menu.getByRole("slider", {
-    name: "Music volume",
+    settings.getByRole("link", { name: "Music credits", exact: true }),
+  ).toHaveAttribute("href", "/music/README.md");
+  const slider = settings.getByRole("slider", {
+    name: "Background music volume",
     exact: true,
   });
   await expect(slider).toHaveValue("20");
   await slider.focus();
   for (let step = 0; step < 3; step++) await slider.press("ArrowRight");
   await expect(slider).toHaveValue("35");
-  await menu
-    .getByRole("button", { name: "Enable lobby music", exact: true })
-    .click();
-  await expect(
-    menu.getByRole("button", { name: "Turn off lobby music", exact: true }),
-  ).toBeVisible();
-  const playing = await audio(page);
-  expect(playing.contexts).toBe(1);
-  expect(playing.starts).toBe(1);
-  expect(playing.activeLoops).toHaveLength(1);
-  expect(playing.decoded).toHaveLength(1);
-  expect(playing.decoded[0].signature).toBe("fLaC");
-  expect(playing.decoded[0].duration).toBeGreaterThan(10);
   await fitsWidth(page);
   await page.screenshot({
-    path: info.outputPath("lobby-music-phone-menu.png"),
+    path: info.outputPath("background-music-settings.png"),
   });
-  await menu
-    .getByRole("button", { name: "Turn off lobby music", exact: true })
-    .click();
+  await toggle(page).click();
+  await expect(toggle(page)).toHaveAccessibleName("Unmute background music");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
   await expect.poll(async () => (await audio(page)).activeLoops).toEqual([]);
   await page.reload();
-  const restored = await musicMenu(page);
+  await expect(toggle(page)).toHaveAccessibleName("Unmute background music");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
   await expect(
-    restored.getByRole("slider", { name: "Music volume", exact: true }),
+    page.getByRole("slider", { name: "Background music volume", exact: true }),
   ).toHaveValue("35");
-  await expect(
-    restored.getByRole("button", { name: "Enable lobby music", exact: true }),
-  ).toBeVisible();
   expect(await audio(page)).toMatchObject({
     contexts: 0,
     starts: 0,
     activeLoops: [],
   });
+  await toggle(page).click();
+  await expectPlaying(page);
+  await expect(toggle(page)).toHaveAccessibleName("Mute background music");
 });
 
 test("lobby navigation keeps one loop, while internal and routed Scrabble play both silence it", async ({
   page,
 }) => {
   await setup(page);
-  await playMusic(page);
+  await expectPlaying(page);
+  // A rapid off/on must retire the previous loop before scheduling another.
+  await toggle(page).click();
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+  await toggle(page).click();
+  await expectPlaying(page);
+  const baseline = await audio(page);
+  expect(baseline.maxActiveLoops).toBe(1);
   for (const name of ["History", "Players", "Settings"]) {
-    await page
-      .getByRole("navigation", { name: "Amberly Games", exact: true })
-      .getByRole("button", { name, exact: true })
-      .click();
-    await expect(page).toHaveURL(new RegExp(`/family/${name.toLowerCase()}$`));
-    await expect(page.locator(".lobby-music > summary")).toHaveAttribute(
-      "data-playing",
-      "true",
-    );
+    await navigateLobby(page, name);
+    await expect(toggle(page)).toHaveAttribute("data-playing", "true");
     expect(await audio(page)).toMatchObject({
       contexts: 1,
-      starts: 1,
-      activeLoops: [1],
+      starts: baseline.starts,
+      activeLoops: baseline.activeLoops,
+      maxActiveLoops: 1,
     });
   }
   await page
     .getByRole("button", { name: "Scrabble records", exact: true })
     .click();
   await expect(page).toHaveURL(/\/family\/scrabble\?view=records$/);
-  await expect(page.locator(".lobby-music > summary")).toHaveAttribute(
-    "data-playing",
-    "true",
-  );
+  await expect(toggle(page)).toHaveAttribute("data-playing", "true");
   await page
     .getByRole("button", { name: "Open game menu", exact: true })
     .click();
@@ -272,33 +316,33 @@ test("lobby navigation keeps one loop, while internal and routed Scrabble play b
   await expect(
     page.getByRole("button", { name: "Enable game sounds", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".lobby-music")).toHaveCount(0);
+  await expect(toggle(page)).toHaveCount(0);
   await expect.poll(async () => (await audio(page)).activeLoops).toEqual([]);
   await page
     .getByRole("link", { name: "Amberly Games — Home", exact: true })
     .click();
   await expect(page).toHaveURL(/\/family$/);
-  const paused = await musicMenu(page);
-  await expect(
-    paused.getByRole("button", { name: "Resume lobby music", exact: true }),
-  ).toBeVisible();
-  expect((await audio(page)).starts).toBe(1);
-  await playMusic(page, true);
+  await expectPlaying(page);
+  expect((await audio(page)).starts).toBe(baseline.starts + 1);
   await page.getByRole("button", { name: "Resume game", exact: true }).click();
   await expect(page).toHaveURL(/\/family\/scrabble\?view=play$/);
   await expect(
     page.getByRole("button", { name: "Enable game sounds", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".lobby-music")).toHaveCount(0);
+  await expect(toggle(page)).toHaveCount(0);
   await expect.poll(async () => (await audio(page)).activeLoops).toEqual([]);
-  expect(await audio(page)).toMatchObject({ contexts: 1, starts: 2 });
+  expect(await audio(page)).toMatchObject({
+    contexts: 1,
+    starts: baseline.starts + 1,
+    maxActiveLoops: 1,
+  });
 });
 
-test("background restore and Gym navigation cannot restart or duplicate lobby music", async ({
+test("foreground and lobby return resume one loop while Gym stays silent", async ({
   page,
 }) => {
   await setup(page);
-  await playMusic(page);
+  await expectPlaying(page);
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -317,37 +361,53 @@ test("background restore and Gym navigation cannot restart or duplicate lobby mu
       new PageTransitionEvent("pageshow", { persisted: false }),
     );
   });
-  // A real bfcache restoration reloads FamilyWorkspace; default-off reload is covered above.
-  await expect(page.locator(".lobby-music > summary")).toBeVisible();
-  let menu = await musicMenu(page);
-  const resume = menu.getByRole("button", {
-    name: "Resume lobby music",
-    exact: true,
-  });
-  await expect(resume).toBeVisible();
-  expect((await audio(page)).activeLoops).toEqual([]);
-  expect((await audio(page)).starts).toBe(1);
-  await playMusic(page, true);
+  await expectPlaying(page);
+  expect((await audio(page)).starts).toBe(2);
+  expect((await audio(page)).maxActiveLoops).toBe(1);
   const beforeGym = await audio(page);
   await page.getByRole("button", { name: "Open Gym", exact: true }).click();
   await expect(page).toHaveURL(/\/gym-lab\?from=family$/);
   await expect(
     page.getByRole("heading", { name: "Scrabble Gym", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".lobby-music")).toHaveCount(0);
+  await expect(toggle(page)).toHaveCount(0);
   await expect.poll(async () => (await audio(page)).activeLoops).toEqual([]);
   await expect
     .poll(async () => (await audio(page)).closes)
     .toBe(beforeGym.closes + 1);
   await page.getByRole("link", { name: "Back to Games", exact: true }).click();
   await expect(page).toHaveURL(/\/family$/);
-  menu = await musicMenu(page);
-  await expect(
-    menu.getByRole("button", { name: "Enable lobby music", exact: true }),
-  ).toBeVisible();
-  expect((await audio(page)).activeLoops).toEqual([]);
-  expect((await audio(page)).starts).toBe(beforeGym.starts);
-  await playMusic(page);
+  await expectPlaying(page);
   expect((await audio(page)).activeLoops).toHaveLength(1);
   expect((await audio(page)).starts).toBe(beforeGym.starts + 1);
+  expect((await audio(page)).maxActiveLoops).toBe(1);
+});
+
+test("blocked autoplay retries on the first trusted gesture without replacing the audio pipeline", async ({
+  page,
+}) => {
+  await setup(page, true);
+  await expect(toggle(page)).toHaveAccessibleName("Mute background music");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => (await audio(page)).blockedAttempts)
+    .toBeGreaterThan(0);
+  const blocked = await audio(page);
+  expect(blocked.starts).toBe(0);
+  expect(blocked.activeLoops).toEqual([]);
+  // Synthetic events must not grant autoplay permission or produce retry churn.
+  await page.evaluate(() =>
+    document.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+  );
+  expect((await audio(page)).resumeAttempts).toBe(blocked.resumeAttempts);
+  await page
+    .getByRole("heading", { name: "What are we playing?", exact: true })
+    .click();
+  await expect(toggle(page)).toHaveAttribute("data-playing", "true");
+  const unlocked = await audio(page);
+  expect(unlocked.resumeAttempts).toBeGreaterThan(blocked.resumeAttempts);
+  expect(unlocked.starts).toBe(1);
+  expect(unlocked.activeLoops).toHaveLength(1);
+  expect(unlocked.maxActiveLoops).toBe(1);
+  expect(unlocked.decoded[0].signature).toBe("fLaC");
 });

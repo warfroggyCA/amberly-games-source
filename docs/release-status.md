@@ -2,9 +2,13 @@
 
 The public app is **Amberly Games** at https://amberly-games.vercel.app/family.
 
-## Family experience candidate — September 26
+## Lobby music controls follow-up — September 26
 
-Branch `codex/family-experience` contains the next Gym, profile/history, overall standings and player archive update. This candidate is **not published**. Details and local evidence are in [family-experience.md](family-experience.md). The owner selected “Somewhere in the Elevator” for lobby music; the approved audition is bundled with attribution. Archive migration 15 must be rehearsed and applied before the matching API is released; no hosted schema or data changes have been made by this candidate's implementation checks.
+The music controls follow-up defaults lobby music on, replaces the popup with a mute/unmute toggle, and moves persistent volume and the credits link into Settings. Publication is recorded by annotated tag `amberly-games-2026-09-26-music-controls`; until that tag exists, the family-experience release below remains live. This follow-up requires no database migration or authentication change.
+
+## Family experience release — September 26
+
+The Gym, profile/history, overall standings, player archive and selected lobby music update is published. Annotated tag `amberly-games-2026-09-26-family-experience` records source `65b39e6`, Ready deployment `dpl_8mm5Z7eNzS5ms8ok96zUBmHNQRzU`, protected Verify `36278684008`, and hosted migration `20260926232610_player_archiving`. PR #17 merged as `27a3cda` with an identical tree. Fresh backup and isolated restore/migration rehearsal preserved all 26 original tables; the hosted before/after fingerprints also matched. Validation passed 983 unit, 112 database, 417 browser and one integrated test. Signed-in postflight verified portraits, rankings, archive controls, crown framing and music. Physical-device acceptance remains separate. Details are in [family-experience.md](family-experience.md) and the release tag receipt.
 
 ## Canonical address — September 26
 

@@ -60,6 +60,8 @@ function FamilyWorkspace({
   const path = usePathname();
   const [scorerPlaying, setScorerPlaying] = useState(false);
   const [musicTarget, setMusicTarget] = useState<HTMLSpanElement | null>(null);
+  const [musicSettingsTarget, setMusicSettingsTarget] =
+    useState<HTMLDivElement | null>(null);
   const musicSlot = lobbyTrack ? (
     <span className="lobby-music-slot" ref={setMusicTarget} />
   ) : undefined;
@@ -380,6 +382,9 @@ function FamilyWorkspace({
         <FamilyHub
           gymEnabled={gymEnabled}
           lobbyMusicSlot={musicSlot}
+          lobbyMusicSettingsSlot={
+            lobbyTrack ? <div ref={setMusicSettingsTarget} /> : undefined
+          }
           signOutGuardRef={hubSignOutGuard}
           sharedStore={store}
           shared={state.shared!}
@@ -396,6 +401,7 @@ function FamilyWorkspace({
         active={musicActive}
         track={lobbyTrack}
         controlsTarget={musicTarget}
+        settingsTarget={musicSettingsTarget}
       />
 
       {admin &&
