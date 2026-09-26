@@ -8,9 +8,9 @@ The September 26 audition selections are implemented for Scrabble's scorer, sign
 | Bingo | Orchestra trumpets ending | 2292 |
 | Winner | Orchestra triumphant trumpets, then Cheering crowd loud whistle | 2285, 610 |
 | Tie | Ethereal fairy win sound | 2019 |
-| New turn after a play | Achievement bell | 600 |
+| Your turn after a play (signed-in linked player only) | Achievement bell | 600 |
 
-Start, pass, exchange, pause, resume, correction and scorer attention remain silent. The turn bell follows the score/bingo cue, except when ending the game or no player changed. Only contiguous, saved revisions trigger sound. Initial loads, historical results, corrections, undo, background catch-up, connection recovery and multi-revision catch-up are silent. No private journal data is added to spectator responses.
+Start, pass, exchange, pause, resume, correction and scorer attention remain silent. The turn bell follows the score/bingo cue only on devices signed in as the linked player whose turn is beginning, except when ending the game or no player changed. Other signed-in players, unlinked accounts, local games and anonymous viewing links do not receive the turn bell. Score, bingo, winner and tie celebrations remain shared on every sound-enabled device. Only contiguous, saved revisions trigger sound. Initial loads, historical results, corrections, undo, background catch-up, connection recovery and multi-revision catch-up are silent. No private journal data is added to spectator responses.
 
 Each device must tap **Enable game sounds** in its game tools. This unlocks browser audio and loads the assets; it never replays old events. **Mute game sounds** immediately cancels playback, including queued celebrations. Audio failure offers **Retry game sounds** without blocking scoring. Enabling is per mounted game screen/session, so a refresh may require another tap. Device volume controls the output. Browser suspension may also require Retry. Crokinole and Gym sounds are outside this Scrabble audition scope.
 
@@ -27,3 +27,7 @@ Playback uses short excerpts with fades and reduced gain (especially crowd and t
 - Targeted browser regression run: 20 passed across desktop Chromium, iPhone WebKit, iPad WebKit and iPhone landscape, including keyboard layout and spectator reconnection.
 - Final sound-specific run: 12 passed across those profiles, including real AudioContext decoding of all six recordings. Event assertions instrument playback; decoding checks use the browser audio implementation.
 - Physical-device listening/mix acceptance, full release checks, protected CI and deployment are not established by these local results.
+
+## Personal turn-bell refinement
+
+The linked player ID already returned by family sign-in now limits the turn cue to that player. It does not affect shared celebrations and adds no identity fields to anonymous spectator responses. Local verification of this refinement passed TypeScript, focused lint, formatting, production build, 931 unit tests and 20 sound browser tests across all four profiles. The prior complete browser run passed 364 tests with 32 profile-specific skips; the revised commit still requires its own protected CI before publication.

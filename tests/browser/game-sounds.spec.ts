@@ -5,6 +5,7 @@ import {
   type GameState,
 } from "../../src/domain/game";
 import { testLexicon } from "../../src/lib/test-lexicon";
+import { installFixture } from "./fixtures/crokinole";
 import type { Letter } from "../../src/domain/types";
 
 async function instrumentAudio(page: Page) {
@@ -108,9 +109,7 @@ test("viewer sounds unlock on tap, play committed cues, suppress refresh and rec
   ).toBeVisible();
   expect(await starts(page)).toEqual([]);
   game = bingo(game);
-  await expect
-    .poll(() => starts(page), { timeout: 12000 })
-    .toEqual([709696, 424934]);
+  await expect.poll(() => starts(page), { timeout: 12000 }).toEqual([709696]);
   await page.reload();
   await page
     .getByRole("button", { name: "Enable game sounds", exact: true })
@@ -189,7 +188,7 @@ test("scorer keeps drafts silent, retries unavailable audio, then sounds a saved
   await page
     .getByRole("button", { name: "Record 70 points", exact: true })
     .click();
-  await expect.poll(() => starts(page)).toEqual([709696, 424934]);
+  await expect.poll(() => starts(page)).toEqual([709696]);
   await page
     .getByRole("button", { name: "Mute game sounds", exact: true })
     .click();
@@ -224,3 +223,47 @@ test("real browser audio unlocks and decodes all six packaged recordings", async
     page.getByRole("button", { name: "Enable game sounds", exact: true }),
   ).toBeVisible();
 });
+
+for (const listener of ["ada", "ben"]) {
+  test(`signed-in ${listener} hears shared bingo and only their own turn bell`, async ({
+    page,
+  }) => {
+    await instrumentAudio(page);
+    const f = await installFixture(page);
+    f.family.member.playerId = listener;
+    f.family.players = [
+      { id: "ada", name: "Ada" },
+      { id: "ben", name: "Ben" },
+    ];
+    const game = initialGame();
+    f.family.games.push(game);
+    f.family.gameAccess[game.id] = {
+      scorerUserId: "another-scorer",
+      deviceId: "another-device",
+      generation: 1,
+      mode: "confirmed",
+      recordsEligible: true,
+      protests: [],
+      canScore: false,
+      approvals: [],
+    };
+    await page.route("**/api/family/draft*", (route) =>
+      route.fulfill({ json: { draft: null } }),
+    );
+    await page.goto("/family");
+    await page
+      .getByRole("button", { name: "View current game", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Enable game sounds", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Mute game sounds", exact: true }),
+    ).toBeVisible();
+    expect(await starts(page)).toEqual([]);
+    f.family.games[0] = bingo(game);
+    await expect
+      .poll(() => starts(page), { timeout: 12000 })
+      .toEqual(listener === "ben" ? [709696, 424934] : [709696]);
+  });
+}

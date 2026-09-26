@@ -179,6 +179,7 @@ export function ScorerApp({
     view === "Play" ? game : null,
     state.status === "ready" && !state.error && !state.unresolved,
     state.pending > 0,
+    state.shared?.member.playerId ?? null,
   );
   const displayedReference =
     view === "Play" && game ? game.lexicon : defaultLexicon;

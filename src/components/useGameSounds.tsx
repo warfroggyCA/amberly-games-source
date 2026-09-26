@@ -13,6 +13,7 @@ export function useGameSounds(
   game: SoundGame | null,
   connected = true,
   pending = false,
+  listenerPlayerId: string | null = null,
 ) {
   const previous = useRef<SoundFrame | null>(null);
   const audio = useRef<GameAudio | null>(null);
@@ -61,7 +62,7 @@ export function useGameSounds(
     // A new state can publish just before its persistence/acknowledgement finishes.
     if (pending) return;
     const frame = soundFrame(game);
-    const cues = soundsForTransition(previous.current, frame);
+    const cues = soundsForTransition(previous.current, frame, listenerPlayerId);
     if (
       previous.current?.id !== frame.id ||
       frame.status === "paused" ||
@@ -70,7 +71,7 @@ export function useGameSounds(
       audio.current?.stop();
     previous.current = frame;
     if (enabled.current && cues.length) audio.current?.play(cues);
-  }, [game, connected, pending]);
+  }, [game, connected, pending, listenerPlayerId]);
   async function toggle() {
     const token = ++attempt.current;
     if (mode === "on" || mode === "loading") {

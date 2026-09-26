@@ -30,12 +30,29 @@ describe("committed game sound transitions", () => {
     );
   });
   it("plays score then the new turn tone for a saved play", () =>
-    expect(soundsForTransition(initial, played)).toEqual(["score", "turn"]));
-  it("uses bingo instead of also playing the normal score cue", () =>
-    expect(soundsForTransition(initial, { ...played, bingo: true })).toEqual([
-      "bingo",
+    expect(soundsForTransition(initial, played, "ben")).toEqual([
+      "score",
       "turn",
     ]));
+  it("uses bingo instead of also playing the normal score cue", () =>
+    expect(
+      soundsForTransition(initial, { ...played, bingo: true }, "ben"),
+    ).toEqual(["bingo", "turn"]));
+  it("shares celebrations but reserves the turn bell for the next linked player", () => {
+    for (const listener of [null, "ada", "spectator", ""]) {
+      expect(soundsForTransition(initial, played, listener)).toEqual(["score"]);
+      expect(
+        soundsForTransition(initial, { ...played, bingo: true }, listener),
+      ).toEqual(["bingo"]);
+      expect(
+        soundsForTransition(
+          played,
+          { ...played, revision: 2, status: "finalized", winners: ["ada"] },
+          listener,
+        ),
+      ).toEqual(["winner", "crowd"]);
+    }
+  });
   it("does not announce another turn when the game needs to end", () =>
     expect(
       soundsForTransition(initial, { ...played, pendingEnd: true }),

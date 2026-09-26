@@ -41,6 +41,7 @@ export function soundFrame(game: SoundGame): SoundFrame {
 export function soundsForTransition(
   before: SoundFrame | null,
   after: SoundFrame,
+  listenerPlayerId: string | null = null,
 ): GameSound[] {
   if (
     !before ||
@@ -66,7 +67,9 @@ export function soundsForTransition(
   )
     return [];
   const cue: GameSound = after.bingo ? "bingo" : "score";
-  return !after.pendingEnd && before.player !== after.player
+  return !after.pendingEnd &&
+    before.player !== after.player &&
+    after.player === listenerPlayerId
     ? [cue, "turn"]
     : [cue];
 }
