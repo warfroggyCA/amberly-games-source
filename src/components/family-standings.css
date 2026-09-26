@@ -1,0 +1,46 @@
+.family-standings .standings-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 16px;
+}
+.family-standings .standings-views button {
+  min-height: 44px;
+  border: 1px solid #b7b09c;
+  border-radius: 999px;
+  padding: 8px 18px;
+}
+.family-standings .standings-views button[aria-pressed="true"] {
+  background: #194c3b;
+  border-color: #194c3b;
+  color: #fffdf5;
+}
+.standings-breakdown {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  min-width: 12rem;
+}
+.family-standings thead th {
+  white-space: nowrap;
+}
+.family-standings button:focus-visible,
+.family-standings .standings-scroll:focus-visible {
+  outline: 3px solid #b78c37;
+  outline-offset: 3px;
+}
+
+.standings-rules {
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+.standings-rules summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 12px;
+}
+.standings-rules p {
+  max-width: 70ch;
+  margin-top: 0;
+}

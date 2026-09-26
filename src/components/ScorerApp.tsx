@@ -1,4 +1,8 @@
 "use client";
+import { HistoryParticipants } from "./HistoryParticipants";
+import { historyLabel, type HistoryProfile } from "../lib/history-participants";
+import { PlayerDirectory } from "./PlayerDirectory";
+import type { SharedOperation } from "../lib/shared-contract";
 import { EditRecordedTurn } from "./EditRecordedTurn";
 import { TurnClock, TimingSummary } from "./TurnTiming";
 import "./game-feedback.css";
@@ -99,8 +103,16 @@ export function ScorerApp({
   initialNewGame = false,
   onHome,
   onNavigate,
+  onManagePlayerAccess,
+  onPlayerOperation,
+  onGameViewChange,
+  lobbyMusicSlot,
 }: {
   store?: ScorerStore;
+  onGameViewChange?: (playing: boolean) => void;
+  lobbyMusicSlot?: ReactNode;
+  onManagePlayerAccess?: (playerId?: string) => void;
+  onPlayerOperation?: (operation: SharedOperation) => Promise<unknown>;
   initialView?: View;
   initialNewGame?: boolean;
   onHome?: () => void;
@@ -128,6 +140,10 @@ export function ScorerApp({
     "confirmed",
   );
   const [view, setView] = useState<View>(initialView);
+  useEffect(() => {
+    onGameViewChange?.(view === "Play");
+    return () => onGameViewChange?.(false);
+  }, [view, onGameViewChange]);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -841,7 +857,9 @@ export function ScorerApp({
           : undefined
       }
       onSharedModeChange={setCreationMode}
-      players={state.data.players}
+      players={state.data.players.filter(
+        (p) => !state.shared?.playerAccess[p.id]?.archived,
+      )}
       busy={busy || !canStart}
       canAddPlayers={allowed("addPlayers")}
       allowPractice={!shared || state.shared?.member.role === "superadmin"}
@@ -906,6 +924,7 @@ export function ScorerApp({
         menuOpen={modal === "game-menu"}
         menuLabel="Open game menu"
       >
+        {view !== "Play" && lobbyMusicSlot}
         {fitGame && gameActions}
         {!fitGame && (
           <span className="local-label">
@@ -1067,6 +1086,7 @@ export function ScorerApp({
                   </button>
                 </section>
                 <GameList
+                  profiles={state.data.players}
                   gameAccess={state.shared?.gameAccess}
                   games={state.data.games.slice(-3).reverse()}
                   onOpen={openGame}
@@ -1081,7 +1101,7 @@ export function ScorerApp({
                   <h1>The players</h1>
                   <p>
                     {shared
-                      ? "Family profiles are shared. You can edit your own linked profile; a superadmin manages account links."
+                      ? "Profiles, invitations and sign-in access, together. Archived players keep their game history."
                       : "These preview profiles stay on this device."}
                   </p>
                 </div>
@@ -1092,41 +1112,56 @@ export function ScorerApp({
                     Adding players is disabled for your account.
                   </p>
                 )}
-                <div className="players-list">
-                  {state.data.players.map((p, i) => (
-                    <div key={p.id}>
-                      <span className={`avatar colour-${i % 4}`}>
-                        <PlayerAvatar
-                          name={p.name}
-                          photoDataUrl={p.photoDataUrl}
-                        />
-                      </span>
-                      <div>
-                        <h3>
-                          <PlayerName player={p} profile={p} />
-                        </h3>
-                        <p>
-                          {
-                            state.data.games.filter((g) =>
-                              g.players.some((x) => x.id === p.id),
-                            ).length
-                          }{" "}
-                          {shared
-                            ? "games in this view"
-                            : "games in this preview"}
-                        </p>
-                        {p.bio && <p>{p.bio}</p>}
-                        <button
-                          className="text-button"
-                          disabled={shared && !store.canEditPlayer?.(p.id)}
-                          onClick={() => setEditingPlayer(p)}
-                        >
-                          Edit profile
-                        </button>
+                {state.shared ? (
+                  <PlayerDirectory
+                    shared={state.shared}
+                    busy={busy || !!state.unresolved}
+                    canEdit={(id) => !!store.canEditPlayer?.(id)}
+                    onEdit={setEditingPlayer}
+                    onAccess={onManagePlayerAccess}
+                    onOperation={onPlayerOperation}
+                    onRetry={async () => {
+                      await store.retry?.();
+                      await store.refresh?.();
+                    }}
+                  />
+                ) : (
+                  <div className="players-list">
+                    {state.data.players.map((p, i) => (
+                      <div key={p.id}>
+                        <span className={`avatar colour-${i % 4}`}>
+                          <PlayerAvatar
+                            name={p.name}
+                            photoDataUrl={p.photoDataUrl}
+                          />
+                        </span>
+                        <div>
+                          <h3>
+                            <PlayerName player={p} profile={p} />
+                          </h3>
+                          <p>
+                            {
+                              state.data.games.filter((g) =>
+                                g.players.some((x) => x.id === p.id),
+                              ).length
+                            }{" "}
+                            {shared
+                              ? "games in this view"
+                              : "games in this preview"}
+                          </p>
+                          {p.bio && <p>{p.bio}</p>}
+                          <button
+                            className="text-button"
+                            disabled={shared && !store.canEditPlayer?.(p.id)}
+                            onClick={() => setEditingPlayer(p)}
+                          >
+                            Edit profile
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
             {view === "History" && (
@@ -1141,6 +1176,7 @@ export function ScorerApp({
                   </p>
                 </div>
                 <GameList
+                  profiles={state.data.players}
                   renderItem={renderGameItem}
                   gameAccess={state.shared?.gameAccess}
                   games={[...state.data.games].reverse()}
@@ -1940,12 +1976,14 @@ function AddPlayer({
 }
 function GameList({
   games,
+  profiles,
   gameAccess,
   onOpen,
   renderItem,
 }: {
   renderItem?: (game: GameState, content: ReactNode) => ReactNode;
   games: GameState[];
+  profiles: readonly HistoryProfile[];
   gameAccess?: Record<string, GameAccess>;
   onOpen: (id: string) => Promise<void>;
 }) {
@@ -1954,7 +1992,10 @@ function GameList({
       {games.map((g) => {
         const content = (
           <div className="game-list-item">
-            <button onClick={() => void onOpen(g.id)}>
+            <button
+              aria-label={`${historyLabel(g.players, g.result?.winnerIds ?? [], profiles, g.result?.scores ?? g.scores, " · ")} · ${g.status}`}
+              onClick={() => void onOpen(g.id)}
+            >
               <span className="game-date">
                 {new Date(g.definition.createdAt).toLocaleDateString(
                   undefined,
@@ -1965,7 +2006,12 @@ function GameList({
                 )}
               </span>
               <span>
-                <strong>{g.players.map((p) => p.name).join(" · ")}</strong>
+                <HistoryParticipants
+                  participants={g.players}
+                  winnerIds={g.result?.winnerIds ?? []}
+                  profiles={profiles}
+                  totals={g.result?.scores ?? g.scores}
+                />
                 <small>
                   {gameAccess?.[g.id]?.mode === "practice"
                     ? "Private test · "
@@ -1992,11 +2038,7 @@ function GameList({
                   </small>
                 ) : null}
               </span>
-              <span className="game-list-score">
-                {g.players
-                  .map((p) => g.result?.scores[p.id] ?? g.scores[p.id])
-                  .join(" / ")}
-              </span>
+
               <span aria-hidden="true">→</span>
             </button>
           </div>

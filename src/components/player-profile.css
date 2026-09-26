@@ -5,6 +5,11 @@
 .player-profile-form > p {
   margin: 0;
 }
+.profile-reframe-help {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.5;
+}
 .profile-photo-editor {
   display: flex;
   gap: 18px;
@@ -77,10 +82,17 @@
 .profile-framer p {
   margin: 0;
 }
-.profile-crop-window {
+.profile-crop-stage {
   width: min(240px, 100%);
   aspect-ratio: 1;
   justify-self: center;
+  position: relative;
+  /* Reserve the crown's space even when hidden, so toggling never moves a crop. */
+  margin-top: 36px;
+}
+.profile-crop-window {
+  width: 100%;
+  height: 100%;
   position: relative;
   overflow: hidden;
   border-radius: 50%;
@@ -102,6 +114,19 @@
   display: grid;
   gap: 4px;
 }
+.profile-framer .profile-crown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.profile-crown-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green, #204e3d);
+}
 .profile-framer input[type="range"] {
   width: 100%;
   min-height: 44px;
@@ -116,8 +141,9 @@
   min-height: 44px;
 }
 @media (max-width: 480px) {
-  .profile-crop-window {
+  .profile-crop-stage {
     width: min(190px, 100%);
+    margin-top: 28px;
   }
   .profile-framer {
     padding: 12px;

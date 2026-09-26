@@ -1,5 +1,6 @@
 import { isValidProfilePhoto } from "./player-profile";
 import { LETTER_VALUES } from "../domain/board";
+import { portraitCrownRect } from "./portrait-geometry";
 
 export type BadgeResult = {
   gameId: string;
@@ -109,6 +110,17 @@ function drawPortrait(
   ctx.stroke();
 }
 
+function drawPortraitCrown(
+  ctx: CanvasRenderingContext2D,
+  crown: HTMLImageElement,
+  x: number,
+  y: number,
+  radius: number,
+) {
+  const box = portraitCrownRect(x - radius, y - radius, radius * 2);
+  ctx.drawImage(crown, box.x, box.y, box.width, box.height);
+}
+
 function fitText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -169,6 +181,7 @@ export async function makeResultBadge(
     ctx.stroke();
     if (photos.length === 1 && photos[0]) {
       drawPortrait(ctx, photos[0], 540, 530, 190);
+      drawPortraitCrown(ctx, crown, 540, 530, 190);
     } else {
       const columns = Math.min(2, photos.length);
       const rows = Math.ceil(photos.length / columns);
@@ -176,8 +189,10 @@ export async function makeResultBadge(
       photos.forEach((photo, index) => {
         const x = 540 + ((index % columns) - (columns - 1) / 2) * 174;
         const y = 530 + (Math.floor(index / columns) - (rows - 1) / 2) * 164;
-        if (photo) drawPortrait(ctx, photo, x, y, radius);
-        else
+        if (photo) {
+          drawPortrait(ctx, photo, x, y, radius);
+          drawPortraitCrown(ctx, crown, x, y, radius);
+        } else
           ctx.drawImage(
             crown,
             x - radius,
@@ -187,7 +202,6 @@ export async function makeResultBadge(
           );
       });
     }
-    ctx.drawImage(crown, 430, 286, 220, 176);
   }
 
   // One band per winner; long team names use readable lettering rather than tiny tiles.

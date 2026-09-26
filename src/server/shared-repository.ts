@@ -42,6 +42,7 @@ import type {
   FamilyMember,
   GameAccess,
   GameProtest,
+  PlayerAccess,
   SharedMutation,
   SharedMutationResult,
   SharedState,
@@ -151,6 +152,8 @@ function validateMutation(input: SharedMutation) {
     "delete-practice-game": ["gameId", "expectedRevision", "reason"],
     "remove-game": ["gameId", "expectedRevision", "reason"],
     "save-equipment": ["equipment", "expectedRevision"],
+    "archive-player": ["id", "expectedRevision", "archived"],
+    "delete-player": ["id", "expectedRevision"],
     "create-player": ["id", "profile"],
     "update-player": ["id", "expectedRevision", "profile"],
     "create-game": [
@@ -218,6 +221,8 @@ function validateMutation(input: SharedMutation) {
     ("generation" in op && (!revision(op.generation) || op.generation === 0))
   )
     reject("INVALID_REQUEST", "The revision is invalid.");
+  if (op.type === "archive-player" && typeof op.archived !== "boolean")
+    reject("INVALID_REQUEST", "Choose archive or restore.");
   if (
     (op.type === "delete-practice-game" || op.type === "remove-game") &&
     (typeof op.reason !== "string" ||
@@ -524,6 +529,30 @@ export function createSharedRepository(
   ) {
     await tx`insert into scrabble.audit(family_id,id,actor_id,action,subject,before_value,after_value) values(${familyId}::uuid,${randomUUID()}::uuid,${actor.userId}::uuid,${action},${subject},${json(tx, before)},${json(tx, after)})`;
   }
+  async function playerAccess(
+    tx: Tx,
+    familyId: string,
+    row: postgres.Row,
+    who: FamilyMember,
+    userId: string | null = row.user_id ?? null,
+  ): Promise<PlayerAccess> {
+    // Only the archive needs deletion checks. Return current metadata on every
+    // player acknowledgement, including retries, so a save cannot clear a guard.
+    const deletion =
+      who.role === "superadmin" && row.archived
+        ? (
+            await tx`select scrabble.player_deletion_block(${familyId}::uuid,${row.id}) as reason`
+          )[0]
+        : null;
+    return {
+      revision: row.revision,
+      userId,
+      archived: row.archived,
+      ...(who.role === "superadmin" && row.archived
+        ? { deletionBlock: deletion?.reason ?? null }
+        : {}),
+    };
+  }
   async function checkedGame(tx: Tx, familyId: string, gameId: string) {
     // Mutation callers already hold the family lock. A head row lock also
     // applies UPDATE policies and would hide history from reviewers/non-scorers.
@@ -677,6 +706,83 @@ export function createSharedRepository(
     deferred: Array<() => Promise<unknown>>,
   ): Promise<SharedMutationResult> {
     const op = input.operation;
+    if (op.type === "archive-player" || op.type === "delete-player") {
+      requireAdmin(who);
+      const [current] =
+        await tx`select p.*,m.user_id from scrabble.players p left join scrabble.memberships m on p.family_id=m.family_id and p.id=m.player_id where p.family_id=${familyId}::uuid and p.id=${op.id}`;
+      if (!current)
+        reject(
+          "PLAYER_NOT_FOUND",
+          "This player is no longer in the roster.",
+          404,
+        );
+      if (current.revision !== op.expectedRevision)
+        reject(
+          "REVISION_CONFLICT",
+          "This player changed. Refresh Players before continuing.",
+          409,
+        );
+      if (op.type === "delete-player") {
+        if (!current.archived)
+          reject(
+            "ARCHIVE_REQUIRED",
+            "Archive this player before permanently deleting them.",
+            409,
+          );
+        const [usage] =
+          await tx`select scrabble.player_deletion_block(${familyId}::uuid,${op.id}) as reason`;
+        if (usage.reason) reject("PLAYER_IN_USE", usage.reason, 409);
+        try {
+          await tx`delete from scrabble.players where family_id=${familyId}::uuid and id=${op.id}`;
+        } catch (error) {
+          // Private Gym rows can be hidden by RLS from another player, including
+          // the admin. Their FK still blocks erasure without exposing the rows.
+          if (
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            error.code === "23503"
+          )
+            reject(
+              "PLAYER_IN_USE",
+              "This player has saved history or account records. Keep them archived to preserve those records.",
+              409,
+            );
+          throw error;
+        }
+        await audit(
+          tx,
+          actor,
+          familyId,
+          "player.deleted",
+          op.id,
+          { id: op.id, archived: true },
+          null,
+        );
+        return { removedPlayerId: op.id };
+      }
+      const [updated] =
+        await tx`update scrabble.players set archived=${op.archived},revision=revision+1 where family_id=${familyId}::uuid and id=${op.id} returning *`;
+      await audit(
+        tx,
+        actor,
+        familyId,
+        op.archived ? "player.archived" : "player.restored",
+        op.id,
+        { archived: current.archived },
+        { archived: updated.archived },
+      );
+      return {
+        player: player(updated),
+        playerAccess: await playerAccess(
+          tx,
+          familyId,
+          updated,
+          who,
+          current.user_id ?? null,
+        ),
+      };
+    }
     if (op.type === "complete-profile") {
       if (!who.profileSetupPending)
         reject(
@@ -721,7 +827,13 @@ export function createSharedRepository(
         await tx`select * from scrabble.players where family_id=${familyId}::uuid and id=${op.id}`;
       return {
         player: player(updated),
-        playerAccess: { revision: updated.revision, userId: actor.userId },
+        playerAccess: await playerAccess(
+          tx,
+          familyId,
+          updated,
+          who,
+          actor.userId,
+        ),
       };
     }
     if (op.type === "delete-practice-game" || op.type === "remove-game") {
@@ -787,6 +899,16 @@ export function createSharedRepository(
         await tx`select * from scrabble.players where family_id = ${familyId}::uuid and id = ${op.id}`;
       if (op.type === "create-player" && rows.length)
         reject("PLAYER_EXISTS", "That player already exists.", 409);
+      if (op.type === "create-player") {
+        const deleted =
+          await tx`select 1 from scrabble.deleted_player_ids where family_id=${familyId}::uuid and player_id=${op.id}`;
+        if (deleted.length)
+          reject(
+            "PLAYER_DELETED",
+            "This player was permanently deleted. Create a new profile with a new ID.",
+            409,
+          );
+      }
       if (op.type === "update-player") {
         if (!rows.length)
           reject("PLAYER_NOT_FOUND", "That player is not in this family.", 404);
@@ -821,10 +943,7 @@ export function createSharedRepository(
       );
       return {
         player: player(updated),
-        playerAccess: {
-          revision: updated.revision,
-          userId: updated.user_id ?? null,
-        },
+        playerAccess: await playerAccess(tx, familyId, updated, who),
       };
     }
     if (op.type === "create-game") {
@@ -838,11 +957,11 @@ export function createSharedRepository(
           409,
         );
       const selected =
-        await tx`select p.id,coalesce(p.nickname,p.name) as name,m.user_id from scrabble.players p left join scrabble.memberships m on m.family_id=p.family_id and m.player_id=p.id and m.active where p.family_id=${familyId}::uuid and p.id in ${tx(op.players.map((p) => p.id))}`;
+        await tx`select p.id,coalesce(p.nickname,p.name) as name,m.user_id from scrabble.players p left join scrabble.memberships m on m.family_id=p.family_id and m.player_id=p.id and m.active where p.family_id=${familyId}::uuid and not p.archived and p.id in ${tx(op.players.map((p) => p.id))}`;
       if (selected.length !== op.players.length)
         reject(
           "INVALID_PLAYERS",
-          "Every participant must be a different player in this family.",
+          "Choose different active players. Restore archived players before starting a new game.",
         );
       if (
         (
@@ -1474,7 +1593,7 @@ export function createSharedRepository(
         const members =
           await tx`select * from scrabble.memberships where family_id=${familyId}::uuid order by joined_at,user_id`;
         const players =
-          await tx`select * from scrabble.players where family_id=${familyId}::uuid order by lower(name),id limit 500`;
+          await tx`select p.*,case when ${who.role === "superadmin"} and p.archived then scrabble.player_deletion_block(p.family_id,p.id) else null end as deletion_block from scrabble.players p where family_id=${familyId}::uuid order by archived,lower(name),id limit 500`;
         const invitations = hasPermission(who, "inviteMembers")
           ? await tx`select email,active,player_id from scrabble.invitations where family_id=${familyId}::uuid order by email limit 500`
           : [];
@@ -1529,6 +1648,10 @@ export function createSharedRepository(
               p.id,
               {
                 revision: p.revision,
+                archived: p.archived,
+                ...(who.role === "superadmin" && p.archived
+                  ? { deletionBlock: p.deletion_block }
+                  : {}),
                 userId:
                   members.find((m) => m.player_id === p.id)?.user_id ?? null,
               },
@@ -1707,14 +1830,13 @@ export function createSharedRepository(
         if (response.player) {
           const [current] =
             await tx`select p.*,m.user_id from scrabble.players p left join scrabble.memberships m on p.family_id=m.family_id and p.id=m.player_id where p.family_id=${familyId}::uuid and p.id=${response.player.id}`;
+          if (!current)
+            return { removedPlayerId: response.player.id, replayed: true };
           if (current)
             return {
               ...response,
               player: player(current),
-              playerAccess: {
-                revision: current.revision,
-                userId: current.user_id ?? null,
-              },
+              playerAccess: await playerAccess(tx, familyId, current, who),
               replayed: true,
             };
         }

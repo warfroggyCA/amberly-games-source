@@ -47,6 +47,10 @@
 .swipe-game-delete:disabled {
   visibility: hidden;
 }
+.swipe-game-archive,
+.swipe-game-archive .swipe-game-delete {
+  background: var(--green, #194d3c);
+}
 .swipe-game button:focus-visible {
   outline-offset: -4px;
 }

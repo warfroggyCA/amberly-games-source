@@ -24,7 +24,12 @@ export type FamilyMember = {
   permissions?: MemberPermissions;
   revision?: number;
 };
-export type PlayerAccess = { revision: number; userId: string | null };
+export type PlayerAccess = {
+  revision: number;
+  userId: string | null;
+  archived?: boolean;
+  deletionBlock?: string | null;
+};
 export type GameProtest = {
   id: string;
   reason: string;
@@ -75,6 +80,13 @@ export type SharedState = {
   nextCursor: string | null;
 };
 export type SharedOperation =
+  | {
+      type: "archive-player";
+      id: string;
+      expectedRevision: number;
+      archived: boolean;
+    }
+  | { type: "delete-player"; id: string; expectedRevision: number }
   | {
       type: "delete-practice-game" | "remove-game";
       gameId: string;
@@ -164,6 +176,7 @@ export type SharedOperation =
 export type SharedMutation = { requestId: string; operation: SharedOperation };
 export type SharedMutationResult = {
   removedGameId?: string;
+  removedPlayerId?: string;
   equipment?: Equipment;
   replayed?: boolean;
   game?: GameState;

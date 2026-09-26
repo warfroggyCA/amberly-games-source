@@ -113,6 +113,14 @@
   padding: 3px;
   overscroll-behavior: contain;
 }
+.gym-board-scroll[data-gym-drag-zoom] {
+  overflow: hidden;
+  isolation: isolate;
+}
+.gym-board-scroll[data-gym-drag-zoom] > .gym-board {
+  transform-origin: 0 0;
+  will-change: transform;
+}
 .gym-board {
   display: grid;
   grid-template-columns: repeat(15, minmax(0, 1fr));

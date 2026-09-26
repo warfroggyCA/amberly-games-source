@@ -58,10 +58,11 @@ The required local files, in order, are:
 12. `20260924011827_superadmin_game_removal.sql`
 13. `20260924214100_gym_profile_history.sql`
 14. `20260926032143_gameplay_timing_viewers.sql`
+15. `20260926185952_player_archiving.sql`
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 
-The integrity migration installs ownership policies, immutable concern evidence, journal/projection guards, a unique per-match command ID, and the `application_schema_v1()` capability marker atomically. The game-removal migration adds `application_schema_v2()` and permits reasoned superadmin removal of regular games while retaining all original evidence. Every repository transaction checks the v2 marker and returns `SCHEMA_BEHIND` (503) before proceeding when it is absent. Install the complete schema before publishing this build. Reads as well as writes fail closed on an old schema.
+The integrity migration installs ownership policies, immutable concern evidence, journal/projection guards, a unique per-match command ID, and the `application_schema_v1()` capability marker atomically. The game-removal migration adds `application_schema_v2()` and permits reasoned superadmin removal of regular games while retaining all original evidence. The player-archiving migration adds `application_schema_v3()`, archive metadata, deletion tombstones and superadmin-only guards. Every repository transaction checks the v3 marker and returns `SCHEMA_BEHIND` (503) before proceeding when it is absent. Install the complete schema before publishing this build. Reads as well as writes fail closed on an old schema.
 
 The integrity migration retains existing data. Duplicate command IDs or invalid historic event shapes cause a transactional migration failure; investigate and restore/repair from verified evidence, never delete history to force installation. Existing resolved concerns remain intact; future resolutions can be appended once but cannot replace the original report or a previous resolution.
 
@@ -73,3 +74,5 @@ Hosted migration history, runtime-login grants, off-device backup custody, deplo
 ### Staged Gym history
 
 Migration 13 adds private Gym sessions/events only; it has been prepared for local verification and must not be assumed present in the hosted migration ledger. Enable `AMBERLY_GYM_HISTORY_ENABLED=true` only after the reviewed migration and application revision are authorized and verified. The existing `AMBERLY_GYM_LAB_ENABLED` gate still controls Gym entry. On rollback, disable the history gate and retain the additive tables, receipts and device queues; never delete practice history to roll back UI. Verify an owned save and second-device retrieval after rollout, plus rejection for another account/profile.
+
+Player archiving is additive: historical games and linked accounts remain intact. Permanent deletion is restricted to archived profiles without account, invitation, game or Gym references. Rehearse migration 15 against an isolated restore and verify its guards before applying it to the hosted database, then deploy the matching API. Retain its schema and tombstones on application rollback so delayed retries cannot resurrect deleted profiles.

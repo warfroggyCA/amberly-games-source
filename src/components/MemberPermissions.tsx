@@ -201,6 +201,17 @@ export function MemberPermissions({
             ))}
           </section>
         ))}
+        <section className="permission-group" aria-label="Superadmin only">
+          <h4>Superadmin only</h4>
+          <p>
+            <strong>Archive, restore and permanently delete players</strong>
+          </p>
+          <p className="permissions-note">
+            Managed from Players. Permanent deletion is only available in
+            Archived players for unused, unlinked profiles. This capability
+            cannot be granted to members.
+          </p>
+        </section>
         <p className="permissions-note">
           Everyone with access can view shared games and report concerns. Only
           superadmins can create, view or delete practice games, change account

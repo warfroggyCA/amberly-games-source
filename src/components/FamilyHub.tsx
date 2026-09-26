@@ -1,5 +1,6 @@
 "use client";
-import { CrownIcon } from "./CrownIcon";
+import { HistoryParticipants } from "./HistoryParticipants";
+import { historyLabel } from "../lib/history-participants";
 import { FamilyStandings } from "./FamilyStandings";
 import { GymEntryCard } from "./GymEntryCard";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
@@ -46,8 +47,10 @@ export function FamilyHub({
   onAdmin,
   onSignOut,
   signOutGuardRef,
+  lobbyMusicSlot,
 }: {
   gymEnabled?: boolean;
+  lobbyMusicSlot?: ReactNode;
   sharedStore: SharedScorerStore;
   shared: SharedState;
   userId: string;
@@ -385,6 +388,7 @@ export function FamilyHub({
         onMenu={() => setMenu(!menu)}
         menuOpen={menu}
       >
+        {!isCrokinole && lobbyMusicSlot}
         {isCrokinole && (
           <span className="crokinole-save-status" role="status">
             {state.pending
@@ -549,7 +553,13 @@ export function FamilyHub({
               key={gameId ?? "new"}
               defaults={state.palette?.defaults}
               familyId={shared.family.id}
-              players={shared.players}
+              players={
+                game
+                  ? shared.players
+                  : shared.players.filter(
+                      (p) => !shared.playerAccess[p.id]?.archived,
+                    )
+              }
               actorNames={Object.fromEntries(
                 shared.players.flatMap((player) => {
                   const actorId = shared.playerAccess[player.id]?.userId;
@@ -1182,7 +1192,7 @@ function HubHistory({
             <option value="">Everyone</option>
             {players.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                {playerDisplayName(p)}
               </option>
             ))}
           </select>
@@ -1203,6 +1213,7 @@ function HubHistory({
           .map((g) => (
             <button
               key={`${g.gameType}:${g.id}`}
+              aria-label={`${g.gameType} · ${g.mode === "practice" ? "Private test" : g.status.replaceAll("_", " ")} · ${historyLabel(g.participants, g.winnerIds, players, g.totals)}`}
               className="hub-recent-game"
               onClick={() => void onOpen(g).catch((e) => setError(e.message))}
             >
@@ -1212,28 +1223,12 @@ function HubHistory({
                   ? "Private test"
                   : g.status.replaceAll("_", " ")}
               </span>
-              {g.winnerIds.length > 0 && (
-                <span className="history-winner">
-                  <CrownIcon />
-                  <span>
-                    <small>
-                      {g.winnerIds.length > 1 ? "Tied winners" : "Winner"}
-                    </small>
-                    <strong>
-                      {g.participants
-                        .filter((p) => g.winnerIds.includes(p.id))
-                        .map((p) => p.name)
-                        .join(" & ")}
-                    </strong>
-                  </span>
-                </span>
-              )}
-              <strong>{g.participants.map((p) => p.name).join(" vs ")}</strong>
-              <span>
-                {g.participants
-                  .map((p) => `${p.name}: ${g.totals[p.id] ?? 0}`)
-                  .join(" · ")}
-              </span>
+              <HistoryParticipants
+                participants={g.participants}
+                winnerIds={g.winnerIds}
+                profiles={players}
+                totals={g.totals}
+              />
             </button>
           ))}
       </div>

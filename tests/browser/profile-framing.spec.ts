@@ -29,8 +29,7 @@ test("shared profiles crop photos, preserve cancelled adjustments and save nickn
   });
   await page.goto("/family/players");
   await page
-    .locator(".players-list > div")
-    .filter({ hasText: "Doug" })
+    .getByRole("article", { name: "Doug", exact: true })
     .getByRole("button", { name: "Edit profile" })
     .click();
   const dialog = page.getByRole("dialog", { name: "Edit player profile" });
@@ -51,15 +50,36 @@ test("shared profiles crop photos, preserve cancelled adjustments and save nickn
   await expect(
     dialog.getByRole("button", { name: "Save profile" }),
   ).toHaveCount(0);
+  const crownToggle = dialog.getByRole("switch", { name: "Show crown" });
+  const crown = dialog.locator(".winner-portrait-crown");
+  await expect(crownToggle).toBeChecked();
+  await expect(crown).toBeVisible();
   await dialog.getByRole("slider", { name: "Photo zoom" }).fill("2");
   const cropWindow = dialog.locator(".profile-crop-window");
   await cropWindow.scrollIntoViewIfNeeded();
   const box = (await cropWindow.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const cropStyle = await cropWindow.locator("img").getAttribute("style");
+  await crownToggle.focus();
+  await page.keyboard.press("Space");
+  await expect(crownToggle).not.toBeChecked();
+  await expect(crown).toHaveCount(0);
+  await expect(cropWindow.locator("img")).toHaveAttribute("style", cropStyle!);
+  await page.keyboard.press("Space");
+  await expect(crownToggle).toBeChecked();
+  await expect(crown).toBeVisible();
+  await cropWindow.scrollIntoViewIfNeeded();
+  const dragBox = (await cropWindow.boundingBox())!;
+  expect(dragBox.width).toEqual(box.width);
+  expect(dragBox.height).toEqual(box.height);
+  // Start beneath the visible crown: its overlay must not intercept dragging.
+  await page.mouse.move(
+    dragBox.x + dragBox.width / 2,
+    dragBox.y + dragBox.height / 4,
+  );
   await page.mouse.down();
   await page.mouse.move(
-    box.x + box.width / 2 + 20,
-    box.y + box.height / 2 + 10,
+    dragBox.x + dragBox.width / 2 + 20,
+    dragBox.y + dragBox.height / 4 + 10,
     { steps: 3 },
   );
   await page.mouse.up();
@@ -88,6 +108,14 @@ test("shared profiles crop photos, preserve cancelled adjustments and save nickn
   ).metadata();
   expect(dimensions.width).toBe(256);
   expect(dimensions.height).toBe(256);
+  const topPixel = await sharp(Buffer.from(original!.split(",")[1], "base64"))
+    .extract({ left: 128, top: 40, width: 1, height: 1 })
+    .raw()
+    .toBuffer();
+  // The source is green; a baked-in gold crown would change this upper-face pixel.
+  expect(topPixel[0]).toBeLessThan(80);
+  expect(topPixel[1]).toBeGreaterThan(100);
+  expect(topPixel[2]).toBeLessThan(110);
   await dialog
     .getByRole("button", { name: "Adjust photo", exact: true })
     .click();

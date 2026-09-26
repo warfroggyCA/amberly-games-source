@@ -596,6 +596,8 @@ test("touch pickup clears the finger, and pulling a tile off the board returns i
     testInfo.project.name !== "desktop-chromium",
     "Chromium native touch injection",
   );
+  // This covers the unchanged large-board path; phone magnification has separate tests.
+  await page.setViewportSize({ width: 1440, height: 1200 });
   await page.goto("/gym-lab");
   await startPractice(page);
   const board = page.getByRole("group", { name: "Scrabble practice board" });

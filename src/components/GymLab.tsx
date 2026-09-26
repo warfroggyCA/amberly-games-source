@@ -13,6 +13,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -50,6 +51,7 @@ import { GymHistory } from "./GymHistory";
 import "./gym-lab.css";
 import { useGymDraft } from "./useGymDraft";
 import { gymDraftKey, type GymDraft } from "../lib/gym-draft";
+import { GymDragViewport } from "../lib/gym-drag-viewport";
 interface Ready {
   puzzle: Puzzle;
   answer: ScoreSummary;
@@ -186,10 +188,62 @@ export function GymLab({
     time: number;
     pointer: number;
     offsetY: number;
+    touch: boolean;
+    currentX: number;
+    currentY: number;
+    source: HTMLButtonElement;
   } | null>(null);
   const suppressClick = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  const dragViewport = useRef<GymDragViewport | null>(null);
+  const gestureCancel = useCallback(() => {
+    const active = gesture.current;
+    if (!active) return;
+    suppressClick.current = active.id;
+    gesture.current = null;
+    dragViewport.current?.stop();
+    dragViewport.current = null;
+    setDragPreview(null);
+    if (active.source.hasPointerCapture(active.pointer))
+      active.source.releasePointerCapture(active.pointer);
+  }, []);
+  const gesturePointerCancel = useCallback(
+    (event: PointerEvent<HTMLButtonElement>) => {
+      // A previous pointer can report lost capture after a different input
+      // starts dragging. Only its own gesture may be cancelled by that event.
+      if (gesture.current?.pointer === event.pointerId) gestureCancel();
+    },
+    [gestureCancel],
+  );
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.hidden) gestureCancel();
+    };
+    const onOtherPointer = (event: globalThis.PointerEvent) => {
+      if (gesture.current && event.pointerId !== gesture.current.pointer)
+        gestureCancel();
+    };
+    window.addEventListener("resize", gestureCancel);
+    window.addEventListener("blur", gestureCancel);
+    window.addEventListener("pagehide", gestureCancel);
+    window.addEventListener("scroll", gestureCancel, true);
+    window.visualViewport?.addEventListener("resize", gestureCancel);
+    window.visualViewport?.addEventListener("scroll", gestureCancel);
+    document.addEventListener("visibilitychange", onHidden);
+    document.addEventListener("pointerdown", onOtherPointer, true);
+    return () => {
+      window.removeEventListener("resize", gestureCancel);
+      window.removeEventListener("blur", gestureCancel);
+      window.removeEventListener("pagehide", gestureCancel);
+      window.removeEventListener("scroll", gestureCancel, true);
+      window.visualViewport?.removeEventListener("resize", gestureCancel);
+      window.visualViewport?.removeEventListener("scroll", gestureCancel);
+      document.removeEventListener("visibilitychange", onHidden);
+      document.removeEventListener("pointerdown", onOtherPointer, true);
+      dragViewport.current?.stop();
+    };
+  }, [gestureCancel]);
   const recoveryKey = profileHistory
     ? historySync.identity
       ? gymDraftKey(historySync.identity)
@@ -471,6 +525,7 @@ export function GymLab({
         (input.type === "check" || input.type === "strategy"))
     )
       return;
+    gestureCancel();
     if (input.type === "check") {
       if (liveCoaching) historySync.record({ type: "live-coaching" });
       savedAttempt.current = historySync.record({
@@ -698,6 +753,38 @@ export function GymLab({
       .elementFromPoint(x, y)
       ?.closest<HTMLElement>("[data-gym-square]");
   }
+  function updateDragPreview() {
+    const start = gesture.current;
+    if (!start) return;
+    const square = dragTarget(start.currentX, start.currentY - start.offsetY);
+    const row = Number(square?.dataset.row),
+      col = Number(square?.dataset.col);
+    const target =
+      square &&
+      Math.hypot(start.currentX - start.x, start.currentY - start.y) >= 12
+        ? {
+            row,
+            col,
+            blocked:
+              !!ready?.puzzle.position.board[row][col] ||
+              currentDraft.current.tiles.some(
+                (t) => t.id !== start.id && t.row === row && t.col === col,
+              ),
+          }
+        : null;
+    setDragPreview((previous) => {
+      if (
+        !previous ||
+        (previous.x === start.currentX &&
+          previous.y === start.currentY &&
+          previous.target?.row === target?.row &&
+          previous.target?.col === target?.col &&
+          previous.target?.blocked === target?.blocked)
+      )
+        return previous;
+      return { ...previous, x: start.currentX, y: start.currentY, target };
+    });
+  }
   function gestureStart(event: PointerEvent<HTMLButtonElement>, id: number) {
     if (busy || reveal || !introduced) return;
     if (
@@ -706,6 +793,8 @@ export function GymLab({
       (event.pointerType === "mouse" && event.button !== 0)
     )
       return;
+    dragViewport.current?.stop();
+    dragViewport.current = null;
     suppressClick.current = null;
     const touch = event.pointerType !== "mouse";
     const size = Math.max(
@@ -726,53 +815,56 @@ export function GymLab({
       y: event.clientY,
       time: event.timeStamp,
       pointer: event.pointerId,
+      touch,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      source: event.currentTarget,
       // Aim at the centre of the lifted tile, above a finger or stylus.
       offsetY: touch ? size / 2 + 16 : 0,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      gestureCancel();
+    }
   }
   function gestureMove(event: PointerEvent<HTMLButtonElement>) {
     const start = gesture.current;
     if (!start || start.pointer !== event.pointerId) return;
-    const square = dragTarget(event.clientX, event.clientY - start.offsetY);
-    const row = Number(square?.dataset.row),
-      col = Number(square?.dataset.col);
-    const target =
-      square &&
+    start.currentX = event.clientX;
+    start.currentY = event.clientY;
+    const aim = { x: event.clientX, y: event.clientY - start.offsetY };
+    if (
+      start.touch &&
+      !dragViewport.current &&
+      boardRef.current &&
       Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 12
-        ? {
-            row,
-            col,
-            blocked:
-              !!ready?.puzzle.position.board[row][col] ||
-              currentDraft.current.tiles.some(
-                (t) => t.id !== start.id && t.row === row && t.col === col,
-              ),
-          }
-        : null;
-    setDragPreview((previous) =>
-      previous
-        ? { ...previous, x: event.clientX, y: event.clientY, target }
-        : null,
-    );
-  }
-  function gestureCancel() {
-    if (gesture.current) suppressClick.current = gesture.current.id;
-    gesture.current = null;
-    setDragPreview(null);
+    )
+      dragViewport.current = GymDragViewport.start(
+        boardRef.current,
+        aim,
+        reducedMotionRef.current,
+        updateDragPreview,
+      );
+    dragViewport.current?.move(aim);
+    updateDragPreview();
   }
   function gestureEnd(event: PointerEvent<HTMLButtonElement>) {
     const start = gesture.current;
     if (!start || start.pointer !== event.pointerId) return;
+    // Resolve against the visible transformed board before restoring its fitted size.
+    const aimY = event.clientY - start.offsetY;
+    const hit = document.elementFromPoint(event.clientX, aimY);
+    const target = dragTarget(event.clientX, aimY);
     gesture.current = null;
+    dragViewport.current?.stop(true);
     setDragPreview(null);
+    if (start.source.hasPointerCapture(start.pointer))
+      start.source.releasePointerCapture(start.pointer);
     const dx = event.clientX - start.x,
       dy = event.clientY - start.y;
     if (Math.hypot(dx, dy) < 12) return; // Native click handles a tap and keyboard activation.
     suppressClick.current = start.id;
-    const aimY = event.clientY - start.offsetY;
-    const hit = document.elementFromPoint(event.clientX, aimY);
-    const target = dragTarget(event.clientX, aimY);
     const fromBoard = currentDraft.current.tiles.some((t) => t.id === start.id);
     // A placed tile can be pulled off the board, including anywhere on the rack.
     // Only rack-origin gestures use the quick upward flick-to-cursor shortcut.
@@ -1211,8 +1303,8 @@ export function GymLab({
                             }}
                             onPointerMove={gestureMove}
                             onPointerUp={gestureEnd}
-                            onPointerCancel={gestureCancel}
-                            onLostPointerCapture={gestureCancel}
+                            onPointerCancel={gesturePointerCancel}
+                            onLostPointerCapture={gesturePointerCancel}
                           >
                             {hinted && (
                               <span
@@ -1363,8 +1455,8 @@ export function GymLab({
                         onPointerDown={(e) => gestureStart(e, id)}
                         onPointerMove={gestureMove}
                         onPointerUp={gestureEnd}
-                        onPointerCancel={gestureCancel}
-                        onLostPointerCapture={gestureCancel}
+                        onPointerCancel={gesturePointerCancel}
+                        onLostPointerCapture={gesturePointerCancel}
                       >
                         <b>{used ? "" : tile === "?" ? "" : tile}</b>
                         {!used && (

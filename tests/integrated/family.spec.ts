@@ -239,10 +239,10 @@ test("real invitation/profile, persisted scoring, final history, and reduced per
     await member.goto("/family/history");
     await expect(
       member.locator(".hub-recent-game").filter({ hasText: "scrabble" }),
-    ).toContainText("Alice: -45");
+    ).toHaveAccessibleName(/Alice: -45 points/);
     await expect(
       member.locator(".hub-recent-game").filter({ hasText: "scrabble" }),
-    ).toContainText("Bob: -7");
+    ).toHaveAccessibleName(/Bob: -7 points/);
     await member.screenshot({
       path: testInfo.outputPath("real-combined-history.png"),
       fullPage: true,

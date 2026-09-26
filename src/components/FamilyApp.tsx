@@ -1,5 +1,7 @@
 "use client";
 import { useRouter, usePathname } from "next/navigation";
+import { LobbyMusic } from "./LobbyMusic";
+import { lobbyTrack } from "../lib/lobby-track";
 import { PlayerOnboarding } from "./PlayerOnboarding";
 import { FamilyHub } from "./FamilyHub";
 import { hasPermission } from "../lib/member-permissions";
@@ -55,6 +57,20 @@ function FamilyWorkspace({
   gymEnabled: boolean;
 }) {
   const router = useRouter();
+  const path = usePathname();
+  const [scorerPlaying, setScorerPlaying] = useState(false);
+  const [musicTarget, setMusicTarget] = useState<HTMLSpanElement | null>(null);
+  const musicSlot = lobbyTrack ? (
+    <span className="lobby-music-slot" ref={setMusicTarget} />
+  ) : undefined;
+  const musicActive =
+    [
+      "/family",
+      "/family/history",
+      "/family/players",
+      "/family/settings",
+      "/family/scrabble",
+    ].includes(path) && !scorerPlaying;
   const [store] = useState(() => createSharedStore(user.id));
   const state = useSyncExternalStore(
     store.subscribe,
@@ -62,6 +78,7 @@ function FamilyWorkspace({
     store.getServerSnapshot,
   );
   const [admin, setAdmin] = useState(false);
+  const [adminPlayerId, setAdminPlayerId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -250,6 +267,13 @@ function FamilyWorkspace({
       onHome={hubEnabled ? () => router.push("/family") : undefined}
       onNavigate={hubEnabled ? (path) => router.push(path) : undefined}
       store={store}
+      onManagePlayerAccess={(playerId) => {
+        setAdminPlayerId(playerId);
+        setAdmin(true);
+      }}
+      onPlayerOperation={(operation) => store.administer(operation)}
+      onGameViewChange={setScorerPlaying}
+      lobbyMusicSlot={musicSlot}
       liveContext={{
         userId: user.id,
         generation:
@@ -355,6 +379,7 @@ function FamilyWorkspace({
       {hubEnabled ? (
         <FamilyHub
           gymEnabled={gymEnabled}
+          lobbyMusicSlot={musicSlot}
           signOutGuardRef={hubSignOutGuard}
           sharedStore={store}
           shared={state.shared!}
@@ -367,13 +392,23 @@ function FamilyWorkspace({
         renderScorer()
       )}
 
+      <LobbyMusic
+        active={musicActive}
+        track={lobbyTrack}
+        controlsTarget={musicTarget}
+      />
+
       {admin &&
         (state.shared!.member.role === "superadmin" ||
           hasPermission(state.shared!.member, "inviteMembers")) && (
           <FamilyAdmin
-            key={state.shared!.member.role}
+            key={`${state.shared!.member.role}-${adminPlayerId ?? "all"}`}
+            initialPlayerId={adminPlayerId}
             store={store}
-            onClose={() => setAdmin(false)}
+            onClose={() => {
+              setAdmin(false);
+              setAdminPlayerId(undefined);
+            }}
           />
         )}
     </>
@@ -494,10 +529,12 @@ function GameStatus({
 }
 
 function FamilyAdmin({
+  initialPlayerId,
   store,
   onClose,
 }: {
   store: SharedScorerStore;
+  initialPlayerId?: string;
   onClose: () => void;
 }) {
   const state = useSyncExternalStore(
@@ -506,14 +543,19 @@ function FamilyAdmin({
     store.getServerSnapshot,
   );
   const [email, setEmail] = useState("");
-  const [invitePlayerId, setInvitePlayerId] = useState("");
+  const [invitePlayerId, setInvitePlayerId] = useState(initialPlayerId ?? "");
   const [invitationLink, setInvitationLink] = useState("");
   const [copyNotice, setCopyNotice] = useState("");
   const [working, setWorking] = useState(false);
   const ref = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [editing, setEditing] = useState<FamilyMember | null>(null);
+  const [editing, setEditing] = useState<FamilyMember | null>(() =>
+    initialPlayerId
+      ? (state.shared!.members.find((m) => m.playerId === initialPlayerId) ??
+        null)
+      : null,
+  );
   const [removingInvite, setRemovingInvite] = useState<string | null>(null);
   const run = async (operation?: SharedOperation) => {
     if (ref.current) return;
