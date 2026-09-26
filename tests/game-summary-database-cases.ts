@@ -14,12 +14,15 @@ export function gameSummaryDatabaseCases(
   owner: postgres.Sql,
   runtime: postgres.Sql,
 ) {
-  const repository = createSharedRepository(runtime, {
-    defaultLexicon: testLexicon,
-    resolveLexicon: () => testLexicon,
-  });
   const summary = createGameSummaryRepository(runtime);
-  async function fixture(emptyBag = false) {
+  async function fixture(emptyBag = false, competitive = false) {
+    const reference = competitive
+      ? { ...testLexicon, status: "ready" as const }
+      : testLexicon;
+    const repository = createSharedRepository(runtime, {
+      defaultLexicon: reference,
+      resolveLexicon: () => reference,
+    });
     const familyId = randomUUID();
     const actor = {
       userId: randomUUID(),
@@ -119,6 +122,49 @@ export function gameSummaryDatabaseCases(
     }));
 
   describe("combined Scrabble history scores", () => {
+    it("persists historical corrections with later plays and original audit", async () => {
+      const f = await fixture();
+      const first = await f.command({
+        type: "play",
+        placements: placements("CAT"),
+      });
+      await f.command({
+        type: "play",
+        placements: [{ row: 7, col: 10, tile: { letter: "S", blank: false } }],
+      });
+      const corrected = await f.command({
+        type: "edit-turn",
+        turnId: first.turns[0].id,
+        placements: placements("CAT").map((p, i) =>
+          i === 0 ? { ...p, tile: { ...p.tile, blank: true } } : p,
+        ),
+        reason: "Blank correction",
+      });
+      expect(corrected.turns).toHaveLength(2);
+      expect(corrected.events[0]).toEqual(first.events[0]);
+      expect((await f.read()).games[0].totals).toEqual(corrected.scores);
+    });
+    it("counts completed competitive wins independently of history filters", async () => {
+      const f = await fixture(false, true);
+      for (let i = 0; i < 4; i++) await f.command({ type: "pass" });
+      const g = await f.command({
+        type: "finalize",
+        reason: "blocked",
+        racks: { alice: rack("CATDOG?"), bob: rack("READING") },
+      });
+      const result = await f.read();
+      expect(result.standings).toHaveLength(2);
+      for (const row of result.standings!) {
+        expect(row.played).toBe(1);
+        expect(row.wins).toBe(
+          g.result!.winnerIds.includes(row.playerId) ? 1 : 0,
+        );
+      }
+      expect(
+        (await summary.read(f.actor, f.familyId, { playerId: "nobody" }))
+          .standings,
+      ).toEqual(result.standings);
+    });
     it("shows rack deductions and the changed winner after an early ending", async () => {
       const f = await fixture();
       await f.command({ type: "play", placements: placements("AT") });

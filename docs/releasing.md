@@ -51,6 +51,7 @@ The required local files, in order, are:
 11. `20260923235027_review_integrity_guards.sql`
 12. `20260924011827_superadmin_game_removal.sql`
 13. `20260924214100_gym_profile_history.sql`
+14. `20260926032143_gameplay_timing_viewers.sql`
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 

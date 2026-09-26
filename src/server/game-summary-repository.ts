@@ -1,3 +1,4 @@
+import type { Standing } from "../lib/standings";
 import { checkedCrokinoleState } from "./crokinole-integrity";
 import { requireCurrentSchema } from "./schema-compatibility";
 import { createCrokinoleRepository } from "./crokinole-repository";
@@ -98,6 +99,43 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
               "This account does not have active family access.",
               403,
             );
+          // Full-history aggregate in the same RLS-protected snapshot; never page-based totals.
+          const standingsRows = !query.cursor
+            ? await tx`
+            with eligible as (
+              select 'scrabble'::text game_type, h.state->'players' participants, h.state->'result'->'winnerIds' winners
+              from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
+              where d.family_id=${familyId}::uuid and d.mode='confirmed'
+                and h.state->>'status'='finalized' and h.state->>'mode'='multiplayer'
+                and h.state->'lexicon'->>'status'='ready'
+                and h.state->'result'->>'reason' in ('natural','blocked')
+                and h.state->'result'->>'assisted'='false'
+                and (h.state->'assistance' is null or h.state->'assistance'='null'::jsonb)
+                and not (h.state ? 'tileSupply')
+                and jsonb_array_length(coalesce(h.state->'verifiedWords','[]'::jsonb))=0
+                and not exists(select 1 from jsonb_array_elements(h.state->'events') e where e->'command'->>'type' in ('extend-supply','verify-words'))
+                and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
+                and not exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id where p.family_id=d.family_id and p.game_id=d.game_id and (r.outcome is null or r.outcome='upheld'))
+              union all
+              select 'crokinole',definition->'participants',state->'result'->'winnerIds'
+              from scrabble.crokinole_games g where family_id=${familyId}::uuid and mode='confirmed' and not removed and state->>'status'='completed'
+                and not exists(select 1 from scrabble.crokinole_concerns c where c.family_id=g.family_id and c.game_id=g.game_id and coalesce(c.concern->'resolution'->>'outcome','open')<>'dismissed')
+            ), participants as (
+              select game_type,p->>'id' side_id,coalesce(p->'playerIds',jsonb_build_array(p->>'id')) player_ids,winners from eligible cross join lateral jsonb_array_elements(participants) p
+            ) select game_type,player_id,count(*)::int played,
+              count(*) filter(where winners ? side_id and jsonb_array_length(winners)=1)::int wins,
+              count(*) filter(where winners ? side_id and jsonb_array_length(winners)>1)::int ties
+              from participants cross join lateral jsonb_array_elements_text(player_ids) player_id
+              group by game_type,player_id order by game_type,player_id
+          `
+            : null;
+          const standings: Standing[] | undefined = standingsRows?.map((r) => ({
+            gameType: r.game_type,
+            playerId: r.player_id,
+            played: r.played,
+            wins: r.wins,
+            ties: r.ties,
+          }));
           // Execute under the restricted role: each source's RLS applies before the union.
           const rows = await tx`
           with games as (
@@ -158,6 +196,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
           const last = rows[29];
           return {
             games,
+            ...(standings ? { standings } : {}),
             nextCursor:
               rows.length > 30
                 ? Buffer.from(

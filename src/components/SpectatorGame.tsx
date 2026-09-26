@@ -1,4 +1,7 @@
 "use client";
+import { PlayerElapsedTime } from "./TurnTiming";
+import { TurnClock, TimingSummary } from "./TurnTiming";
+import "./game-feedback.css";
 import { BingoBanner } from "./BingoBanner";
 import { ResultBadge } from "./ResultBadge";
 import { PlayerName } from "./PlayerName";
@@ -156,6 +159,7 @@ export function SpectatorGame({
   }
   const tools = (
     <div className="spectator-view-actions">
+      <TurnClock game={game} />
       <TileBagButton
         key={game.id}
         remaining={game.expectedBagCount}
@@ -276,6 +280,12 @@ export function SpectatorGame({
                   >
                     {displayScores[player.id]}
                   </b>
+                  <PlayerElapsedTime game={game} playerId={player.id} />
+                  {game.expectedRackCounts && (
+                    <small className="board-seat-rack">
+                      {game.expectedRackCounts[player.id]} tiles left
+                    </small>
+                  )}
                   <small className="spectator-seat-turn" aria-hidden="true">
                     {isCurrent ? "Playing now" : "\u00a0"}
                   </small>
@@ -533,6 +543,7 @@ export function SpectatorGame({
               </li>
             ))}
           </ol>
+          <TimingSummary game={game} />
           {confirmation}
           <details className="spectator-history">
             <summary>Rounds and turn history</summary>

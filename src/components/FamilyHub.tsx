@@ -1,4 +1,6 @@
 "use client";
+import { CrownIcon } from "./CrownIcon";
+import { FamilyStandings } from "./FamilyStandings";
 import { GymEntryCard } from "./GymEntryCard";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
 import {
@@ -1126,6 +1128,7 @@ function HubHistory({
           setData((old) => ({
             games: cursor ? [...old.games, ...next.games] : next.games,
             nextCursor: next.nextCursor,
+            standings: next.standings ?? (cursor ? old.standings : undefined),
           }));
       } catch (e) {
         if (
@@ -1154,6 +1157,16 @@ function HubHistory({
   return (
     <main className="hub-content">
       <h1>Game history</h1>
+      {data.standings && !error && (
+        <details className="standings-disclosure">
+          <summary>Family standings · wins & ranks</summary>
+          <FamilyStandings
+            rows={data.standings}
+            players={players}
+            gameFilter={filter}
+          />
+        </details>
+      )}
       <div className="crokinole-fields">
         <label className="crokinole-field">
           Game
@@ -1199,6 +1212,22 @@ function HubHistory({
                   ? "Private test"
                   : g.status.replaceAll("_", " ")}
               </span>
+              {g.winnerIds.length > 0 && (
+                <span className="history-winner">
+                  <CrownIcon />
+                  <span>
+                    <small>
+                      {g.winnerIds.length > 1 ? "Tied winners" : "Winner"}
+                    </small>
+                    <strong>
+                      {g.participants
+                        .filter((p) => g.winnerIds.includes(p.id))
+                        .map((p) => p.name)
+                        .join(" & ")}
+                    </strong>
+                  </span>
+                </span>
+              )}
               <strong>{g.participants.map((p) => p.name).join(" vs ")}</strong>
               <span>
                 {g.participants

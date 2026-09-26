@@ -1,4 +1,7 @@
 "use client";
+import { EditRecordedTurn } from "./EditRecordedTurn";
+import { TurnClock, TimingSummary } from "./TurnTiming";
+import "./game-feedback.css";
 import { availableRackTiles } from "../lib/rack-entry";
 import { browserId } from "../lib/browser-id";
 import { playerDisplayName } from "../lib/player-profile";
@@ -223,6 +226,10 @@ export function ScorerApp({
     let next: GameState | null = null;
     const command = {
       ...action,
+      ...(action.type === "start-clock" ||
+      target.events.some((e) => e.command.type === "start-clock")
+        ? { timedAt: new Date().toISOString() }
+        : {}),
       id: id(),
       expectedRevision: target.revision,
     } as GameCommand;
@@ -243,7 +250,8 @@ export function ScorerApp({
           : result.game;
       const drafts = { ...data.drafts };
       if (
-        (action.type === "pause" ||
+        (action.type === "start-clock" ||
+          action.type === "pause" ||
           action.type === "resume" ||
           action.type === "extend-supply") &&
         drafts[target.id]
@@ -499,12 +507,17 @@ export function ScorerApp({
   }, [fitGame]);
   const turnActions = game && (
     <div className="turn-actions">
+      <TurnClock
+        game={game}
+        disabled={busy || running || readOnly}
+        onStart={() => void execute({ type: "start-clock" })}
+      />
       {game.status !== "finalized" && (
         <>
           <button
             className="tabletop-tool"
-            aria-label="Pass turn"
-            title="Pass turn"
+            aria-label="Skip turn"
+            title="Skip turn"
             disabled={
               busy ||
               running ||
@@ -516,6 +529,7 @@ export function ScorerApp({
             onClick={() => void execute({ type: "pass" })}
           >
             <TabletopIcon name="pass" />
+            <span>Skip turn</span>
           </button>
           <button
             className="tabletop-tool"
@@ -545,6 +559,7 @@ export function ScorerApp({
             }
           >
             <TabletopIcon name={game.status === "paused" ? "play" : "pause"} />
+            <span>{game.status === "paused" ? "Resume" : "Pause"}</span>
           </button>
           {!fitGame && (
             <button
@@ -718,7 +733,6 @@ export function ScorerApp({
                     ? "Solo practice"
                     : `${game.players.length} players · ${game.direction}`}
               </p>
-              {fitGame && turnActions}
               {!readOnly && game.status !== "finalized" && (
                 <button
                   className="button light tabletop-end-game"
@@ -1391,6 +1405,7 @@ export function ScorerApp({
                       />
                     )}
                     <div className="table-area">
+                      {fitGame && turnActions}
                       <AnimatedBoardEditor
                         key={game.id}
                         game={game}
@@ -1544,6 +1559,32 @@ export function ScorerApp({
                               Development game · excluded from family records
                             </p>
                           </div>
+                        )}
+                        <TimingSummary game={game} />
+                        {game.events.some(
+                          (e) => e.command.type === "edit-turn",
+                        ) && (
+                          <details>
+                            <summary>Play corrections</summary>
+                            {game.events.map((e) =>
+                              e.command.type === "edit-turn" ? (
+                                <p key={e.sequence}>
+                                  Turn{" "}
+                                  {game.turns.find(
+                                    (t) =>
+                                      t.id ===
+                                      (
+                                        e.command as Extract<
+                                          GameCommand,
+                                          { type: "edit-turn" }
+                                        >
+                                      ).turnId,
+                                  )?.number ?? "(undone)"}
+                                  : {e.command.reason}
+                                </p>
+                              ) : null,
+                            )}
+                          </details>
                         )}
                         <CountCorrectionHistory game={game} />
                         {!!game.verifiedWords?.length && (
@@ -1902,6 +1943,26 @@ export function ScorerApp({
           <p>
             Running score: {selectedTurn.runningScores[selectedTurn.playerId]}
           </p>
+          {selectedTurn.type === "play" &&
+            game.status !== "finalized" &&
+            !readOnly && (
+              <EditRecordedTurn
+                key={selectedTurn.id}
+                turn={selectedTurn}
+                disabled={busy || running || hasDraft}
+                onSave={async (placements, reason) => {
+                  const next = await execute({
+                    type: "edit-turn",
+                    turnId: selectedTurn.id,
+                    placements,
+                    reason,
+                  });
+                  if (next) setSelectedTurn(null);
+                  return !!next;
+                }}
+              />
+            )}
+          {error && <p role="alert">{error}</p>}
           {!!selectedTurn.words.length && (
             <section
               className="turn-word-definitions"

@@ -190,6 +190,8 @@ export type SpectatorState = Pick<
 > & {
   revision?: number;
   scorerGeneration?: number;
+  expectedRackCounts?: GameState["expectedRackCounts"];
+  timingEvents?: import("./turn-timing").TimingEvent[];
   liveDraft?: LiveDraft | null;
   tileSupply?: GameState["tileSupply"] | null;
   assisted?: boolean;

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request): Promise<Response> {
   let context: AuthContext | null = null;
   try {
-    if (getSignInMethod() !== "google") return googleSignInRedirect("failed");
+    if (getSignInMethod() === "email") return googleSignInRedirect("failed");
     const params = new URL(request.url).searchParams;
     if (params.has("error")) {
       return googleSignInRedirect(

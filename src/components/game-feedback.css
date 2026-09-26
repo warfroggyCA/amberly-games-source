@@ -1,0 +1,119 @@
+.turn-actions .tabletop-tool:has(span) {
+  width: auto;
+  padding-inline: 10px;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.turn-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.board-seat-rack {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+.recorded-turn-editor {
+  display: grid;
+  gap: 12px;
+}
+.recorded-tile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding-block: 10px;
+  border-bottom: 1px solid #d2c8b7;
+}
+.recorded-turn-editor label {
+  display: grid;
+  gap: 4px;
+}
+.recorded-tile input:not([type="checkbox"]) {
+  width: 65px;
+}
+.recorded-turn-editor input {
+  min-height: 36px;
+}
+.timing-summary table {
+  width: 100%;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.timing-summary th,
+.timing-summary td {
+  padding: 6px;
+}
+.timing-summary p {
+  font-size: 0.85rem;
+}
+.player-elapsed {
+  display: block;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #214a3c;
+}
+body
+  .app-shell.game-screen
+  .board-workspace.persistent-board
+  .board-table:has(.board-seat-rack) {
+  --seat-height: 76px;
+}
+body
+  .app-shell.game-screen
+  .board-workspace.persistent-board
+  .board-table:has(.player-elapsed) {
+  --seat-height: 90px;
+}
+body .game-screen .table-area > .turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 2px 8px;
+  border: 0;
+  min-height: 42px;
+}
+body .game-screen .table-area > .turn-actions .tabletop-tool:has(span) {
+  width: auto;
+  min-width: 44px;
+  flex-basis: auto;
+}
+body .game-screen .table-area > .turn-actions .save-state {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+body .game-screen .table-area > .turn-actions .button {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  body .game-screen .table-area > .turn-actions {
+    gap: 3px;
+  }
+  body .game-screen .table-area > .turn-actions .tabletop-tool {
+    font-size: 0.75rem;
+  }
+  .spectator-view-actions .turn-clock {
+    font-size: 0.7rem;
+    white-space: normal;
+    max-width: 70px;
+  }
+}
+.board-seat.is-current :is(.player-elapsed, .board-seat-rack),
+.spectator-seat.is-current :is(.player-elapsed, .board-seat-rack) {
+  color: #fff4d5;
+  opacity: 1;
+}
+body .game-screen .table-area > .turn-actions {
+  position: relative;
+  z-index: 30;
+  background: #f4ecdeed;
+  border-radius: 4px;
+}
+body .spectator-table:has(.board-seat-rack) {
+  --spectator-seat-height: 76px;
+}
+body .spectator-table:has(.player-elapsed) {
+  --spectator-seat-height: 92px;
+}

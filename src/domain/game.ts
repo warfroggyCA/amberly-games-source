@@ -57,11 +57,18 @@ export type CreateGameInput = {
   lexicon: Pick<Lexicon, "id" | "edition" | "status">;
   createdAt?: string;
 };
-type CommandBase = { id: string; expectedRevision: number };
+type CommandBase = { id: string; expectedRevision: number; timedAt?: string };
 export type GameCommand = CommandBase &
   (
     | { type: "play"; placements: Placement[] }
     | { type: "pass" }
+    | { type: "start-clock" }
+    | {
+        type: "edit-turn";
+        turnId: string;
+        placements: Placement[];
+        reason: string;
+      }
     | { type: "exchange"; count: number }
     | { type: "pause" | "resume" }
     | { type: "undo"; reason: string }
@@ -121,6 +128,7 @@ export type GameEvent = {
   fingerprint: string;
   turn?: GameTurn;
   undoneTurnId?: string;
+  correctedTurns?: GameTurn[];
   result?: FinalResult;
 };
 export type GameState = {
@@ -456,9 +464,13 @@ function project(
   const undone = new Set(
     events.map((event) => event.undoneTurnId).filter(Boolean),
   );
+  const corrections = new Map<string, GameTurn>();
+  for (const event of events)
+    for (const turn of event.correctedTurns ?? [])
+      corrections.set(turn.id, turn);
   for (const event of events) {
     if (event.turn && !undone.has(event.turn.id))
-      applyTurnProjection(game, event.turn);
+      applyTurnProjection(game, corrections.get(event.turn.id) ?? event.turn);
     if (event.command.type === "pause") game.status = "paused";
     if (event.command.type === "resume") game.status = "active";
     if (event.command.type === "verify-words") {
@@ -832,6 +844,8 @@ function validCommand(command: unknown): command is GameCommand {
     return false;
   const allowed: Record<string, string[]> = {
     play: ["placements"],
+    "edit-turn": ["turnId", "placements", "reason"],
+    "start-clock": [],
     pass: [],
     exchange: ["count"],
     pause: [],
@@ -848,6 +862,7 @@ function validCommand(command: unknown): command is GameCommand {
   const keys = new Set([
     "id",
     "expectedRevision",
+    "timedAt",
     "type",
     ...allowed[command.type],
   ]);
@@ -856,7 +871,19 @@ function validCommand(command: unknown): command is GameCommand {
     allowed[command.type].some((key) => !Object.hasOwn(command, key))
   )
     return false;
-  if (command.type === "play") {
+  if (command.timedAt !== undefined && !isIsoTimestamp(command.timedAt))
+    return false;
+  if (command.type === "start-clock" && !isIsoTimestamp(command.timedAt))
+    return false;
+  if (
+    command.type === "edit-turn" &&
+    (!safeId(command.turnId) ||
+      typeof command.reason !== "string" ||
+      !command.reason.trim() ||
+      command.reason.length > 500)
+  )
+    return false;
+  if (command.type === "play" || command.type === "edit-turn") {
     if (
       !Array.isArray(command.placements) ||
       command.placements.length < 1 ||
@@ -1011,12 +1038,78 @@ export function applyCommand(
       "Use the word reference and edition recorded when this game started.",
     );
   }
+  if (
+    [
+      "play",
+      "pass",
+      "exchange",
+      "pause",
+      "resume",
+      "undo",
+      "finalize",
+      "assisted-pass",
+    ].includes(command.type) &&
+    game.events.some((e) => e.command.type === "start-clock") &&
+    !command.timedAt
+  )
+    return fail(
+      "TURN_TIME_REQUIRED",
+      "Reload the scorer before continuing this timed game.",
+    );
+  if (
+    command.timedAt &&
+    game.events.some(
+      (e) => e.command.timedAt && e.command.timedAt > command.timedAt!,
+    )
+  )
+    return fail(
+      "CLOCK_MOVED_BACK",
+      "The device clock moved backwards. Correct its time before continuing.",
+    );
   const event: GameEvent = {
     sequence: game.revision + 1,
     command: copy(command),
     fingerprint,
   };
-  if (command.type === "resume") {
+  if (command.type === "start-clock") {
+    if (
+      game.status !== "active" ||
+      game.events.some((e) => e.command.type === "start-clock")
+    )
+      return fail(
+        "CLOCK_ALREADY_STARTED",
+        "Timing has already started, or the game is paused.",
+      );
+  } else if (command.type === "edit-turn") {
+    const target = game.turns.find((t) => t.id === command.turnId);
+    if (!target || target.type !== "play")
+      return fail("INVALID_TURN", "Choose a recorded play to edit.");
+    // Replay a corrected working copy. The original commands remain immutable.
+    let rebuilt = createGame(game.definition);
+    if (!rebuilt.ok) return rebuilt;
+    const placements = new Map(
+      game.turns
+        .filter((t) => t.type === "play")
+        .map((t) => [t.id, t.placements]),
+    );
+    placements.set(command.turnId, command.placements);
+    for (const priorEvent of game.events) {
+      if (priorEvent.command.type === "edit-turn") continue;
+      const replayCommand = {
+        ...priorEvent.command,
+        expectedRevision: rebuilt.game.revision,
+      };
+      if (replayCommand.type === "play" && placements.has(replayCommand.id))
+        replayCommand.placements = placements.get(replayCommand.id)!;
+      rebuilt = applyCommand(rebuilt.game, replayCommand, lexicon, context);
+      if (!rebuilt.ok)
+        return fail(
+          "EDIT_CONFLICT",
+          `This edit would invalidate a later action: ${rebuilt.error.message} No plays were changed.`,
+        );
+    }
+    event.correctedTurns = copy(rebuilt.game.turns);
+  } else if (command.type === "resume") {
     if (game.status !== "paused")
       return fail("NOT_PAUSED", "This game is already active.");
   } else if (command.type === "pause") {

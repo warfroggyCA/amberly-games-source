@@ -737,3 +737,20 @@ describe("Google PKCE sign-in flow", () => {
     expect(provider.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 });
+
+describe("combined sign-in", () => {
+  it("offers Google and email codes together, including Hotmail", async () => {
+    vi.stubEnv("SCRABBLE_AUTH_METHOD", "both");
+    expect(await (await session(new Request(origin))).json()).toMatchObject({
+      signInMethod: "both",
+    });
+    expect(
+      (await sendCode(mutation({ email: "erin@hotmail.com" }))).status,
+    ).toBe(200);
+    expect(provider.signInWithOtp).toHaveBeenCalledWith({
+      email: "erin@hotmail.com",
+      options: { shouldCreateUser: true },
+    });
+    expect((await startGoogle(mutation({}))).status).toBe(200);
+  });
+});

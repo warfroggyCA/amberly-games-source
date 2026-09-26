@@ -1,4 +1,5 @@
 "use client";
+import { PlayerElapsedTime } from "./TurnTiming";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
 import { draftWordFeedback, wordCellFeedback } from "../domain/word-feedback";
 import { PlayerName } from "./PlayerName";
@@ -482,13 +483,17 @@ export function BoardEditor({
       focusInput();
       return;
     }
+    const keepManual =
+      manualDirection &&
+      (d.placements.length > 0 || (d.row === row && d.col === col));
+    if (!keepManual) setManualDirection(false);
     setHasStart(true);
     change({
       ...d,
       row,
       col,
       atEdge: false,
-      direction: manualDirection
+      direction: keepManual
         ? d.direction
         : inferDirection(game.board, row, col, d.direction, d.placements),
     });
@@ -797,6 +802,10 @@ export function BoardEditor({
                       <span className="sr-only"> points</span>
                     </b>
                   </span>
+                  <PlayerElapsedTime game={game} playerId={p.id} />
+                  <small className="board-seat-rack">
+                    {game.expectedRackCounts[p.id]} tiles left
+                  </small>
                   <small
                     className="board-seat-turn"
                     aria-hidden={

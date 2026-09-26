@@ -17,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   let context: AuthContext | null = null;
   try {
     const body = requireObject(await readMutationJson(request));
-    if (getSignInMethod() !== "email") {
+    if (getSignInMethod() === "google") {
       throw new HttpError(409, "Use Google to sign in to Amberly Games.");
     }
     const email = normalizeEmail(body.email);

@@ -95,10 +95,47 @@ test("viewers can inspect original Crokinole results and excluded entries after 
           },
         ],
         nextCursor: null,
+        standings: [
+          {
+            gameType: "crokinole",
+            playerId: "doug",
+            played: 12,
+            wins: 7,
+            ties: 1,
+          },
+          {
+            gameType: "crokinole",
+            playerId: "erin",
+            played: 12,
+            wins: 4,
+            ties: 1,
+          },
+        ],
       },
     }),
   );
   await page.goto("/family/history");
+  await expect(page.locator(".history-winner")).toContainText("Doug");
+  await page
+    .getByText("Family standings · wins & ranks", { exact: true })
+    .click();
+  await expect(
+    page.locator(".family-standings tbody tr").first(),
+  ).toContainText("Doug");
+  await page
+    .locator(".family-standings")
+    .getByRole("button", { name: /^Player / })
+    .click();
+  await page
+    .locator(".family-standings")
+    .getByRole("button", { name: /^Player / })
+    .click();
+  await expect(
+    page.locator(".family-standings tbody tr").first(),
+  ).toContainText("Erin");
+  await page.screenshot({
+    path: info.outputPath("history-winner-standings.png"),
+  });
   await page.getByRole("button").filter({ hasText: "Doug vs Erin" }).click();
   const badge = page.getByRole("dialog", { name: "Well played!" });
   if (await badge.count())

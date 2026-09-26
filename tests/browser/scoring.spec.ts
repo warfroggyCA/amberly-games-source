@@ -247,6 +247,10 @@ test("clear entered tiles preserves the recorded board and resets the start mark
     "H8 C, 3 points",
   );
   await expect(clear).toBeDisabled();
+  // Clearing is optimistic; reload only after IndexedDB confirms the write.
+  await expect(
+    page.getByText("Saved on this device", { exact: true }),
+  ).toBeVisible();
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })
@@ -348,4 +352,62 @@ test("empty assisted racks stay editable and all exit controls work", async ({
   await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
     "H8 C, 3 points",
   );
+});
+
+test("visible timer, pause, skip and audited earlier-play correction", async ({
+  page,
+}) => {
+  await startGame(page);
+  await page
+    .getByRole("button", { name: "Begin play & timer", exact: true })
+    .click();
+  await expect(page.getByLabel("Player accrued time")).toHaveCount(2);
+  await page.getByRole("button", { name: "Pause game", exact: true }).click();
+  await expect(page.getByLabel("Current turn elapsed time")).toContainText(
+    "Paused",
+  );
+  await expect(
+    page.getByRole("button", { name: "Skip turn", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Resume game", exact: true }).click();
+  await enter(page, "H8", "CAT");
+  await review(page, 10);
+  await enter(page, "K8", "S");
+  await review(page, 6);
+  await page
+    .getByRole("button", { name: "Expand score panel", exact: true })
+    .click();
+  await page.getByRole("button", { name: "10", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Edit this play", exact: true })
+    .click();
+  await page
+    .getByRole("checkbox", { name: "Blank · 0 points" })
+    .first()
+    .check();
+  await page
+    .getByRole("textbox", { name: "Reason for correction" })
+    .fill("C was a blank");
+  await page
+    .getByRole("button", { name: "Save correction", exact: true })
+    .click();
+  await expect(page.getByRole("dialog", { name: "Turn 1 · Ada" })).toBeHidden();
+  await expect(
+    page.getByText("Play corrections", { exact: true }),
+  ).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Score sheet" });
+  if (await sheet.count())
+    await sheet.getByRole("button", { name: "Close dialog" }).click();
+  else
+    await page
+      .getByRole("button", { name: "Collapse score panel", exact: true })
+      .click();
+  await expect(
+    page.getByLabel("Ada, 4 points, current player", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Ben, 3 points", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Skip turn", exact: true }).click();
+  await expect(
+    page.getByLabel("Ben, 3 points, current player", { exact: true }),
+  ).toBeVisible();
 });

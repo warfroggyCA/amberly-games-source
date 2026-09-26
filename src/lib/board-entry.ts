@@ -260,5 +260,10 @@ export function inferDirection(
   const horizontal = occupied(row, col - 1) || occupied(row, col + 1);
   const vertical = occupied(row - 1, col) || occupied(row + 1, col);
   if (horizontal !== vertical) return horizontal ? "across" : "down";
+  // At an empty edge start, prefer the axis with room to continue. Never bend an existing draft.
+  if (!placements.length && !horizontal && !vertical) {
+    if (col === 14 && row < 14) return "down";
+    if (row === 14 && col < 14) return "across";
+  }
   return fallback;
 }

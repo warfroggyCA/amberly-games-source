@@ -2288,6 +2288,8 @@ suite("isolated real PostgreSQL shared family repository", () => {
         "pendingEnd",
         "currentPlayerId",
         "expectedBagCount",
+        "expectedRackCounts",
+        "timingEvents",
         "tileSupply",
         "assisted",
         "revision",
@@ -2307,6 +2309,22 @@ suite("isolated real PostgreSQL shared family repository", () => {
     expect(JSON.stringify(view)).not.toContain(f.admin.deviceHash!);
     await f.mutate(pass(game.id));
     expect((await repository.readWatch(token)).turns).toHaveLength(1);
+    const timedAt = "2026-09-25T20:00:00.000Z";
+    await f.mutate({
+      ...pass(game.id),
+      commands: [
+        { type: "start-clock", id: randomUUID(), expectedRevision: 1, timedAt },
+      ],
+    });
+    const timedView = await repository.readWatch(token);
+    expect(timedView.timingEvents?.at(-1)).toEqual({
+      type: "start-clock",
+      timedAt,
+      turnId: null,
+    });
+    expect(timedView.expectedRackCounts).toEqual({ ada: 7, ben: 7 });
+    expect(timedView).not.toHaveProperty("events");
+    expect(JSON.stringify(timedView)).not.toContain(f.admin.email);
     await code(repository.readWatch("a".repeat(64)), "WATCH_LINK_UNAVAILABLE");
     await code(repository.readWatch("bad-token"), "WATCH_LINK_UNAVAILABLE");
   });
@@ -2393,7 +2411,7 @@ suite("isolated real PostgreSQL shared family repository", () => {
     expect(assisted.expectedBagCount).toBe(88);
     expect(assisted).not.toHaveProperty("assistance");
     expect(assisted).not.toHaveProperty("racks");
-    expect(assisted).not.toHaveProperty("expectedRackCounts");
+    expect(assisted.expectedRackCounts).toEqual({ ada: 6, ben: 7 });
     expect(assisted).not.toHaveProperty("events");
   });
   it("shows the final score adjustment summary to guests while withholding rack contents", async () => {

@@ -1,3 +1,4 @@
+import { isStandings, type Standing } from "./standings";
 export type GameSummary = {
   gameType: "scrabble" | "crokinole";
   id: string;
@@ -12,6 +13,7 @@ export type GameSummary = {
 };
 export type GameSummaryPage = {
   games: GameSummary[];
+  standings?: Standing[];
   nextCursor: string | null;
 };
 
@@ -24,6 +26,7 @@ const safeId = (value: unknown): value is string =>
 export function isGameSummaryPage(value: unknown): value is GameSummaryPage {
   if (
     !record(value) ||
+    (value.standings !== undefined && !isStandings(value.standings)) ||
     !Array.isArray(value.games) ||
     value.games.length > 30 ||
     !(

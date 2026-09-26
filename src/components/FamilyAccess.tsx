@@ -14,7 +14,7 @@ export type FamilyUser = { id: string; email: string };
 type Session = {
   configured: boolean;
   user: FamilyUser | null;
-  signInMethod: "email" | "google";
+  signInMethod: "email" | "google" | "both";
 };
 
 function isUser(value: unknown): value is FamilyUser {
@@ -102,14 +102,20 @@ export function FamilyAccess({
           (result.user !== null && !isUser(result.user)) ||
           (result.signInMethod !== undefined &&
             result.signInMethod !== "email" &&
-            result.signInMethod !== "google")
+            result.signInMethod !== "google" &&
+            result.signInMethod !== "both")
         ) {
           throw new Error("Sign-in could not be checked. Please retry.");
         }
         setSession({
           configured: result.configured,
           user: result.user,
-          signInMethod: result.signInMethod === "google" ? "google" : "email",
+          signInMethod:
+            result.signInMethod === "both"
+              ? "both"
+              : result.signInMethod === "google"
+                ? "google"
+                : "email",
         });
         const address = new URL(window.location.href);
         const signInResult = address.searchParams.get("signin");
@@ -359,9 +365,22 @@ export function FamilyAccess({
       ) : (
         <>
           <p>
-            Sign in with the email invited to Amberly. We’ll send you a code to
-            open your shared games and records.
+            Sign in with the email invited to Amberly, including Hotmail or
+            Outlook. We’ll send you a code to open your shared games and
+            records.
           </p>
+          {session.signInMethod === "both" && !codeEmail && (
+            <>
+              <button
+                className="btn primary"
+                disabled={busy}
+                onClick={() => void signInWithGoogle()}
+              >
+                Continue with Google
+              </button>
+              <p>Or use an email code — no Google account needed.</p>
+            </>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
