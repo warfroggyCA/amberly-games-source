@@ -1,6 +1,12 @@
-# Amberly Games Preview release record
+# Amberly Games release record
 
-The public app is **Amberly Games Preview** at https://amberly-games-preview.vercel.app.
+The public app is **Amberly Games** at https://amberly-games.vercel.app/family.
+
+## Canonical address — September 26
+
+The address migration is complete only when annotated tag `amberly-games-2026-09-26-address` exists. Its receipt records the configuration-only deployment, redirect, authentication settings and live verification. The application source remains the verified results release below. The former `amberly-games-preview.vercel.app` address is retained as a permanent redirect, preserving paths and query strings; browsers carry URL fragments forward. Existing bookmarks continue to resolve. Users may need to sign in again because browser sessions are scoped to the original address. Installed home-screen app behavior requires physical-device acceptance. Browser-only local previews are origin-scoped and are not migrated by a redirect.
+
+For future releases, use `SCRABBLE_APP_ORIGIN=https://amberly-games.vercel.app`, preserve Google/email authentication and existing feature flags, and assign the Ready deployment to `amberly-games.vercel.app`. Do not reassign the old redirect hostname directly to a deployment. Supabase must retain the exact new `/api/auth/callback` URL and use `https://amberly-games.vercel.app/family` as its Site URL. No repository rename or Vercel Production promotion is needed.
 
 ## Results portraits and score drawers — September 26
 
@@ -8,7 +14,7 @@ The results update is published only when the annotated tag **`preview-2026-09-2
 
 The implementation is commit `3fb5b3d8694d150780ef0beb7a6c6a8c55e25b08`, reviewed in [PR #14](https://github.com/warfroggyCA/amberly-games-source/pull/14). Subsequent release-documentation commits do not change its application files. It adds crowned profile photos to Scrabble result banners and shared images, crown-only fallback, distinct share/viewing-link controls, and overlay score drawers on all screen sizes. See [results presentation](results-presentation.md).
 
-Local verification passed 920 unit, 103 database, 352 browser and one integrated test, plus build/type checking and formatting. Lint retains one pre-existing BoardEditor warning. Physical iPhone/iPad acceptance remains separate. No migration, authentication change or feature-flag change is required. Preserve Crokinole, Gym, Gym history, Google/email sign-in, and the existing Preview origin.
+Local verification passed 920 unit, 103 database, 352 browser and one integrated test, plus build/type checking and formatting. Lint retains one pre-existing BoardEditor warning. Physical iPhone/iPad acceptance remains separate. No migration, authentication change or feature-flag change is required. Preserve Crokinole, Gym, Gym history, Google/email sign-in, and the canonical app origin documented above.
 
 ## Previous verified deployment / rollback baseline
 
