@@ -66,6 +66,7 @@ import "./scorer-refinements.css";
 import "./amberly.css";
 import "./game-screen.css";
 import { GameScorePanel } from "./GameScorePanel";
+import { useGameSounds } from "./useGameSounds";
 import { SpectatorGame } from "./SpectatorGame";
 import { useLiveDraft, type LiveContext } from "./useLiveDraft";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
@@ -174,6 +175,12 @@ export function ScorerApp({
   } | null>(null);
   const game =
     state.data.games.find((g) => g.id === state.data.activeGameId) ?? null;
+  const soundControl = useGameSounds(
+    view === "Play" ? game : null,
+    state.status === "ready" && !state.error && !state.unresolved,
+    state.pending > 0,
+    state.shared?.member.playerId ?? null,
+  );
   const displayedReference =
     view === "Play" && game ? game.lexicon : defaultLexicon;
   const displayedWordList = lexiconDetails(displayedReference);
@@ -588,6 +595,7 @@ export function ScorerApp({
   );
   const gameActions = game && (
     <div className="game-actions">
+      {soundControl}
       {shareControl}
       <TileBagButton
         key={game.id}
@@ -871,6 +879,7 @@ export function ScorerApp({
           {playAgain}
           {draftRecovery}
           <SpectatorGame
+            soundControl={soundControl}
             game={game}
             profiles={state.data.players}
             liveDraft={livePreview.draft}
@@ -1199,6 +1208,7 @@ export function ScorerApp({
                 </div>
               ) : readOnly ? (
                 <SpectatorGame
+                  soundControl={soundControl}
                   game={game}
                   profiles={state.data.players}
                   liveDraft={livePreview.draft}

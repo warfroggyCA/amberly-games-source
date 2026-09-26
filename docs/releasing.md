@@ -7,6 +7,12 @@
 5. Deploy the reviewed commit to the existing Vercel project using the existing approved process. Preserve required private word sources for the build; do not change auth configuration or apply migrations as a side effect. Record the commit, deployment ID, URL, verification run and promotion time.
 6. Verify the deployed revision and shared signed-in read paths; check a private spectator view. Do not create test scores in real family games. Physical iPhone/iPad acceptance remains a separate check when viewport, keyboard or installed-app behavior changes.
 
+## Parallel verification
+
+`Verify` runs the code, database and integrated checks alongside four independent browser jobs: desktop Chromium, iPhone WebKit, iPad WebKit and landscape iPhone WebKit. Each browser runner uses one worker to avoid CPU contention, restores the pinned private inputs and builds locally. No build or word-input artifacts are shared between jobs; only the existing npm download cache and failure evidence are retained. Browser failures do not cancel the other device profiles, so one run collects all results.
+
+The protected `verify` status is the final aggregate. It succeeds only when the checks job and every browser job succeed; failures, skipped jobs and cancellations block release. The exact-commit `release:check` gate is unchanged. This reduces elapsed time by running device profiles concurrently, with additional runner setup/build work; actual speed depends on available GitHub runners and the slowest profile. Keep the matrix aligned with the projects in `playwright.config.ts` when adding devices.
+
 ## Source and private inputs
 
 The canonical source is `warfroggyCA/amberly-games-source`. Earlier private history and word inputs remain in `warfroggyCA/amberly-games`; never publish that repository. The public repository requires the GitHub Actions `verify` status on pull requests before merging to `main`, prohibits force pushes/deletion, and applies those rules to administrators. These rules were read back from GitHub after configuration. Confirm the active rules in GitHub before each release; `release:check` independently checks the exact local commit.

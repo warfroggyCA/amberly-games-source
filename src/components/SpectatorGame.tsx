@@ -32,6 +32,7 @@ export function SpectatorGame({
   profiles = [],
   liveDraft,
   confirmation,
+  soundControl,
   toolsTarget,
   assisted = game.assisted ?? false,
 }: {
@@ -39,6 +40,7 @@ export function SpectatorGame({
   profiles?: SavedPlayer[];
   liveDraft?: LiveDraft | null;
   confirmation?: ReactNode;
+  soundControl?: ReactNode;
   toolsTarget?: HTMLElement | null;
   assisted?: boolean;
 }) {
@@ -160,6 +162,7 @@ export function SpectatorGame({
   }
   const tools = (
     <div className="spectator-view-actions">
+      {soundControl}
       <TurnClock game={game} />
       <TileBagButton
         key={game.id}

@@ -1,0 +1,50 @@
+[
+  {
+    "key": "score",
+    "name": "Fairy glitter",
+    "source": "https://mixkit.co/free-sound-effects/download/867/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/867/867.wav",
+    "sha256": "d6c117a06c1d05e4092e64b6a14f752e78c4a784001083ccfad705c2738ea459",
+    "maxDuration": 2.4
+  },
+  {
+    "key": "bingo",
+    "name": "Orchestra trumpets ending",
+    "source": "https://mixkit.co/free-sound-effects/download/2292/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/2292/2292.wav",
+    "sha256": "acb52fb7005c21114f4ac44dd6d76d66843f27764559c7a921a5b14cb1947f11",
+    "maxDuration": 3.5
+  },
+  {
+    "key": "winner",
+    "name": "Orchestra triumphant trumpets",
+    "source": "https://mixkit.co/free-sound-effects/download/2285/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/2285/2285.wav",
+    "sha256": "8caeb8d254bceebd5f50840499a5929532c1206e299e1976693be629fd83953d",
+    "maxDuration": 4
+  },
+  {
+    "key": "crowd",
+    "name": "Cheering crowd loud whistle",
+    "source": "https://mixkit.co/free-sound-effects/download/610/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/610/610.wav",
+    "sha256": "bb1470ac5f185d7635fce906f77b165eb406075a130df868b82c5835b095f385",
+    "maxDuration": 4
+  },
+  {
+    "key": "tie",
+    "name": "Ethereal fairy win sound",
+    "source": "https://mixkit.co/free-sound-effects/download/2019/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/2019/2019.wav",
+    "sha256": "ec6ea9e29f68a7f75b60164687f347c43fb650a3a4cb1b20ecf809af6ec03852",
+    "maxDuration": 2.5
+  },
+  {
+    "key": "turn",
+    "name": "Achievement bell",
+    "source": "https://mixkit.co/free-sound-effects/download/600/",
+    "url": "https://assets.mixkit.co/active_storage/sfx/600/600.wav",
+    "sha256": "7a5c0b2fb7f7cf77f6b3d36e9e165176a0b2f463c6ff3e6f3c133eda7fc945a1",
+    "maxDuration": 0.8
+  }
+]

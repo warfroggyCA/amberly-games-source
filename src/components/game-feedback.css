@@ -150,11 +150,11 @@ body .spectator-table:has(.player-elapsed) {
 }
 
 /* The regular landscape header uses the side gutters. Leave its menu, brand,
-   tile bag and score controls clear of the gameplay toolbar. */
+   sound, tile bag and score controls clear of the gameplay toolbar. */
 @media (min-width: 601px) and (max-height: 520px) {
   body .app-shell.game-screen:not(.keyboard-open) .table-area > .turn-actions {
     margin-left: 168px;
-    margin-right: 108px;
+    margin-right: 160px;
     gap: 4px;
   }
   body .app-shell.game-screen:not(.keyboard-open) .turn-actions .save-state {

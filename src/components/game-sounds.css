@@ -1,0 +1,13 @@
+.game-sound-toggle {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+}
+.game-sound-toggle svg {
+  width: 24px;
+  height: 24px;
+}
+.game-sound-toggle[aria-pressed="true"] {
+  color: var(--green, #174e3d);
+  background: var(--paper, #fffdf7);
+}
