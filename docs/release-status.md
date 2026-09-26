@@ -42,7 +42,7 @@ New timing and correction commands require the released journal reader. After th
 
 ## Historical release notes
 
-The entries below describe earlier milestones. Any statement of “current,” “pending,” or “unreleased” below applies only to its historical entry; the table above is the current deployment record.
+The entries below describe earlier milestones. Any statement of “current,” “pending,” or “unreleased” below applies only to its historical entry; the annotated release receipt described above identifies the published revision; the table preserves the previous deployment baseline.
 
 ## Strategy coaching published — 2026-09-26T03:07:41.463662+00:00
 
