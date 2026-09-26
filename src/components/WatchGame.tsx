@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useGameSounds } from "./useGameSounds";
 import { SpectatorGame } from "./SpectatorGame";
 import { Modal } from "./Modal";
 import { TabletopIcon } from "./TabletopIcon";
@@ -19,6 +20,7 @@ export function WatchGame() {
   const [toolsTarget, setToolsTarget] = useState<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const soundControl = useGameSounds(game, !error);
   useEffect(() => {
     let disposed = false;
     let stopped = false;
@@ -185,6 +187,7 @@ export function WatchGame() {
         )}
         {game ? (
           <SpectatorGame
+            soundControl={soundControl}
             game={game}
             liveDraft={currentLiveDraft(draft, game)}
             toolsTarget={toolsTarget}

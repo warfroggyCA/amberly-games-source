@@ -7,8 +7,8 @@
   },
   "scripts": {
     "lexicon:prepare": "node scripts/prepare-lexicons.mjs",
-    "predev": "npm run lexicon:prepare",
-    "prebuild": "npm run lexicon:prepare",
+    "predev": "npm run lexicon:prepare && npm run sounds:prepare",
+    "prebuild": "npm run lexicon:prepare && npm run sounds:prepare",
     "pretest": "npm run lexicon:prepare",
     "pretypecheck": "npm run lexicon:prepare",
     "dev": "next dev --hostname 127.0.0.1",
@@ -26,7 +26,8 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run test:database && npm run build && npm run test:browser && npm run test:integrated",
     "release:check": "node scripts/release-check.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
-    "test:integrated": "node scripts/test-integrated.mjs"
+    "test:integrated": "node scripts/test-integrated.mjs",
+    "sounds:prepare": "node scripts/prepare-sounds.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
