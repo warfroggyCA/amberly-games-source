@@ -2,7 +2,7 @@
 
 A companion with private family access for scoring physical Scrabble games, with shared family history and live spectator boards. Built with Next.js, React, TypeScript and PostgreSQL/Supabase Auth.
 
-The hosted family app is [Amberly Games](https://amberly-games-preview.vercel.app/family). `/family` uses Google sign-in and invited family membership. `/watch#…` is a private, revocable, read-only link; spectators need no account. `/` is a separate local preview stored in this browser’s IndexedDB. Local previews are never uploaded automatically.
+The hosted family app is [Amberly Games](https://amberly-games.vercel.app/family). `/family` uses Google sign-in and invited family membership. `/watch#…` is a private, revocable, read-only link; spectators need no account. `/` is a separate local preview stored in this browser’s IndexedDB. Local previews are never uploaded automatically.
 
 ## Source and release status
 
