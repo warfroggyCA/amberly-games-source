@@ -148,3 +148,34 @@ body .spectator-table:has(.player-elapsed) {
     margin-left: 112px;
   }
 }
+
+/* The regular landscape header uses the side gutters. Leave its menu, brand,
+   tile bag and score controls clear of the gameplay toolbar. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen:not(.keyboard-open) .table-area > .turn-actions {
+    margin-left: 168px;
+    margin-right: 108px;
+    gap: 4px;
+  }
+  body .app-shell.game-screen:not(.keyboard-open) .turn-actions .save-state {
+    position: absolute;
+    top: 56px;
+    left: -168px;
+    width: 150px;
+    margin: 0;
+    white-space: normal;
+    pointer-events: none;
+  }
+  body
+    .app-shell.game-screen:not(.keyboard-open)
+    .turn-actions
+    :is(.turn-clock, .tabletop-tool, .button) {
+    font-size: 0.75rem;
+  }
+  body
+    .app-shell.game-screen:not(.keyboard-open)
+    .turn-actions
+    .tabletop-tool:has(span) {
+    padding-inline: 6px;
+  }
+}
