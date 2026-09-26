@@ -117,3 +117,34 @@ body .spectator-table:has(.board-seat-rack) {
 body .spectator-table:has(.player-elapsed) {
   --spectator-seat-height: 92px;
 }
+
+/* A landscape keyboard can leave only 170px. Keep the clock and pause in a
+   left rail while the existing entry rail stays on the right. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen.keyboard-open .table-area > .turn-actions {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 104px;
+    min-height: 0;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    overflow-y: auto;
+  }
+  body .app-shell.game-screen.keyboard-open .turn-actions .turn-clock {
+    white-space: normal;
+    font-size: 0.75rem;
+  }
+  body
+    .app-shell.game-screen.keyboard-open
+    .turn-actions
+    :is([aria-label="Skip turn"], [aria-label="Exchange tiles"], .save-state) {
+    display: none;
+  }
+  body .app-shell.game-screen.keyboard-open .board-stage {
+    margin-left: 112px;
+  }
+}

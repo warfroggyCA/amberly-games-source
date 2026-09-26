@@ -114,6 +114,9 @@ test("vertical entry stays readable through short landscape rotation and acciden
     await page.getByRole("button", { name: "Add player", exact: true }).click();
   }
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Begin play & timer", exact: true })
+    .click();
   const input = page.getByRole("textbox", {
     name: "Type letters on the board",
   });
@@ -163,6 +166,10 @@ test("vertical entry stays readable through short landscape rotation and acciden
       }),
     )
     .toBe(true);
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Pause game", exact: true }),
+  ).toBeInViewport();
   await page.screenshot({
     path: info.outputPath("vertical-keyboard-landscape.png"),
   });
