@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 type IconName =
+  | "share"
   | "settings"
   | "more"
   | "erase"
@@ -19,6 +20,7 @@ type IconName =
   | "players";
 
 const paths: Record<IconName, ReactNode> = {
+  share: <path d="M12 15V2m-4 4 4-4 4 4M7 10H4v11h16V10h-3" />,
   settings: (
     <>
       <path

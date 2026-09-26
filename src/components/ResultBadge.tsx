@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { TabletopIcon } from "./TabletopIcon";
 import { CrownIcon } from "./CrownIcon";
 import { Modal } from "./Modal";
 import "./result-badge.css";
@@ -20,7 +21,7 @@ export function ResultBadge({ result }: { result: BadgeResult | null }) {
         className="button light result-share-button"
         onClick={() => setOpen(true)}
       >
-        <CrownIcon /> Share result
+        <TabletopIcon name="share" /> Share result
       </button>
       {open && (
         <BadgeDialog
