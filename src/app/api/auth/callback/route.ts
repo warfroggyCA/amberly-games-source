@@ -1,5 +1,4 @@
 import {
-  getSignInMethod,
   googleSignInRedirect,
   requireAuthContext,
   type AuthContext,
@@ -12,7 +11,6 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request): Promise<Response> {
   let context: AuthContext | null = null;
   try {
-    if (getSignInMethod() === "email") return googleSignInRedirect("failed");
     const params = new URL(request.url).searchParams;
     if (params.has("error")) {
       return googleSignInRedirect(
@@ -29,7 +27,8 @@ export async function GET(request: Request): Promise<Response> {
       return googleSignInRedirect("failed");
     }
     context = requireAuthContext(request);
-    // The provider exchanges this one-use code only with the matching verifier
+    // Google and email links both use PKCE. The provider exchanges this one-use
+    // code only with the matching verifier
     // held in this browser's HTTP-only cookie. Existing sessions cannot stand in
     // for a missing, expired, or mismatched code.
     const { data, error } = await context.run(() =>
