@@ -3,8 +3,8 @@
 The icon uses Amberly’s forest green, wooden board frame, multiplier-square colors, and large A₁/G₂ letter tiles. Letters are vector paths, so rendering does not depend on fonts installed on the build host.
 
 - Editable source: `public/icon.svg` (512 × 512).
-- Browser favicon: `public/icons/amberly-board-v1-32.png` and versioned SVG URL.
-- iPhone/iPad home screen: `public/icons/amberly-board-v1-180.png` through `apple-touch-icon`.
+- Browser favicon: `public/icons/amberly-board-v2-32.png` and versioned SVG URL.
+- iPhone/iPad home screen: `public/icons/amberly-board-v2-180.png` through `apple-touch-icon`.
 - Web manifest: 192px and 512px PNGs; a separate maskable entry uses the same opaque 512px source. Essential tile artwork stays inside the central 80%-diameter circle; the board background may be cropped by the operating system.
 - App name: Amberly Games. Standalone display is declared. The manifest explicitly sets `id` and `start_url` to `/family`, with scope `/`, so shared installations launch the shared entry. The signed-in app initially shows Home even when the latest selected game belongs to another scoring device. Header wordmarks also return Home without clearing game data.
 
@@ -20,12 +20,14 @@ for (const size of [32, 180, 192, 512]) {
     .resize(size, size)
     .removeAlpha()
     .png()
-    .toFile(`public/icons/amberly-board-v1-${size}.png`);
+    .toFile(`public/icons/amberly-board-v2-${size}.png`);
 }
 JS
 ```
 
 Use a new filename version and update layout/manifest references for future replacements. Already-saved home-screen icons may retain their previous artwork; confirm the new icon when saving a new shortcut. Do not clear site data to refresh an icon: that could remove local-only games.
+
+The September 16 mahogany palette uses v2 artwork. See [theme coverage and local verification](mahogany-theme.md); the deployment evidence below describes the earlier v1 release.
 
 ## Verification — September 14, 2026
 

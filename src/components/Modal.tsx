@@ -36,6 +36,7 @@ export function Modal({
       ref={ref}
       className={`modal ${wide ? "modal-wide" : ""} ${className}`}
       onCancel={(event) => {
+        event.stopPropagation();
         event.preventDefault();
         onClose();
       }}

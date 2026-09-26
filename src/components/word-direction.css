@@ -1,0 +1,112 @@
+.gym-tile.word-valid b,
+.letter-tile.word-valid b {
+  color: #9ff0af;
+}
+.gym-tile.word-invalid b,
+.letter-tile.word-invalid b {
+  color: #ffb3b3;
+}
+.gym-tile.word-mixed b,
+.letter-tile.word-mixed b {
+  color: #fff4d9;
+}
+.word-direction-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.word-edge {
+  position: absolute;
+  background: currentColor;
+  border-radius: 3px;
+}
+.edge-valid {
+  color: #9ff0af;
+}
+.edge-invalid {
+  color: #ffb3b3;
+}
+.edge-top,
+.edge-bottom {
+  width: 32%;
+  height: 5%;
+  min-height: 2px;
+  left: 34%;
+}
+.edge-left,
+.edge-right {
+  height: 32%;
+  width: 5%;
+  min-width: 2px;
+  top: 34%;
+}
+.edge-top {
+  top: 2%;
+}
+.edge-bottom {
+  bottom: 2%;
+}
+.edge-left {
+  left: 2%;
+}
+.edge-right {
+  right: 2%;
+}
+.word-edge::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+.edge-top::after,
+.edge-bottom::after {
+  width: 35%;
+  height: 100%;
+  left: 32%;
+}
+.edge-top::after {
+  top: 140%;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.edge-bottom::after {
+  bottom: 140%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.edge-left::after,
+.edge-right::after {
+  height: 35%;
+  width: 100%;
+  top: 32%;
+}
+.edge-left::after {
+  left: 140%;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+.edge-right::after {
+  right: 140%;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+.gym-word-help {
+  color: var(--forest);
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  padding: 8px 12px;
+  margin-block: 8px;
+}
+/* Assigned blanks retain their blue face and readable, darker feedback ink. */
+.letter-tile.blank-tile.word-valid b {
+  color: #17683a;
+}
+.letter-tile.blank-tile.word-invalid b {
+  color: #a12626;
+}
+.letter-tile.blank-tile.word-mixed b {
+  color: #075096;
+}
+.letter-tile.blank-tile .edge-valid {
+  color: #17683a;
+}
+.letter-tile.blank-tile .edge-invalid {
+  color: #a12626;
+}

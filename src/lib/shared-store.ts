@@ -1,3 +1,4 @@
+import { hasPermission, isMemberPermissions } from "./member-permissions";
 import { EMPTY_EQUIPMENT, isEquipment } from "../domain/equipment";
 import type { PreviewData, Draft } from "./preview-store";
 import type { ScorerSnapshot, ScorerStore } from "./scorer-store";
@@ -185,6 +186,8 @@ function plainJson(value: unknown, depth = 0): boolean {
   );
 }
 const operations = [
+  "delete-practice-game",
+  "remove-game",
   "save-equipment",
   "create-player",
   "update-player",
@@ -195,6 +198,7 @@ const operations = [
   "report-protest",
   "resolve-protest",
   "invite-member",
+  "complete-profile",
   "revoke-invitation",
   "update-member",
   "take-over-scoring",
@@ -416,10 +420,22 @@ function validateShared(
   }
   if (
     (value.equipment !== undefined && !isEquipment(value.equipment)) ||
+    (value.removedGameIds !== undefined &&
+      (!dense(value.removedGameIds) || !value.removedGameIds.every(id))) ||
+    (value.member.permissions !== undefined &&
+      !isMemberPermissions(value.member.permissions)) ||
+    (value.member.revision !== undefined && !revision(value.member.revision)) ||
     !id(value.family.id) ||
     typeof value.family.name !== "string" ||
     !["member", "superadmin"].includes(value.member.role as string) ||
     !dense(value.members) ||
+    !value.members.every(
+      (m) =>
+        record(m) &&
+        ["member", "superadmin"].includes(m.role as string) &&
+        (m.permissions === undefined || isMemberPermissions(m.permissions)) &&
+        (m.revision === undefined || revision(m.revision)),
+    ) ||
     !dense(value.invitations) ||
     !dense(value.players) ||
     !value.players.every((p) => isValidSavedPlayerProfile(p) && id(p.id)) ||
@@ -448,6 +464,7 @@ function validateResult(
     !record(value) ||
     !keys(value, [
       "equipment",
+      "removedGameId",
       "replayed",
       "game",
       "gameAccess",
@@ -457,6 +474,10 @@ function validateResult(
     ]) ||
     (value.equipment !== undefined && !isEquipment(value.equipment)) ||
     (operation.type === "save-equipment" && value.equipment === undefined) ||
+    (value.removedGameId !== undefined &&
+      (!id(value.removedGameId) ||
+        value.game !== undefined ||
+        value.gameAccess !== undefined)) ||
     (value.replayed !== undefined && typeof value.replayed !== "boolean") ||
     (value.game !== undefined &&
       (!validGame(value.game) || !validAccess(value.gameAccess))) ||
@@ -473,6 +494,33 @@ function validateResult(
     );
   }
   const result = value as SharedMutationResult;
+  if (result.removedGameId) {
+    const gameId =
+      operation.type === "create-game"
+        ? operation.id
+        : "gameId" in operation
+          ? operation.gameId
+          : null;
+    if (
+      result.removedGameId !== gameId ||
+      (operation.type !== "delete-practice-game" &&
+        operation.type !== "remove-game" &&
+        !result.replayed)
+    )
+      throw new FamilyRequestError(
+        "The removal response did not match this game. Retry safely.",
+        0,
+      );
+    return result;
+  }
+  if (
+    operation.type === "delete-practice-game" ||
+    operation.type === "remove-game"
+  )
+    throw new FamilyRequestError(
+      "Game removal was not confirmed. Retry the saved action.",
+      0,
+    );
   if (
     operation.type === "save-equipment" &&
     result.equipment!.revision < operation.equipment.revision
@@ -482,7 +530,9 @@ function validateResult(
       0,
     );
   if (
-    (["create-player", "update-player"].includes(operation.type) &&
+    (["create-player", "update-player", "complete-profile"].includes(
+      operation.type,
+    ) &&
       (!result.player ||
         result.player.id !== (operation as { id: string }).id)) ||
     ([
@@ -523,6 +573,7 @@ const initial: ScorerSnapshot = freeze({
 });
 
 export type SharedScorerStore = ScorerStore & {
+  openGame: (gameId: string) => Promise<void>;
   administer: (operation: SharedOperation) => Promise<void>;
   takeOver: (gameId: string, reason: string) => Promise<void>;
   close: () => void;
@@ -600,7 +651,8 @@ export function createSharedStore(userId: string): SharedScorerStore {
     } catch (error) {
       if (
         error instanceof FamilyRequestError &&
-        [401, 403].includes(error.status)
+        [401, 403].includes(error.status) &&
+        error.code !== "PERMISSION_DENIED"
       )
         disconnect(error.message, true);
       throw error;
@@ -612,7 +664,8 @@ export function createSharedStore(userId: string): SharedScorerStore {
     } catch (error) {
       if (
         error instanceof FamilyRequestError &&
-        [401, 403].includes(error.status)
+        [401, 403].includes(error.status) &&
+        error.code !== "PERMISSION_DENIED"
       )
         disconnect(error.message, true);
       throw error;
@@ -687,7 +740,11 @@ export function createSharedStore(userId: string): SharedScorerStore {
     preserveCursor = false,
   ) {
     assertOpen();
-    const games = preserveGames
+    const removed = new Set([
+      ...(snapshot.shared?.removedGameIds ?? []),
+      ...(shared.removedGameIds ?? []),
+    ]);
+    const availableGames = preserveGames
       ? [
           ...new Map(
             [...snapshot.data.games, ...shared.games].map((g) => [g.id, g]),
@@ -698,38 +755,53 @@ export function createSharedStore(userId: string): SharedScorerStore {
             a.id.localeCompare(b.id),
         )
       : shared.games;
+    const allAccess = { ...snapshot.shared?.gameAccess, ...shared.gameAccess };
+    const games = availableGames.filter(
+      (g) =>
+        !removed.has(g.id) &&
+        (shared.member.role === "superadmin" ||
+          allAccess[g.id]?.mode !== "practice"),
+    );
+    const visibleIds = new Set(games.map((g) => g.id));
     const meta = {
       ...shared,
+      removedGameIds: [...removed],
       games,
-      gameAccess:
-        preserveGames && snapshot.shared
-          ? { ...snapshot.shared.gameAccess, ...shared.gameAccess }
-          : shared.gameAccess,
+      gameAccess: Object.fromEntries(
+        Object.entries(
+          preserveGames && snapshot.shared
+            ? { ...snapshot.shared.gameAccess, ...shared.gameAccess }
+            : shared.gameAccess,
+        ).filter(([id]) => visibleIds.has(id)),
+      ),
       nextCursor:
         preserveCursor && snapshot.shared
           ? snapshot.shared.nextCursor
           : shared.nextCursor,
     };
+    const wantedActive = workspace.activeGameId ?? snapshot.data.activeGameId;
     const activeGameId =
-      workspace.activeGameId ??
-      snapshot.data.activeGameId ??
-      games.at(-1)?.id ??
-      null;
-    const stale = Object.entries(workspace.drafts).some(
-      ([gameId, draft]) =>
-        draft.placements.length > 0 &&
-        games.some(
-          (g) =>
-            g.id === gameId &&
-            (g.revision !== draft.revision ||
-              draft.placements.some((p) => g.board[p.row][p.col] !== null)),
-        ),
-    );
+      wantedActive && visibleIds.has(wantedActive)
+        ? wantedActive
+        : (games.at(-1)?.id ?? null);
+    const draftConflicts = Object.entries(workspace.drafts)
+      .filter(
+        ([gameId, draft]) =>
+          draft.placements.length > 0 &&
+          games.some(
+            (g) =>
+              g.id === gameId &&
+              (g.revision !== draft.revision ||
+                draft.placements.some((p) => g.board[p.row][p.col] !== null)),
+          ),
+      )
+      .map(([gameId]) => gameId);
     publish({
       ...snapshot,
-      // A pending acknowledgement may itself explain a newer server revision;
-      // keep its retry control available while scoring remains locked.
-      status: stale && !workspace.pending ? "error" : "ready",
+      // Draft conflicts belong to a game, not the whole family workspace.
+      // Pending acknowledgements still lock writes until their outcome is known.
+      status: "ready",
+      draftConflicts,
       shared: meta,
       data: {
         ...snapshot.data,
@@ -741,9 +813,7 @@ export function createSharedStore(userId: string): SharedScorerStore {
         drafts: workspace.drafts,
       },
       unresolved: !!workspace.pending,
-      error: stale
-        ? "This game changed while an entry was saved on this device. Your letters are retained. Export the retained entry before reviewing the updated game."
-        : null,
+      error: null,
     });
   }
   async function receive(pending: Pending) {
@@ -753,7 +823,11 @@ export function createSharedStore(userId: string): SharedScorerStore {
     );
     const shared = snapshot.shared!;
     const drafts = { ...pending.drafts };
-    if (result.game && drafts[result.game.id])
+    if (
+      pending.mutation.operation.type === "game-commands" &&
+      result.game &&
+      drafts[result.game.id]
+    )
       drafts[result.game.id] = {
         ...drafts[result.game.id],
         revision: result.game.revision,
@@ -794,6 +868,10 @@ export function createSharedStore(userId: string): SharedScorerStore {
         : snapshot.data.games;
     install({
       ...shared,
+      removedGameIds: [
+        ...(shared.removedGameIds ?? []),
+        ...(result.removedGameId ? [result.removedGameId] : []),
+      ],
       equipment:
         result.equipment &&
         result.equipment.revision >= (shared.equipment?.revision ?? 0)
@@ -836,10 +914,16 @@ export function createSharedStore(userId: string): SharedScorerStore {
         error instanceof FamilyRequestError &&
         error.status >= 400 &&
         error.status < 500 &&
-        ![401, 403, 408, 429].includes(error.status)
+        (![401, 403, 408, 429].includes(error.status) ||
+          error.code === "PERMISSION_DENIED")
       ) {
         try {
           await save({ ...workspace, pending: null });
+          if (
+            error instanceof FamilyRequestError &&
+            error.code === "PERMISSION_DENIED"
+          )
+            install(await sharedRequest("/api/family"), true, true);
         } catch (storageError) {
           error = storageError;
         }
@@ -1023,15 +1107,24 @@ export function createSharedStore(userId: string): SharedScorerStore {
       install(shared);
       if (
         workspace.activeGameId &&
+        !shared.removedGameIds?.includes(workspace.activeGameId) &&
         !shared.games.some((g) => g.id === workspace.activeGameId)
       ) {
-        install(
-          await sharedRequest(
-            `/api/family?gameId=${encodeURIComponent(workspace.activeGameId)}`,
-          ),
-          true,
-          true,
-        );
+        try {
+          install(
+            await sharedRequest(
+              `/api/family?gameId=${encodeURIComponent(workspace.activeGameId)}`,
+            ),
+            true,
+            true,
+          );
+        } catch (error) {
+          if (!(
+            error instanceof FamilyRequestError &&
+            error.code === "GAME_NOT_FOUND"
+          ))
+            throw error;
+        }
       }
       if (workspace.pending)
         publish({
@@ -1059,12 +1152,24 @@ export function createSharedStore(userId: string): SharedScorerStore {
         const shared = await sharedRequest("/api/family");
         const activeGameId =
           workspace.activeGameId ?? snapshot.data.activeGameId;
-        const active =
-          activeGameId && !shared.games.some((g) => g.id === activeGameId)
-            ? await sharedRequest(
-                `/api/family?gameId=${encodeURIComponent(activeGameId)}`,
-              )
-            : null;
+        let active: SharedState | null = null;
+        if (
+          activeGameId &&
+          !shared.removedGameIds?.includes(activeGameId) &&
+          !shared.games.some((g) => g.id === activeGameId)
+        ) {
+          try {
+            active = await sharedRequest(
+              `/api/family?gameId=${encodeURIComponent(activeGameId)}`,
+            );
+          } catch (error) {
+            if (!(
+              error instanceof FamilyRequestError &&
+              error.code === "GAME_NOT_FOUND"
+            ))
+              throw error;
+          }
+        }
         install(shared, true, true);
         if (active) install(active, true, true);
       } catch (error) {
@@ -1095,6 +1200,12 @@ export function createSharedStore(userId: string): SharedScorerStore {
         if (snapshot.status !== "ready" || !snapshot.shared)
           throw new Error("Shared history is not ready.");
         const next = change(snapshot.data);
+        for (const gameId of snapshot.draftConflicts ?? []) {
+          if (!same(next.drafts[gameId], workspace.drafts[gameId]))
+            throw new Error(
+              "Review and explicitly discard the retained draft before changing this game's entry.",
+            );
+        }
         if (
           !validDrafts(next.drafts) ||
           !(next.activeGameId === null || id(next.activeGameId))
@@ -1109,6 +1220,12 @@ export function createSharedStore(userId: string): SharedScorerStore {
           deviceId,
           creationMode,
         );
+        if (
+          operation &&
+          "gameId" in operation &&
+          snapshot.draftConflicts?.includes(operation.gameId)
+        )
+          throw new Error("Resolve this game's retained draft before scoring.");
         if (!operation) {
           if (workspace.pending && !same(next.drafts, workspace.drafts))
             throw new Error(
@@ -1146,7 +1263,54 @@ export function createSharedStore(userId: string): SharedScorerStore {
       enqueue(async () => {
         if (workspace.pending) await send(workspace.pending);
       }),
+    discardDraftConflict: (gameId, expectedRevision) =>
+      enqueue(async () => {
+        if (
+          snapshot.status !== "ready" ||
+          !snapshot.shared ||
+          workspace.pending
+        )
+          throw new Error(
+            "Confirm the saved action before resolving this draft.",
+          );
+        const game = snapshot.data.games.find((value) => value.id === gameId);
+        if (!game || game.revision !== expectedRevision)
+          throw new Error(
+            "The game changed again. Review its latest state before discarding the draft.",
+          );
+        if (!snapshot.draftConflicts?.includes(gameId))
+          throw new Error(
+            "This draft no longer needs recovery. Review the current game.",
+          );
+        const drafts = { ...workspace.drafts };
+        delete drafts[gameId];
+        // Only the explicitly chosen local entry is removed, after a durable
+        // writer-fenced checkpoint; saved game history is never changed here.
+        await save({ ...workspace, drafts });
+        install(snapshot.shared, true, true);
+      }),
     refresh,
+    openGame: (gameId) =>
+      enqueue(async () => {
+        if (workspace.pending)
+          throw new Error(
+            "Confirm the pending action before opening another game.",
+          );
+        install(
+          await sharedRequest(
+            `/api/family?gameId=${encodeURIComponent(gameId)}`,
+          ),
+          true,
+          true,
+        );
+        if (!snapshot.data.games.some((game) => game.id === gameId))
+          throw new Error("This game is no longer available.");
+        await save({ ...workspace, activeGameId: gameId });
+        publish({
+          ...snapshot,
+          data: { ...snapshot.data, activeGameId: gameId },
+        });
+      }),
     loadMore: () =>
       enqueue(async () => {
         const cursor = snapshot.shared?.nextCursor;
@@ -1167,15 +1331,18 @@ export function createSharedStore(userId: string): SharedScorerStore {
       return (
         !!access &&
         access.canScore === true &&
+        hasPermission(snapshot.shared?.member, "scoreGames") &&
         access.scorerUserId === userId &&
-        !snapshot.unresolved
+        !snapshot.unresolved &&
+        !snapshot.draftConflicts?.includes(gameId)
       );
     },
     canEditPlayer: (playerId) =>
       !retired &&
       snapshot.status === "ready" &&
-      (snapshot.shared?.member.role === "superadmin" ||
-        snapshot.shared?.playerAccess[playerId]?.userId === userId),
+      (hasPermission(snapshot.shared?.member, "editAllProfiles") ||
+        (hasPermission(snapshot.shared?.member, "editOwnProfile") &&
+          snapshot.shared?.playerAccess[playerId]?.userId === userId)),
     downloadBackup: async () => {
       const value = await request("/api/family?export=1");
       download(

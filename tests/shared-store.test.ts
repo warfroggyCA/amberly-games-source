@@ -668,6 +668,28 @@ describe("account changes and closed-tab responses", () => {
 });
 
 describe("shared history refresh", () => {
+  it("opens an older game from a summary without dropping the current draft", async () => {
+    await seed(local({ "game-1": draft() }));
+    const store = create();
+    await store.load();
+    const older = makeGame("older-game", "2026-09-12T12:00:00Z");
+    fetchMock.mockResolvedValueOnce(response(state([older])));
+    await store.openGame(older.id);
+    expect(store.getSnapshot().data.activeGameId).toBe(older.id);
+    expect(store.getSnapshot().data.drafts["game-1"]).toEqual(draft());
+    expect((await stored()).activeGameId).toBe(older.id);
+  });
+
+  it("does not select a summary whose game is unavailable", async () => {
+    const store = create();
+    await store.load();
+    fetchMock.mockResolvedValueOnce(response(state([])));
+    await expect(store.openGame("missing-game")).rejects.toThrow(
+      "no longer available",
+    );
+    expect(store.getSnapshot().data.activeGameId).not.toBe("missing-game");
+  });
+
   it("retains loaded older games and the next history cursor on refresh", async () => {
     fetchMock.mockResolvedValueOnce(
       response(state([makeGame()], "older-page")),
@@ -704,7 +726,7 @@ describe("shared history refresh", () => {
     expect(store.getSnapshot().data.activeGameId).toBe("older-game");
   });
 
-  it("retains a stale draft and blocks scoring instead of silently erasing letters", async () => {
+  it("retains a stale draft and blocks only that game instead of silently erasing letters", async () => {
     await seed(local({ "game-1": draft() }));
     const store = create();
     await store.load();
@@ -721,7 +743,8 @@ describe("shared history refresh", () => {
     if (!result.ok) throw new Error(result.error.message);
     fetchMock.mockResolvedValueOnce(response(state([result.game])));
     await store.refresh!();
-    expect(store.getSnapshot().status).toBe("error");
+    expect(store.getSnapshot().status).toBe("ready");
+    expect(store.getSnapshot().draftConflicts).toEqual(["game-1"]);
     expect(store.getSnapshot().data.drafts["game-1"]).toEqual(draft());
     expect(store.canScore!("game-1")).toBe(false);
     expect((await stored()).drafts).toEqual({ "game-1": draft() });
@@ -1354,5 +1377,127 @@ describe("shared equipment saves", () => {
     fetchMock.mockResolvedValueOnce(response({ equipment, replayed: true }));
     await store.retry!();
     expect(store.getSnapshot().data.equipment).toEqual(newer);
+  });
+});
+
+describe("member permission changes and removed practice games", () => {
+  it("removes deleted games from previously paginated caches and survives reopening their stored active ID", async () => {
+    await seed(local({ "game-1": draft() }));
+    const store = create();
+    await store.load();
+    const removed = { ...state([]), removedGameIds: ["game-1"] };
+    fetchMock.mockResolvedValueOnce(response(removed));
+    await store.refresh!();
+    expect(store.getSnapshot().data.games).toEqual([]);
+    expect(store.getSnapshot().data.activeGameId).toBeNull();
+    expect(store.getSnapshot().shared?.gameAccess).toEqual({});
+    expect(store.canScore!("game-1")).toBe(false);
+    // Retain a device's unfinished letters without allowing it to restore the game.
+    expect((await stored()).drafts).toEqual({ "game-1": draft() });
+    store.close();
+    fetchMock.mockImplementation(() => Promise.resolve(response(removed)));
+    const reopened = create();
+    await reopened.load();
+    expect(reopened.getSnapshot().status).toBe("ready");
+    expect(reopened.getSnapshot().data.games).toEqual([]);
+  });
+
+  it("discards a cached practice view after admin demotion without erasing drafts or blocking ordinary shared history", async () => {
+    const store = create();
+    await store.load();
+    await store.update((data) => ({
+      ...data,
+      activeGameId: "game-1",
+      drafts: { "game-1": draft() },
+    }));
+    const member = state([]);
+    member.member.role = "member";
+    fetchMock
+      .mockResolvedValueOnce(response(member))
+      .mockResolvedValueOnce(
+        response(
+          { code: "GAME_NOT_FOUND", error: "This game is unavailable" },
+          404,
+        ),
+      );
+    await store.refresh!();
+    expect(store.getSnapshot().status).toBe("ready");
+    expect(store.getSnapshot().data.games).toEqual([]);
+    expect(store.getSnapshot().shared?.gameAccess).toEqual({});
+    expect(store.getSnapshot().data.activeGameId).toBeNull();
+    expect(store.canScore!("game-1")).toBe(false);
+    expect((await stored()).drafts).toEqual({ "game-1": draft() });
+  });
+
+  it("permission denial refreshes capabilities and clears an uncommitted request while keeping the draft and account open", async () => {
+    const allowed = state();
+    allowed.member.role = "member";
+    allowed.gameAccess["game-1"].mode = "confirmed";
+    fetchMock.mockResolvedValueOnce(response(allowed));
+    const store = create();
+    await store.load();
+    await store.update((data) => ({ ...data, drafts: { "game-1": draft() } }));
+    const restricted = structuredClone(allowed);
+    restricted.member.permissions = { addPlayers: false, scoreGames: false };
+    restricted.gameAccess["game-1"].canScore = false;
+    fetchMock
+      .mockResolvedValueOnce(
+        response({ error: "Ask a superadmin", code: "PERMISSION_DENIED" }, 403),
+      )
+      .mockResolvedValueOnce(response(restricted));
+    await expect(addPlayer(store)).rejects.toThrow("Ask a superadmin");
+    expect(store.getSnapshot().status).toBe("ready");
+    expect(store.getSnapshot().unresolved).toBe(false);
+    expect(store.getSnapshot().shared?.member.permissions?.addPlayers).toBe(
+      false,
+    );
+    expect(store.canScore!("game-1")).toBe(false);
+    expect((await stored()).drafts).toEqual({ "game-1": draft() });
+    expect((await stored()).pending).toBeNull();
+  });
+
+  it("accepts deletion acknowledgement and rejects a mismatched deletion acknowledgement", async () => {
+    const store = create();
+    await store.load();
+    const operation = {
+      type: "delete-practice-game" as const,
+      gameId: "game-1",
+      expectedRevision: 0,
+      reason: "Finished testing",
+    };
+    fetchMock.mockResolvedValueOnce(response({ removedGameId: "other-game" }));
+    await expect(store.administer(operation)).rejects.toThrow("did not match");
+    expect(store.getSnapshot().unresolved).toBe(true);
+    fetchMock.mockResolvedValueOnce(
+      response({ removedGameId: "game-1", replayed: true }),
+    );
+    await store.retry!();
+    expect(store.getSnapshot().data.games).toEqual([]);
+    expect(store.getSnapshot().unresolved).toBe(false);
+  });
+});
+
+it("retains an initial profile save when the server does not confirm its player identity", async () => {
+  fetchMock.mockResolvedValueOnce(response(state()));
+  const store = create();
+  await store.load();
+  fetchMock.mockResolvedValueOnce(response({}));
+  await expect(
+    store.administer({
+      type: "complete-profile",
+      id: "new-profile",
+      expectedRevision: 0,
+      expectedPlayerRevision: null,
+      profile: { name: "New player" },
+    }),
+  ).rejects.toThrow("did not confirm");
+  expect(store.getSnapshot().unresolved).toBe(true);
+  expect((await stored()).pending).toMatchObject({
+    mutation: {
+      operation: {
+        type: "complete-profile",
+        profile: { name: "New player" },
+      },
+    },
   });
 });

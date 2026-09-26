@@ -1,4 +1,9 @@
 "use client";
+import { PlayerElapsedTime } from "./TurnTiming";
+import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
+import { draftWordFeedback, wordCellFeedback } from "../domain/word-feedback";
+import { PlayerName } from "./PlayerName";
+import { PlayerAvatar } from "./PlayerAvatar";
 import { useEffect, useId, useRef, useState } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
 import { calculateDraftScore, scoreMove } from "../domain/scoring";
@@ -16,7 +21,7 @@ import {
 } from "../lib/board-entry";
 import { draftInventory } from "../lib/draft-inventory";
 import { spectatorWords } from "../lib/spectator-plays";
-import { WordDefinition } from "./WordDefinition";
+import { PlayedWordDetails } from "./PlayedWordDetails";
 import { ReviewWord } from "./ReviewWord";
 import { Modal } from "./Modal";
 import { TabletopIcon } from "./TabletopIcon";
@@ -29,6 +34,48 @@ import "./tile-appearance.css";
 import { extendLexicon } from "../domain/verified-words";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function revealEntry(
+  workspace: HTMLElement | null,
+  fitScreen: boolean,
+  draft: Draft,
+) {
+  const tile = workspace?.querySelector<HTMLElement>('[aria-selected="true"]');
+  const scroller = workspace?.querySelector<HTMLElement>(".board-scroll");
+  if (!tile) return;
+  if (!fitScreen || !scroller) {
+    tile.scrollIntoView({ block: "nearest", inline: "nearest" });
+    return;
+  }
+  // Scroll only the board. Scrolling ancestors can pan iOS's visual viewport
+  // while its keyboard is opening and move the entire entry bar out of reach.
+  const bounds = scroller.getBoundingClientRect();
+  const cell = tile.getBoundingClientRect();
+  const fresh = Array.from(
+    workspace!.querySelectorAll<HTMLElement>(".square.fresh"),
+    (element) => element.getBoundingClientRect(),
+  );
+  // Keep the entered letters and one preceding square for an existing prefix.
+  // If a long word cannot fit, follow its end without shrinking the touch targets.
+  const wordTop =
+    Math.min(cell.top, ...fresh.map((rect) => rect.top)) -
+    (draft.direction === "down" ? cell.height : 0);
+  const wordBottom = Math.max(cell.bottom, ...fresh.map((rect) => rect.bottom));
+  const targetTop = Math.max(wordTop, wordBottom - bounds.height + 4);
+  const margin = cell.width + 4;
+  const left =
+    cell.left < bounds.left + margin
+      ? cell.left - bounds.left - margin
+      : cell.right > bounds.right - margin
+        ? cell.right - bounds.right + margin
+        : 0;
+  scroller.scrollBy({
+    left,
+    top: (targetTop + wordBottom - bounds.top - bounds.bottom) / 2,
+    behavior: "instant",
+  });
+}
+
 export function BoardEditor({
   game,
   savedDraft,
@@ -71,6 +118,7 @@ export function BoardEditor({
           direction: "across",
         };
   const [draft, setDraft] = useState(initial);
+  const [hasStart, setHasStart] = useState(true);
   const current = useRef(initial);
   const input = useRef<HTMLInputElement>(null);
   const workspace = useRef<HTMLDialogElement>(null);
@@ -89,10 +137,6 @@ export function BoardEditor({
   const [entryOptions, setEntryOptions] = useState(false);
   const [review, setReview] = useState(false);
   const [inspectCell, setInspectCell] = useState<{
-    row: number;
-    col: number;
-  } | null>(null);
-  const [blockedSquare, setBlockedSquare] = useState<{
     row: number;
     col: number;
   } | null>(null);
@@ -120,6 +164,9 @@ export function BoardEditor({
     ? preview.score
     : calculateDraftScore(game.board, draft.placements);
   const formedWords = getFormedWords(game.board, draft.placements, lexicon);
+  const wordCells = wordCellFeedback(
+    draftWordFeedback(game.board, draft.placements, lexicon),
+  );
   const player = game.players.find((p) => p.id === game.currentPlayerId)!;
   const displayedScores = displayScores ?? game.result?.scores ?? game.scores;
   const crown = liveLeader(game.order, displayedScores, displayTurns);
@@ -202,12 +249,10 @@ export function BoardEditor({
   useEffect(() => {
     if (!focused || blank || review) return;
     const frame = requestAnimationFrame(() =>
-      workspace.current
-        ?.querySelector('[aria-selected="true"]')
-        ?.scrollIntoView({ block: "nearest", inline: "nearest" }),
+      revealEntry(workspace.current, fitScreen, current.current),
     );
     return () => cancelAnimationFrame(frame);
-  }, [focused, draft.row, draft.col, zoom, blank, review]);
+  }, [focused, draft.row, draft.col, zoom, blank, review, fitScreen]);
   useEffect(() => {
     const dialog = workspace.current;
     return () => {
@@ -236,15 +281,13 @@ export function BoardEditor({
         "keyboard-open",
         window.innerHeight - viewport.height > 120,
       );
-      const nextDimensions = `${viewport.width}:${viewport.height}`;
+      const nextDimensions = `${viewport.width}:${viewport.height}:${viewport.offsetTop}`;
       if (nextDimensions !== dimensions) {
         dimensions = nextDimensions;
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           if (focusedRef.current)
-            workspace.current
-              ?.querySelector('[aria-selected="true"]')
-              ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            revealEntry(workspace.current, true, current.current);
         });
       }
     };
@@ -381,6 +424,7 @@ export function BoardEditor({
   }
 
   function change(next: Draft) {
+    if (next.placements.length) setHasStart(true);
     current.current = next;
     setDraft(next);
     setMessage(null);
@@ -433,23 +477,46 @@ export function BoardEditor({
     if (disabled) return;
     const d = current.current;
     if (!canSelectDraftSquare(d, game.board, row, col)) {
-      input.current?.blur();
-      setBlockedSquare({ row, col });
+      setMessage(
+        `Finish this word first. Your letters are kept. Review this turn, or ${fitScreen ? "use Clear entered tiles" : "use Clear letters"} before starting elsewhere.`,
+      );
+      focusInput();
       return;
     }
+    const keepManual =
+      manualDirection &&
+      (d.placements.length > 0 || (d.row === row && d.col === col));
+    if (!keepManual) setManualDirection(false);
+    setHasStart(true);
     change({
       ...d,
       row,
       col,
       atEdge: false,
-      direction: manualDirection
+      direction: keepManual
         ? d.direction
         : inferDirection(game.board, row, col, d.direction, d.placements),
     });
     enterFocus();
   }
+  function clearEntry() {
+    if (disabled) return;
+    input.current?.blur();
+    setHasStart(false);
+    setManualDirection(false);
+    setBlank(false);
+    setEntryOptions(false);
+    change({
+      ...current.current,
+      placements: [],
+      row: 7,
+      col: 7,
+      direction: "across",
+      atEdge: false,
+    });
+  }
   function insert(text: string, asBlank = false) {
-    if (disabled || blockedSquare) return;
+    if (disabled) return;
     const result = insertLetters(
       current.current,
       game.board,
@@ -593,10 +660,7 @@ export function BoardEditor({
       <button
         className="text-button"
         disabled={disabled || !draft.placements.length}
-        onClick={() => {
-          change({ ...current.current, placements: [], atEdge: false });
-          if (focusedRef.current) focusInput();
-        }}
+        onClick={clearEntry}
       >
         Clear letters
       </button>
@@ -702,23 +766,14 @@ export function BoardEditor({
                 aria-label={`${p.name}, ${displayedScores[p.id]} points${p.id === displayCurrentPlayerId && game.status === "active" ? ", current player" : ""}`}
               >
                 <span className="board-seat-avatar">
-                  <span
-                    className={`avatar colour-${p.seat}`}
-                    aria-hidden="true"
-                  >
-                    {profiles.find((profile) => profile.id === p.id)
-                      ?.photoDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={
-                          profiles.find((profile) => profile.id === p.id)!
-                            .photoDataUrl
-                        }
-                        alt=""
-                      />
-                    ) : (
-                      Array.from(p.name)[0]?.toUpperCase()
-                    )}
+                  <span className={`avatar colour-${p.seat}`}>
+                    <PlayerAvatar
+                      name={p.name}
+                      photoDataUrl={
+                        profiles.find((profile) => profile.id === p.id)
+                          ?.photoDataUrl
+                      }
+                    />
                   </span>
                   {leaders.includes(p.id) && (
                     <span
@@ -733,12 +788,24 @@ export function BoardEditor({
                 </span>
                 <span className="board-seat-details">
                   <span className="board-seat-summary">
-                    <strong title={p.name}>{p.name}</strong>
+                    <strong>
+                      <PlayerName
+                        player={p}
+                        profile={profiles.find(
+                          (profile) => profile.id === p.id,
+                        )}
+                        useNickname={game.status === "active"}
+                      />
+                    </strong>
                     <b className="board-seat-score" data-turn-score={p.id}>
                       {displayedScores[p.id]}
                       <span className="sr-only"> points</span>
                     </b>
                   </span>
+                  <PlayerElapsedTime game={game} playerId={p.id} />
+                  <small className="board-seat-rack">
+                    {game.expectedRackCounts[p.id]} tiles left
+                  </small>
                   <small
                     className="board-seat-turn"
                     aria-hidden={
@@ -768,9 +835,13 @@ export function BoardEditor({
                         const exhausted = exhaustedTiles.some(
                           (p) => p.row === r && p.col === c,
                         );
+                        const wordFeedback = wordCells[`${r},${c}`];
                         const premium = premiumAt(r, c);
                         const selected =
-                          draft.row === r && draft.col === c && !disabled;
+                          hasStart &&
+                          draft.row === r &&
+                          draft.col === c &&
+                          !disabled;
                         const label = `${LETTERS[c]}${r + 1}${shown ? ` ${shown.letter}${shown.blank ? " blank, zero points" : `, ${LETTER_VALUES[shown.letter]} points`}` : ` empty${premium ? ` ${premium}` : ""}`}`;
                         return (
                           <button
@@ -778,6 +849,7 @@ export function BoardEditor({
                             type="button"
                             role="gridcell"
                             aria-label={`${label}${exhausted ? ". No physical tiles left; use a blank or check tiles." : ""}`}
+                            aria-description={wordFeedback?.label}
                             aria-invalid={exhausted || undefined}
                             aria-selected={selected}
                             tabIndex={selected ? 0 : -1}
@@ -789,8 +861,10 @@ export function BoardEditor({
                             {shown ? (
                               <span
                                 key={`${shown.letter}:${shown.blank}:${exhausted}`}
-                                className={`letter-tile ${shown.blank ? "blank-tile" : ""}`}
+                                className={`letter-tile ${shown.blank ? "blank-tile" : ""}${wordFeedback ? ` word-${wordFeedback.state}` : ""}`}
+                                title={wordFeedback?.label}
                               >
+                                <WordDirectionMarkers feedback={wordFeedback} />
                                 <b>{shown.letter}</b>
                                 <small>
                                   {shown.blank
@@ -959,52 +1033,47 @@ export function BoardEditor({
             </div>
           </div>
         </div>
-        {focused &&
-          lastPlacement &&
-          !review &&
-          !blank &&
-          !inspectCell &&
-          !blockedSquare && (
-            <div
-              ref={scoreBubble}
-              className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
-              aria-label={
-                shortageLabel ??
-                `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
-              }
-              role="status"
-              aria-live="polite"
-            >
-              {exhaustedTile ? (
-                <>
-                  <strong>{shortageLabel}</strong>
-                  <div className="tile-inventory-actions">
-                    {canUseBlank && (
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={useBlankForExhaustedTile}
-                      >
-                        Use a blank
-                      </button>
-                    )}
+        {focused && lastPlacement && !review && !blank && !inspectCell && (
+          <div
+            ref={scoreBubble}
+            className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
+            aria-label={
+              shortageLabel ??
+              `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
+            }
+            role="status"
+            aria-live="polite"
+          >
+            {exhaustedTile ? (
+              <>
+                <strong>{shortageLabel}</strong>
+                <div className="tile-inventory-actions">
+                  {canUseBlank && (
                     <button
                       type="button"
                       disabled={disabled}
-                      onClick={finishEntry}
+                      onClick={useBlankForExhaustedTile}
                     >
-                      Check tiles
+                      Use a blank
                     </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <strong>{potentialScore ?? "—"}</strong>
-                  <span>{preview?.ok ? "pts" : "pts · check"}</span>
-                </>
-              )}
-            </div>
-          )}
+                  )}
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={finishEntry}
+                  >
+                    Check tiles
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <strong>{potentialScore ?? "—"}</strong>
+                <span>{preview?.ok ? "pts" : "pts · check"}</span>
+              </>
+            )}
+          </div>
+        )}
         {fitScreen ? (
           <footer className="persistent-entry-bar">
             <span
@@ -1071,6 +1140,16 @@ export function BoardEditor({
             >
               <TabletopIcon name="erase" />
             </button>
+            <button
+              type="button"
+              className="tabletop-tool entry-clear-button"
+              title="Clear entered tiles"
+              aria-label="Clear entered tiles"
+              disabled={disabled || !draft.placements.length}
+              onClick={clearEntry}
+            >
+              <span aria-hidden="true">⇊</span>
+            </button>
             {onUndo && (
               <button
                 className="tabletop-tool entry-undo-button"
@@ -1103,6 +1182,7 @@ export function BoardEditor({
             >
               <TabletopIcon name="more" />
             </button>
+            <WordFeedbackHelp cells={wordCells} compact />
             <button
               className={`button primary entry-review-button ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "inventory-review" : ""}`}
               aria-label={
@@ -1125,7 +1205,10 @@ export function BoardEditor({
                 <button
                   className="icon-button"
                   aria-label="Dismiss entry message"
-                  onClick={() => setMessage(null)}
+                  onClick={() => {
+                    setMessage(null);
+                    focusInput();
+                  }}
                 >
                   ×
                 </button>
@@ -1212,67 +1295,6 @@ export function BoardEditor({
           </footer>
         )}
       </dialog>
-      {blockedSquare && (
-        <Modal
-          title="Finish this word first"
-          onClose={() => {
-            setBlockedSquare(null);
-            requestAnimationFrame(focusInput);
-          }}
-        >
-          <p>
-            Your letters are still on the board. Review this turn, or clear them
-            before starting somewhere else.
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button primary"
-              disabled={disabled}
-              onClick={() => {
-                setBlockedSquare(null);
-                finishEntry();
-              }}
-            >
-              Review current turn
-            </button>
-            <button
-              className="button light"
-              disabled={disabled}
-              onClick={() => {
-                const target = blockedSquare;
-                change({
-                  ...current.current,
-                  placements: [],
-                  row: target.row,
-                  col: target.col,
-                  atEdge: false,
-                  direction: manualDirection
-                    ? current.current.direction
-                    : inferDirection(
-                        game.board,
-                        target.row,
-                        target.col,
-                        current.current.direction,
-                      ),
-                });
-                setBlockedSquare(null);
-                requestAnimationFrame(enterFocus);
-              }}
-            >
-              Clear letters and start here
-            </button>
-            <button
-              className="text-button"
-              onClick={() => {
-                setBlockedSquare(null);
-                requestAnimationFrame(focusInput);
-              }}
-            >
-              Keep editing
-            </button>
-          </div>
-        </Modal>
-      )}
       {entryOptions && (
         <Modal title="Letter tools" onClose={() => setEntryOptions(false)}>
           {tools}
@@ -1333,25 +1355,32 @@ export function BoardEditor({
         </Modal>
       )}
       {inspectCell && (
-        <Modal title="Played words" onClose={() => setInspectCell(null)}>
+        <Modal
+          title="Word details"
+          className="played-words-modal"
+          onClose={() => setInspectCell(null)}
+        >
           {inspectedWords.map((word) => (
-            <section className="recorded-word-detail" key={word.id}>
-              <h3>
-                {word.word} <small>· {word.score} points</small>
-              </h3>
-              <p>
-                {game.players.find((p) => p.id === word.playerId)?.name ??
-                  "Player"}{" "}
-                · Round {word.round}
-                {word.source === "assisted" ? " · Assisted play" : ""}
-              </p>
-              <WordDefinition word={word.word} />
-            </section>
+            <PlayedWordDetails
+              key={word.id}
+              word={word}
+              board={game.board}
+              placements={
+                game.turns.find((turn) => turn.id === word.turnId)
+                  ?.placements ?? []
+              }
+              playerName={
+                game.players.find((p) => p.id === word.playerId)?.name ??
+                "Player"
+              }
+              round={word.round}
+              source={word.source}
+            />
           ))}
           {!disabled && (
             <div className="dialog-actions">
               <button
-                className="button light"
+                className="button primary"
                 onClick={() => {
                   const cell = inspectCell;
                   setInspectCell(null);
@@ -1365,55 +1394,61 @@ export function BoardEditor({
         </Modal>
       )}
       {review && preview && !preview.ok && (
-        <Modal title="Review this turn" onClose={returnToLetters}>
-          <p>This turn needs a correction before it can be recorded.</p>
-          <div
-            className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
-            role={inventoryWarning ? "alert" : "status"}
-          >
-            <span>
-              {formedWords.length === 0 &&
-              preview &&
-              !preview.ok &&
-              preview.error.words?.length ? (
-                <strong className="entry-rejected-words">
-                  Check the complete word
-                  {preview.error.words.length > 1 ? "s" : ""}:{" "}
-                  {preview.error.words.join(", ")}
-                </strong>
-              ) : null}
-              {shortages.length > 0 ? (
-                <>
-                  {shortages.map(({ letter, count }) => (
-                    <strong className="inventory-shortfall" key={letter}>
-                      {letter === "?" ? "Blank" : letter}: this play needs{" "}
-                      {count} more physical {letter === "?" ? "blank" : letter}{" "}
-                      tile
-                      {count === 1 ? "" : "s"} than this set contains.
-                    </strong>
-                  ))}
-                  <small className="inventory-blank-note">
-                    If a letter is an actual blank tile, enter it with Blank or
-                    Space. A blank uses the blank supply, not the letter it
-                    represents.
-                  </small>
-                </>
-              ) : (
-                validationMessage
+        <Modal
+          title="Review this turn"
+          className="turn-review-modal"
+          onClose={returnToLetters}
+        >
+          <div className="turn-review-content">
+            <p>This turn needs a correction before it can be recorded.</p>
+            <div
+              className={`entry-validation ${inventoryWarning ? "inventory-warning" : ""}`}
+              role={inventoryWarning ? "alert" : "status"}
+            >
+              <span>
+                {formedWords.length === 0 &&
+                preview &&
+                !preview.ok &&
+                preview.error.words?.length ? (
+                  <strong className="entry-rejected-words">
+                    Check the complete word
+                    {preview.error.words.length > 1 ? "s" : ""}:{" "}
+                    {preview.error.words.join(", ")}
+                  </strong>
+                ) : null}
+                {shortages.length > 0 ? (
+                  <>
+                    {shortages.map(({ letter, count }) => (
+                      <strong className="inventory-shortfall" key={letter}>
+                        {letter === "?" ? "Blank" : letter}: this play needs{" "}
+                        {count} more physical{" "}
+                        {letter === "?" ? "blank" : letter} tile
+                        {count === 1 ? "" : "s"} than this set contains.
+                      </strong>
+                    ))}
+                    <small className="inventory-blank-note">
+                      If a letter is an actual blank tile, enter it with Blank
+                      or Space. A blank uses the blank supply, not the letter it
+                      represents.
+                    </small>
+                  </>
+                ) : (
+                  validationMessage
+                )}
+              </span>
+              {inventoryWarning && onRequestExtraTiles && (
+                <button
+                  className="button light"
+                  onClick={() => {
+                    setReview(false);
+                    exitFocus();
+                    onRequestExtraTiles(current.current.placements);
+                  }}
+                >
+                  Use anyway…
+                </button>
               )}
-            </span>
-            {inventoryWarning && onRequestExtraTiles && (
-              <button
-                className="button light"
-                onClick={() => {
-                  setReview(false);
-                  exitFocus();
-                  onRequestExtraTiles(current.current.placements);
-                }}
-              >
-                Use anyway…
-              </button>
-            )}
+            </div>
           </div>
           <div className="dialog-actions">
             {canUseBlank && (
@@ -1454,43 +1489,45 @@ export function BoardEditor({
       {review && preview?.ok && (
         <Modal
           title="Review this turn"
+          className="turn-review-modal"
           onClose={() => {
             if (!recordingRef.current) returnToLetters();
           }}
         >
-          <p className="muted">
-            {player.name} · Checked against {wordReference.shortLabel}
-          </p>
-          <div className="score-breakdown">
-            {preview.words.map((w) => (
-              <ReviewWord
-                key={`${w.row}-${w.col}-${w.direction}`}
-                word={w}
-                board={preview.board}
-                placements={preview.placements}
-              />
-            ))}
-            {preview.bingo > 0 && (
-              <div>
-                <strong>Seven-tile bonus</strong>
-                <span>+{preview.bingo}</span>
-              </div>
-            )}
-            <div className="total">
-              <strong>Turn total</strong>
-              <strong>{preview.score}</strong>
-            </div>
-          </div>
-          <p className="review-tile-key">
-            Outlined tiles are new. Faded multipliers marked “used” do not score
-            again.
-          </p>
-          {recordError && (
-            <p role="alert" className="inline-message">
-              This turn could not be saved. Your letters are retained. Keep
-              editing to see the recovery message.
+          <div className="turn-review-content">
+            <p className="muted">
+              {player.name} · Checked against {wordReference.shortLabel}
             </p>
-          )}
+            <div className="score-breakdown">
+              {preview.words.map((w) => (
+                <ReviewWord
+                  key={`${w.row}-${w.col}-${w.direction}`}
+                  word={w}
+                  board={preview.board}
+                  placements={preview.placements}
+                />
+              ))}
+              {preview.bingo > 0 && (
+                <div>
+                  <strong>Seven-tile bonus</strong>
+                  <span>+{preview.bingo}</span>
+                </div>
+              )}
+              <div className="total">
+                <strong>Turn total</strong>
+                <strong>{preview.score}</strong>
+              </div>
+            </div>
+            <p className="review-tile-key">
+              Outlined tiles are new. Tags show multipliers applied this turn.
+            </p>
+            {recordError && (
+              <p role="alert" className="inline-message">
+                This turn could not be saved. Your letters are retained. Keep
+                editing to see the recovery message.
+              </p>
+            )}
+          </div>
           <div className="dialog-actions">
             <button
               className="button light"

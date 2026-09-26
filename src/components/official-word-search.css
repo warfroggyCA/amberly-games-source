@@ -1,0 +1,55 @@
+.official-results {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.official-result.official-verdict {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-left: 6px solid #896b30;
+  background: #f4eddd;
+}
+.official-verdict.is-playable {
+  border-left-color: #216345;
+  background: #e8f2e9;
+}
+.official-verdict.is-unplayable {
+  border-left-color: #a12f2c;
+  background: #f9e9e5;
+}
+.official-verdict .official-verdict-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 10px;
+  color: #745718;
+  font-family: inherit;
+}
+.official-verdict.is-playable .official-verdict-heading {
+  color: #195437;
+}
+.official-verdict.is-unplayable .official-verdict-heading {
+  color: #922824;
+}
+.official-verdict-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+}
+.official-verdict-word {
+  display: block;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.official-verdict-label {
+  display: block;
+  font-size: clamp(1.7rem, 5vw, 2.25rem);
+  line-height: 1.15;
+  font-weight: 800;
+}
+.official-verdict p {
+  margin: 6px 0;
+}
+.official-verdict a {
+  font-size: 0.875rem;
+}

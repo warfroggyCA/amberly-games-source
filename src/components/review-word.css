@@ -16,8 +16,8 @@
   padding: 3px;
   list-style: none;
   overflow-x: auto;
-  background: #b4b6a8;
-  border: 2px solid #af8c57;
+  background: var(--board-brass);
+  border: 2px solid #633b29;
   border-radius: 4px;
   scrollbar-width: thin;
   scrollbar-color: #af8c57 #ede6d5;
@@ -31,24 +31,24 @@
   flex: 0 0 var(--review-space);
   width: var(--review-space);
   height: var(--review-space);
-  background: #f4f5f1;
+  background: var(--board-ivory);
   color: #244138;
 }
 .review-tile-space.tw {
-  background: #c17561;
-  color: #331c13;
+  background: var(--board-tw);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.dw {
-  background: #dfac94;
-  color: #331c13;
+  background: var(--board-dw);
+  color: var(--board-dw-ink);
 }
 .review-tile-space.dl {
-  background: #b1cfd0;
-  color: #0e3033;
+  background: var(--board-dl);
+  color: var(--board-dl-ink);
 }
 .review-tile-space.tl {
-  background: #659f9e;
-  color: #0e3033;
+  background: var(--board-tl);
+  color: var(--board-premium-ink);
 }
 .review-tile-space.is-existing {
   background: #e9eae5;
@@ -61,15 +61,14 @@
   container-type: inline-size;
 }
 .review-tile-space.is-new .letter-tile {
-  outline: 2px solid #27654e;
+  outline: 2px solid #82c99d;
   outline-offset: -2px;
 }
 .review-tile-strip .letter-tile b {
-  font-size: 56cqi;
+  font-size: var(--tile-letter-size);
   font-weight: 750;
   line-height: 1;
   transform: translate(-5%, -6%);
-  text-shadow: 0 1px 0 #fff0cb66;
 }
 .review-tile-strip .letter-tile small {
   font-size: 23cqi;
@@ -91,10 +90,6 @@
   font-weight: 800;
   line-height: 1.2;
 }
-.review-premium small {
-  font-size: 8px;
-  font-weight: 500;
-}
 .review-word-score {
   display: flex;
   flex-direction: column;
@@ -110,7 +105,7 @@
   margin-top: 5px;
 }
 .review-tile-key {
-  margin: 12px 0 0;
+  margin: 16px 0 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
@@ -133,4 +128,75 @@
   .review-word-score small {
     margin-top: 0;
   }
+}
+
+/* Full words get the full dialog width; long words wrap rather than hide tiles. */
+.turn-review-content .review-word {
+  container-type: inline-size;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.turn-review-content .review-tile-strip {
+  --review-space: clamp(
+    32px,
+    calc(
+      (100cqi - 4px - (var(--review-letter-count) - 1) * 4px) /
+        var(--review-letter-count)
+    ),
+    64px
+  );
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow-x: visible;
+}
+.turn-review-content .review-tile-space {
+  height: calc(var(--review-space) + 16px);
+  background: transparent;
+}
+.turn-review-content .review-tile-strip .letter-tile {
+  width: var(--review-space);
+  height: var(--review-space);
+  margin: 16px 0 0;
+}
+.turn-review-content .review-premium {
+  top: 18px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -100%);
+  z-index: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  line-height: 1;
+  background: var(--board-ivory);
+}
+.turn-review-content .tw .review-premium {
+  background: var(--board-tw);
+}
+.turn-review-content .dw .review-premium {
+  background: var(--board-dw);
+}
+.turn-review-content .dl .review-premium {
+  background: var(--board-dl);
+}
+.turn-review-content .tl .review-premium {
+  background: var(--board-tl);
+}
+
+.turn-review-content .review-word-score {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 22px;
+}
+.turn-review-content .review-word-score small {
+  margin-top: 0;
 }

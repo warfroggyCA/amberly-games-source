@@ -17,7 +17,7 @@ export async function POST(request: Request): Promise<Response> {
   let context: AuthContext | null = null;
   try {
     requireObject(await readMutationJson(request));
-    if (getSignInMethod() !== "google") {
+    if (getSignInMethod() === "email") {
       throw new HttpError(409, "Google sign-in is not enabled here.");
     }
     context = requireAuthContext(request);

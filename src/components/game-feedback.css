@@ -1,0 +1,181 @@
+.turn-actions .tabletop-tool:has(span) {
+  width: auto;
+  padding-inline: 10px;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+.turn-clock {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.board-seat-rack {
+  display: block;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+.recorded-turn-editor {
+  display: grid;
+  gap: 12px;
+}
+.recorded-tile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding-block: 10px;
+  border-bottom: 1px solid #d2c8b7;
+}
+.recorded-turn-editor label {
+  display: grid;
+  gap: 4px;
+}
+.recorded-tile input:not([type="checkbox"]) {
+  width: 65px;
+}
+.recorded-turn-editor input {
+  min-height: 36px;
+}
+.timing-summary table {
+  width: 100%;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.timing-summary th,
+.timing-summary td {
+  padding: 6px;
+}
+.timing-summary p {
+  font-size: 0.85rem;
+}
+.player-elapsed {
+  display: block;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #214a3c;
+}
+body
+  .app-shell.game-screen
+  .board-workspace.persistent-board
+  .board-table:has(.board-seat-rack) {
+  --seat-height: 76px;
+}
+body
+  .app-shell.game-screen
+  .board-workspace.persistent-board
+  .board-table:has(.player-elapsed) {
+  --seat-height: 90px;
+}
+body .game-screen .table-area > .turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 2px 8px;
+  border: 0;
+  min-height: 42px;
+}
+body .game-screen .table-area > .turn-actions .tabletop-tool:has(span) {
+  width: auto;
+  min-width: 44px;
+  flex-basis: auto;
+}
+body .game-screen .table-area > .turn-actions .save-state {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+body .game-screen .table-area > .turn-actions .button {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  body .game-screen .table-area > .turn-actions {
+    gap: 3px;
+  }
+  body .game-screen .table-area > .turn-actions .tabletop-tool {
+    font-size: 0.75rem;
+  }
+  .spectator-view-actions .turn-clock {
+    font-size: 0.7rem;
+    white-space: normal;
+    max-width: 70px;
+  }
+}
+.board-seat.is-current :is(.player-elapsed, .board-seat-rack),
+.spectator-seat.is-current :is(.player-elapsed, .board-seat-rack) {
+  color: #fff4d5;
+  opacity: 1;
+}
+body .game-screen .table-area > .turn-actions {
+  position: relative;
+  z-index: 30;
+  background: #f4ecdeed;
+  border-radius: 4px;
+}
+body .spectator-table:has(.board-seat-rack) {
+  --spectator-seat-height: 76px;
+}
+body .spectator-table:has(.player-elapsed) {
+  --spectator-seat-height: 92px;
+}
+
+/* A landscape keyboard can leave only 170px. Keep the clock and pause in a
+   left rail while the existing entry rail stays on the right. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen.keyboard-open .table-area > .turn-actions {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 104px;
+    min-height: 0;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: center;
+    overflow-y: auto;
+  }
+  body .app-shell.game-screen.keyboard-open .turn-actions .turn-clock {
+    white-space: normal;
+    font-size: 0.75rem;
+  }
+  body
+    .app-shell.game-screen.keyboard-open
+    .turn-actions
+    :is([aria-label="Skip turn"], [aria-label="Exchange tiles"], .save-state) {
+    display: none;
+  }
+  body .app-shell.game-screen.keyboard-open .board-stage {
+    margin-left: 112px;
+  }
+}
+
+/* The regular landscape header uses the side gutters. Leave its menu, brand,
+   tile bag and score controls clear of the gameplay toolbar. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen:not(.keyboard-open) .table-area > .turn-actions {
+    margin-left: 168px;
+    margin-right: 108px;
+    gap: 4px;
+  }
+  body .app-shell.game-screen:not(.keyboard-open) .turn-actions .save-state {
+    position: absolute;
+    top: 56px;
+    left: -168px;
+    width: 150px;
+    margin: 0;
+    white-space: normal;
+    pointer-events: none;
+  }
+  body
+    .app-shell.game-screen:not(.keyboard-open)
+    .turn-actions
+    :is(.turn-clock, .tabletop-tool, .button) {
+    font-size: 0.75rem;
+  }
+  body
+    .app-shell.game-screen:not(.keyboard-open)
+    .turn-actions
+    .tabletop-tool:has(span) {
+    padding-inline: 6px;
+  }
+}

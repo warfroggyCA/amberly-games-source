@@ -23,3 +23,34 @@ export function parseRackEntry(input: string, maxTiles = 7): RackEntryResult {
     };
   return { ok: true, value };
 }
+
+/** Capacity for one rack after subtracting the board and every other rack. */
+export function availableRackTiles(
+  board: import("../domain/types").Board,
+  supply: Readonly<Record<string, number>>,
+  otherRacks: readonly string[],
+): Record<string, number> {
+  const available = { ...supply };
+  for (const tile of board.flat()) {
+    if (!tile) continue;
+    const letter = tile.blank ? "?" : tile.letter;
+    available[letter] = Math.max(0, (available[letter] ?? 0) - 1);
+  }
+  for (const rack of otherRacks)
+    for (const letter of rack.toUpperCase().replace(/\s/g, ""))
+      available[letter] = Math.max(0, (available[letter] ?? 0) - 1);
+  return available;
+}
+export function rackAvailabilityError(
+  value: string,
+  available: Readonly<Record<string, number>>,
+): string | null {
+  const used: Record<string, number> = {};
+  for (const letter of value) {
+    used[letter] = (used[letter] ?? 0) + 1;
+    const count = available[letter] ?? 0;
+    if (used[letter] > count)
+      return `Only ${count} ${letter === "?" ? "blank" : letter} ${count === 1 ? "tile is" : "tiles are"} available for this rack after accounting for the board and other racks. Nothing was added.`;
+  }
+  return null;
+}

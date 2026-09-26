@@ -12,6 +12,7 @@
     "pretest": "npm run lexicon:prepare",
     "pretypecheck": "npm run lexicon:prepare",
     "dev": "next dev --hostname 127.0.0.1",
+    "gym:preview": "npm run lexicon:prepare && node scripts/start-gym-preview.mjs",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
@@ -22,9 +23,10 @@
     "test:database": "node scripts/test-shared-database.mjs",
     "test:browser": "playwright test",
     "test:browser:install": "playwright install chromium webkit",
-    "check": "npm run lint && npm run typecheck && npm test && npm run test:database && npm run build && npm run test:browser",
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:database && npm run build && npm run test:browser && npm run test:integrated",
     "release:check": "node scripts/release-check.mjs",
-    "check:secrets": "node scripts/check-secrets.mjs"
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "test:integrated": "node scripts/test-integrated.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

@@ -6,6 +6,7 @@ import {
 } from "../../../../server/auth";
 import {
   errorJson,
+  getAppOrigin,
   HttpError,
   readMutationJson,
   requireObject,
@@ -17,7 +18,7 @@ export async function POST(request: Request): Promise<Response> {
   let context: AuthContext | null = null;
   try {
     const body = requireObject(await readMutationJson(request));
-    if (getSignInMethod() !== "email") {
+    if (getSignInMethod() === "google") {
       throw new HttpError(409, "Use Google to sign in to Amberly Games.");
     }
     const email = normalizeEmail(body.email);
@@ -27,7 +28,10 @@ export async function POST(request: Request): Promise<Response> {
         email,
         // Authentication never grants membership. Database policies check the
         // independently maintained family invitation and membership records.
-        options: { shouldCreateUser: true },
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${getAppOrigin()}/api/auth/callback`,
+        },
       }),
     );
     if (error?.status === 429) {

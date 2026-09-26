@@ -3,12 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 import { getAppOrigin, HttpError, privateJson } from "./shared-http";
 
-export type SignInMethod = "email" | "google";
+export type SignInMethod = "email" | "google" | "both";
 export type GoogleSignInError = "cancelled" | "failed" | "unavailable";
 
 export function getSignInMethod(): SignInMethod {
   const method = process.env.SCRABBLE_AUTH_METHOD || "email";
-  if (method !== "email" && method !== "google") {
+  if (method !== "email" && method !== "google" && method !== "both") {
     throw new HttpError(503, "Family sign-in is not configured yet.");
   }
   return method;

@@ -1,0 +1,65 @@
+# Member permissions and private tests
+
+Superadmins open **Game menu → Family access → Permissions** beside a member. Each switch has a description and applies to that person’s verified account across devices. Role and linked player are in an expandable section. A reason is required and every saved change is audited. Stale forms must be reopened; an interrupted save retries the original request ID.
+
+## Capabilities
+
+| Switch | Member default | Scope |
+| --- | --- | --- |
+| Start games | On | Shared game creation; also needs Keep score |
+| Keep score | On | Enter, undo and finish the games where this person is designated scorer |
+| Add players | On | Shared roster creation |
+| Edit their profile | On | Name, photo and bio of their linked profile |
+| Manage equipment | On | Scrabble bag quantities and Crokinole disc colours for future games; existing games retain their snapshots |
+| Share viewing links | On | Create, replace and close links for games they score |
+| Edit anyone’s profile | Off | Roster-wide profile changes |
+| Take over scoring | Off | Become another game’s designated scorer with a reason; also needs Keep score |
+| Review game concerns | Off | Resolve concerns; original scores remain unchanged |
+| Invite people | Off | Allow emails to join as ordinary members, or revoke pending invitations |
+| Export the shared archive | Off | Shared history, excluding private tests and internal audit data |
+
+Existing memberships and new invitees use these defaults when no override is saved. New members can be customized after they join. Superadmins retain every capability; individual switches apply when the role is Member. Only superadmins may change membership, roles, linked profiles, or permissions. The last active superadmin cannot be demoted or suspended.
+
+Viewing shared history and reporting concerns remain available to active members. Suspending Account access asks for confirmation naming the member before saving, and blocks family access without deleting the person’s history. Removing a pending invitation also asks for confirmation naming its email; cancelling makes no change. The share switch controls link management: previously issued links retain their normal expiration/revocation behavior.
+
+## Private tests
+
+Shared games with `mode=practice` are visible only to superadmins, including historical tests. Regular members cannot create them, open them by ID, read their draft, export them, or see their concerns. Practice links cannot be created and existing practice viewing tokens no longer resolve. Enabling every member capability does not grant private-test access. The independent local `/` preview remains a device-only development sandbox and does not read shared tests.
+
+In Home and History, superadmins swipe a practice game left to reveal **Delete**, or use the row’s **…** control with a mouse or keyboard. Swiping alone never deletes or opens a game. The game details also retain **Delete practice game…**. It requires confirmation and a reason. Removal is an immutable marker, not a physical deletion: original definitions, turns, results and audit evidence remain in the internal archive. Finalized practice games may also be removed. Regular games use the separate superadmin removal action described below. Removed tests disappear from normal lists and cannot be scored or restored by an old request. Retries acknowledge the original removal once, including when the connection fails after commit.
+
+## Enforcement and recovery
+
+The server checks capabilities on every action using fresh membership inside the existing family transaction lock. The database adds permission checks to roster, equipment and invitation writes, and applies practice visibility to game-related tables. Request replays return current scoring access rather than restoring obsolete ownership. Permission-only refusals refresh access while keeping the member signed in and preserving unsent tiles. Revoked membership remains fail-closed.
+
+Visible shared workspaces refresh access every five seconds and on focus/resume, except while resolving a pending action. New writes are checked immediately even before the interface refreshes. Private games already loaded by a subsequently demoted superadmin are cleared on the next successful refresh. Previously delivered data or screenshots cannot be remotely recalled.
+
+## Migration and release
+
+The additive migration is `supabase/migrations/20260916234943_member_permissions_and_practice_removal.sql`. It adds membership permission overrides, validates their keys/values, adds immutable practice-removal markers, and tightens practice read policies and spectator functions. It changes no scores, player identities or original game journals.
+
+Apply the migration before publishing the matching API, after separately approving the hosted change. Inspect the provider migration history first: hosted versions differ from local filenames. Do not use a blind migration push. The checked-in migration and isolated test results are not evidence of a hosted migration or release.
+
+Do not roll back to an older API after enabling restrictions or removing tests: earlier API versions do not implement all capability and removal checks. Prefer a forward fix or a rollback build that retains this authorization layer. Keep the additive schema and audit evidence intact.
+
+Verification covers direct API denial, SQL read isolation, stale forms, simultaneous access updates, duplicate retries, permission removal during scoring, cached practice visibility after demotion, removed-game replay, finalized results, transaction failure rollback, and touch controls across Chromium desktop and WebKit phone/tablet/landscape. These are isolated browser tests, not physical iPhone/iPad acceptance.
+
+## Invitations and player onboarding
+
+Invitations may reserve an existing player profile. In **Family access**, a superadmin selects **Player profile for this invitation**, or leaves **Create their profile when they join**. The recipient signs in using the invited, verified email and accepts the invitation. Acceptance links the reserved player atomically and opens **Set up your player profile**. The recipient confirms their real name and can set a nickname, cropped photo and bio; saving returns to Games.
+
+There is one profile across Scrabble and Crokinole. Existing game IDs, player IDs and historical name snapshots are unchanged. Accounts and pending invitations now show their player link in Family access. Existing accounts are not guessed or matched by name: a superadmin can still connect them through Permissions → Role & player profile. Email-only invitations advise recipients already in the roster to request that link rather than create a duplicate.
+
+Only superadmins can reserve or change an existing profile link. Members with Invite people permission can still issue email-only invitations. A profile cannot be reserved for two active invitations or linked to two accounts. Initial profile completion is a narrow one-time permission, even if general Add players/Edit own profile permissions are disabled. Once completed, the ordinary permission switches govern further edits. A recipient cannot use onboarding to claim an arbitrary existing player or change their role/permissions.
+
+Profile completion uses the existing retained-request mechanism: uncertain saves survive reload and retry the same request. Member and player revisions protect against concurrent changes. The profile write, account link, completion flag and audit record commit together.
+
+The additive migration `20260918003644_invitation_player_onboarding.sql` must be applied before this API is published. It adds nullable invitation player links and a setup flag, and narrowly scoped admission/completion functions in the private schema. Existing memberships default to no onboarding prompt. No historical games are rewritten. Hosted migration and publication require the normal release approval; local verification is not a hosted release. For rollback, keep the additive columns and data; prefer a forward fix because older application versions do not show pending onboarding.
+
+## Superadmin game removal
+
+Superadmins can remove regular Scrabble and Crokinole games from game details. Active games offer **End and remove game**; finished games offer **Remove game**. Crokinole keeps this under **Game administration**. A confirmation and reason are required, with no scorer takeover. Private-test deletion remains available.
+
+Removal is terminal: further scoring is blocked and the game disappears from Home, History and player records. It does not fabricate a scored finish or winner. Original definitions, scores, events and results remain unchanged for operator recovery, with an audit record of who removed the game and why. There is no user-facing restore button. Unsaved entries are excluded. Concurrent changes require reviewing the refreshed game before retrying.
+
+Deploy migration `20260924011827_superadmin_game_removal.sql` before the matching application; the schema-v2 guard prevents use against an older database. No existing games are removed by the migration.

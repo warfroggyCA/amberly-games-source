@@ -45,13 +45,12 @@
   position: relative;
   display: grid;
   place-items: center;
-  border: 1px solid #b79352;
+  border: 1px solid;
+  border-color: var(--tile-edge);
   border-radius: 4px;
-  background: linear-gradient(145deg, #f6e7bd, #e4c487);
-  box-shadow:
-    inset 1px 1px 0 #fff6d7,
-    0 2px 0 #ac8650;
-  color: #292b23;
+  background: var(--tile-material);
+  box-shadow: var(--tile-shadow);
+  color: var(--tile-ink);
 }
 .equipment-tile > b {
   font:

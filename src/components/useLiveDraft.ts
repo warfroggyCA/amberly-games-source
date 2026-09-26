@@ -47,7 +47,12 @@ export function useLiveDraft(
   context?: LiveContext,
 ) {
   const [incoming, setIncoming] = useState<LiveDraft | null>(null);
-  const [connectionFailed, setConnectionFailed] = useState(false);
+  const [failedConnection, setFailedConnection] = useState<{
+    gameId: string;
+    revision: number;
+    generation: number;
+    userId: string;
+  } | null>(null);
   const latest = useRef(draft);
   const publisher = useRef<ReturnType<typeof createLiveDraftPublisher> | null>(
     null,
@@ -80,7 +85,10 @@ export function useLiveDraft(
     const source = createLiveDraftPublisher(
       { gameId, revision, generation, streamId: crypto.randomUUID() },
       (input, closing) => requestDraft(userId, input, undefined, closing),
-      (connected) => setConnectionFailed(!connected),
+      (connected) =>
+        setFailedConnection(
+          connected ? null : { gameId, revision, generation, userId },
+        ),
     );
     const publish = () => {
       if (document.visibilityState !== "visible") return;
@@ -158,7 +166,13 @@ export function useLiveDraft(
       active &&
       context &&
       canPublish &&
-      connectionFailed
+      draft?.placements.length &&
+      draft.revision === revision &&
+      failedConnection &&
+      failedConnection.gameId === gameId &&
+      failedConnection.revision === revision &&
+      failedConnection.generation === generation &&
+      failedConnection.userId === userId
     ),
   };
 }

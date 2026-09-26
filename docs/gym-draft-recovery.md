@@ -1,0 +1,11 @@
+# Same-device Gym recovery
+
+Gym saves the current puzzle and draft in IndexedDB after each change. The welcome screen offers **Resume practice** or **Start new practice**. A new puzzle replaces the saved draft only after generation succeeds. Leaving through Back to Games waits for queued draft writes. Save failures are visible and do not remove the in-memory board.
+
+The saved state includes physical rack identities/order, blank assignments, placed tiles, start/cursor/direction, the last 100 undo states, revealed hint level, hint pointing, Solve selection, How to play visibility and practice settings. Pending network requests, drag gestures and computed grades are not persisted. Restore validates the draft and replays the puzzle's legal generation trace in the worker, then recalculates the answer set using the saved verified-word names. Missing word evidence or an unsupported puzzle leaves the original saved record intact for retry or an explicit new puzzle.
+
+Local preview and signed-in family/user/player identities use separate keys. Recovery does not transfer between browsers, origins or devices. Browser storage clearing removes recovery. Each write checks the saved revision atomically in an IndexedDB transaction; a stale tab stops saving with a visible conflict instead of overwriting another tab. The Saved message describes the current snapshot only, not a previous completed write.
+
+Profile history remains immutable. Restoring begins a separately identified history segment with an explicit `resume` event; subsequent attempts are assisted, even if an earlier segment never synced. Existing segments/outbox records are untouched. This avoids reusing an interrupted event sequence or claiming fresh independent success. History labels the resumed segment. This is not cross-device draft handoff or an independent-success metrics feature.
+
+Validation covers assigned blanks, duplicate tile/coordinate rejection, profile key separation, reload of placements/hints/Solve/undo, blocked storage and concurrent tabs. Publisher lookup tests also cover generating fresh practice after a saved draft exists. Database tests verify resumed attempts cannot gain unassisted credit. Physical-device acceptance remains separate from browser WebKit coverage.

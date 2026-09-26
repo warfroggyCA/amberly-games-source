@@ -311,7 +311,10 @@ describe("shared mutation request protection", () => {
     expect(response.status).toBe(200);
     expect(provider.signInWithOtp).toHaveBeenCalledWith({
       email: user.email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${origin}/api/auth/callback`,
+      },
     });
   });
 
@@ -725,15 +728,36 @@ describe("Google PKCE sign-in flow", () => {
     expect(provider.verifyOtp).not.toHaveBeenCalled();
   });
 
-  it("keeps Google endpoints disabled in existing email-code installations", async () => {
+  it("keeps Google initiation disabled while email links use the PKCE callback", async () => {
     vi.stubEnv("SCRABBLE_AUTH_METHOD", "");
     expect((await startGoogle(mutation({}))).status).toBe(409);
     expect(
       (
         await googleCallback(new Request(`${origin}/api/auth/callback?code=x`))
       ).headers.get("location"),
-    ).toBe(`${origin}/family?signin=failed`);
+    ).toBe(`${origin}/family`);
     expect(provider.signInWithOAuth).not.toHaveBeenCalled();
-    expect(provider.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(provider.exchangeCodeForSession).toHaveBeenCalledWith("x");
+    expect(provider.getUser).toHaveBeenCalledOnce();
+  });
+});
+
+describe("combined sign-in", () => {
+  it("offers Google and email codes together, including Hotmail", async () => {
+    vi.stubEnv("SCRABBLE_AUTH_METHOD", "both");
+    expect(await (await session(new Request(origin))).json()).toMatchObject({
+      signInMethod: "both",
+    });
+    expect(
+      (await sendCode(mutation({ email: "erin@hotmail.com" }))).status,
+    ).toBe(200);
+    expect(provider.signInWithOtp).toHaveBeenCalledWith({
+      email: "erin@hotmail.com",
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${origin}/api/auth/callback`,
+      },
+    });
+    expect((await startGoogle(mutation({}))).status).toBe(200);
   });
 });

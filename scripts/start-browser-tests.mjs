@@ -1,6 +1,13 @@
 // Own a separate production server; tests never attach to the user's scoring tab.
 import { spawn } from "node:child_process";
-const env = { ...process.env, SCRABBLE_APP_ORIGIN: "http://127.0.0.1:4319" };
+const env = {
+  ...process.env,
+  SCRABBLE_APP_ORIGIN: "http://127.0.0.1:4319",
+  // Exercise the complete hub by default; explicit false tests rollback access.
+  AMBERLY_CROKINOLE_ENABLED: process.env.AMBERLY_CROKINOLE_ENABLED ?? "true",
+  AMBERLY_GYM_LAB_ENABLED: "true",
+  AMBERLY_GYM_HISTORY_ENABLED: "true",
+};
 for (const key of Object.keys(env)) {
   if (key.startsWith("SCRABBLE_") && key !== "SCRABBLE_APP_ORIGIN")
     env[key] = "";

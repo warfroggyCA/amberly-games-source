@@ -5,6 +5,7 @@ export type ScorerSnapshot = ReturnType<typeof preview.getSnapshot> & {
   shared?: SharedState;
   unresolved?: boolean;
   scoringElsewhere?: boolean;
+  draftConflicts?: string[];
 };
 export type ScorerStore = {
   mode: "local" | "shared";
@@ -20,6 +21,11 @@ export type ScorerStore = {
   refresh?: () => Promise<void>;
   loadMore?: () => Promise<void>;
   retry?: () => Promise<void>;
+  discardDraftConflict?: (
+    gameId: string,
+    expectedRevision: number,
+  ) => Promise<void>;
+  exportWorkspace?: () => void;
 };
 export const localScorerStore: ScorerStore = {
   mode: "local",

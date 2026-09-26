@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Amberly Games",
     short_name: "Amberly Games",
-    description: "Scrabble scores and game nights at Amberly.",
+    description: "Shared scores and game nights at Amberly.",
     id: "/family",
     start_url: "/family",
     scope: "/",
@@ -13,19 +13,19 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#184d3c",
     icons: [
       {
-        src: "/icons/amberly-board-v1-192.png",
+        src: "/icons/amberly-board-v2-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/amberly-board-v1-512.png",
+        src: "/icons/amberly-board-v2-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/amberly-board-v1-512.png",
+        src: "/icons/amberly-board-v2-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

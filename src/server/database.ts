@@ -1,10 +1,24 @@
+import { createGymRepository } from "./gym-repository";
 import "server-only";
+import { createGameSummaryRepository } from "./game-summary-repository";
 import postgres from "postgres";
 import { databaseTls } from "./database-tls";
 import {
   createSharedRepository,
   SharedRepositoryError,
 } from "./shared-repository";
+
+import { createCrokinoleRepository } from "./crokinole-repository";
+let crokinoleRepository:
+  ReturnType<typeof createCrokinoleRepository> | undefined;
+let connectionPool: postgres.Sql | undefined;
+export function getCrokinoleRepository() {
+  if (!crokinoleRepository) {
+    getSharedRepository();
+    crokinoleRepository = createCrokinoleRepository(connectionPool!);
+  }
+  return crokinoleRepository;
+}
 
 let repository: ReturnType<typeof createSharedRepository> | undefined;
 /** Dedicated non-owner login; SET LOCAL ROLE restricts every application transaction. */
@@ -48,15 +62,24 @@ export function getSharedRepository() {
       503,
     );
   }
-  repository = createSharedRepository(
-    postgres(connection, {
-      max: 5,
-      idle_timeout: 20,
-      connect_timeout: 10,
-      prepare: false,
-      ssl,
-      connection: { application_name: "scrabble-shared-server" },
-    }),
-  );
+  connectionPool = postgres(connection, {
+    max: 5,
+    idle_timeout: 20,
+    connect_timeout: 10,
+    prepare: false,
+    ssl,
+    connection: { application_name: "scrabble-shared-server" },
+  });
+  repository = createSharedRepository(connectionPool);
   return repository;
+}
+
+export function getGameSummaryRepository() {
+  getSharedRepository();
+  return createGameSummaryRepository(connectionPool!);
+}
+
+export function getGymRepository() {
+  getSharedRepository();
+  return createGymRepository(connectionPool!);
 }

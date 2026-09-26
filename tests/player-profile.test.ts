@@ -188,3 +188,45 @@ describe("local photo preparation", () => {
     expect(s.revoke).toHaveBeenCalledOnce();
   });
 });
+
+import { photoCrop, playerDisplayName } from "../src/lib/player-profile";
+describe("profile framing and nicknames", () => {
+  it("crops portrait and landscape without uncovered edges and clamps zoom and position", () => {
+    expect(photoCrop(1200, 600, { zoom: 1, x: 0.5, y: 0.5 })).toEqual({
+      size: 600,
+      x: 300,
+      y: 0,
+    });
+    expect(photoCrop(600, 1200, { zoom: 2, x: 1, y: 0 })).toEqual({
+      size: 300,
+      x: 300,
+      y: 0,
+    });
+    expect(photoCrop(600, 600, { zoom: 9, x: -2, y: 2 })).toEqual({
+      size: 150,
+      x: 0,
+      y: 450,
+    });
+    expect(() => photoCrop(0, 10, { zoom: 1, x: 0, y: 0 })).toThrow();
+    expect(() => photoCrop(10, 10, { zoom: NaN, x: 0, y: 0 })).toThrow();
+  });
+  it("keeps nicknames optional, bounded and distinct from real names", () => {
+    expect(isValidPlayerProfile({ name: "Douglas", nickname: "Doug" })).toBe(
+      true,
+    );
+    for (const nickname of [
+      "",
+      " ",
+      " Doug",
+      "x".repeat(61),
+      "bad\nname",
+      3,
+      null,
+    ])
+      expect(isValidPlayerProfile({ name: "Douglas", nickname })).toBe(false);
+    expect(playerDisplayName({ name: "Douglas", nickname: "Doug" })).toBe(
+      "Doug",
+    );
+    expect(playerDisplayName({ name: "Douglas" })).toBe("Douglas");
+  });
+});

@@ -1,3 +1,4 @@
+import { browserId } from "./browser-id";
 import { applyCommand, MAX_GAME_EVENTS, type GameState } from "../domain/game";
 import {
   isVerifiedWord,
@@ -46,7 +47,7 @@ export function syncVerifiedWords(
       {
         type: "verify-words",
         words: additions.slice(index, index + MAX_VERIFICATIONS_PER_COMMAND),
-        id: crypto.randomUUID(),
+        id: browserId(),
         expectedRevision: next.revision,
       },
       base,

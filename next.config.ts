@@ -1,6 +1,14 @@
 import type { NextConfig } from "next";
 const config: NextConfig = {
   poweredByHeader: false,
+  // Only the explicit local Gym launcher supplies LAN hosts; no wildcard trust.
+  ...(process.env.AMBERLY_GYM_LAB_ENABLED === "true"
+    ? {
+        allowedDevOrigins: (process.env.GYM_PREVIEW_HOSTS ?? "")
+          .split(",")
+          .filter((host) => /^\d+\.\d+\.\d+\.\d+$/.test(host)),
+      }
+    : {}),
   async headers() {
     return [
       {

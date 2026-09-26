@@ -32,7 +32,17 @@ test("viewer keeps provisional points separate, reconnects, and clears word sele
     testLexicon,
   );
   if (!played.ok) throw new Error(played.error.message);
-  const game = { ...played.game, scorerGeneration: 1 };
+  const game = {
+    ...played.game,
+    events: undefined,
+    scorerGeneration: 1,
+    timingEvents: [
+      {
+        type: "start-clock",
+        timedAt: new Date(Date.now() - 65000).toISOString(),
+      },
+    ],
+  };
   let draft: LiveDraft | null = {
     gameId: game.id,
     revision: game.revision,
@@ -67,6 +77,21 @@ test("viewer keeps provisional points separate, reconnects, and clears word sele
   await expect(
     page.getByRole("button", { name: /Provisional tile, not recorded. K8 S/ }),
   ).toBeVisible();
+  await expect(page.getByLabel("Current turn elapsed time")).toContainText(
+    "1:",
+  );
+  await expect(page.getByLabel("Player accrued time")).toHaveCount(2);
+  game.status = "paused";
+  game.timingEvents.push({ type: "pause", timedAt: new Date().toISOString() });
+  game.revision++;
+  await expect(page.getByLabel("Current turn elapsed time")).toContainText(
+    "Paused",
+    { timeout: 12000 },
+  );
+  await page.reload();
+  await expect(page.getByLabel("Current turn elapsed time")).toContainText(
+    "Paused",
+  );
   draft = null;
   await expect(
     page.getByRole("button", { name: /Provisional tile, not recorded/ }),
