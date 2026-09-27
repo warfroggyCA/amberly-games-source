@@ -147,3 +147,70 @@ test("shared profiles crop photos, preserve cancelled adjustments and save nickn
     page.locator(".crokinole-standing").getByText("Warfroggy", { exact: true }),
   ).toHaveAttribute("title", "Doug");
 });
+
+test("photo touch gestures pinch in and out and continue dragging after a finger lifts", async ({
+  page,
+}) => {
+  const { family } = await installFixture(page);
+  family.playerAccess.doug = { revision: 0, userId: family.member.userId };
+  await page.goto("/family/players");
+  await page
+    .getByRole("article", { name: "Doug", exact: true })
+    .getByRole("button", { name: "Edit profile" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Edit player profile" });
+  const image = await sharp({
+    create: { width: 800, height: 600, channels: 3, background: "#228844" },
+  })
+    .png()
+    .toBuffer();
+  await dialog.getByLabel("Profile photo", { exact: true }).setInputFiles({
+    name: "portrait.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Use photo", exact: true }),
+  ).toBeEnabled();
+  const crop = dialog.locator(".profile-crop-window");
+  await crop.scrollIntoViewIfNeeded();
+  // Synthetic multi-touch exercises the same handlers in Chromium and WebKit.
+  // Capture requires hardware-generated active pointers; real mouse capture is
+  // exercised in the save/cancel regression above.
+  await crop.evaluate((element) => {
+    element.setPointerCapture = () => {};
+  });
+  const box = (await crop.boundingBox())!;
+  const pointer = async (type: string, id: number, x: number, y: number) => {
+    await crop.dispatchEvent(type, {
+      pointerId: id,
+      pointerType: "touch",
+      clientX: box.x + x,
+      clientY: box.y + y,
+      bubbles: true,
+    });
+  };
+  const zoom = dialog.getByRole("slider", { name: "Photo zoom" });
+  await pointer("pointerdown", 11, 60, 90);
+  await pointer("pointerdown", 22, 120, 90);
+  await pointer("pointermove", 22, 180, 90);
+  await expect(zoom).toHaveValue("2");
+  await pointer("pointermove", 22, 150, 90);
+  await expect(zoom).toHaveValue("1.5");
+  const beforeLift = await crop.locator("img").getAttribute("style");
+  await pointer("pointerup", 22, 150, 90);
+  await expect(crop.locator("img")).toHaveAttribute("style", beforeLift!);
+  await pointer("pointermove", 11, 70, 100);
+  await expect(zoom).toHaveValue("1.5");
+  expect(await crop.locator("img").getAttribute("style")).not.toBe(beforeLift);
+  await pointer("pointercancel", 11, 70, 100);
+  const afterCancel = await crop.locator("img").getAttribute("style");
+  await pointer("pointermove", 11, 90, 120);
+  await expect(crop.locator("img")).toHaveAttribute("style", afterCancel!);
+  await pointer("pointerdown", 33, 60, 90);
+  await pointer("lostpointercapture", 33, 60, 90);
+  await pointer("pointermove", 33, 10, 10);
+  await expect(crop.locator("img")).toHaveAttribute("style", afterCancel!);
+  await dialog.getByRole("button", { name: "Reset framing" }).click();
+  await expect(zoom).toHaveValue("1");
+});
