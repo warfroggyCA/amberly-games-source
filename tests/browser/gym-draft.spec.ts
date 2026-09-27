@@ -15,7 +15,13 @@ test("refresh restores rack identity, draft, cursor, help and undo", async ({
   const letter = rack.filter({ hasText: /[A-Z]/ }).first();
   await letter.click();
   await expect(board.locator(".is-draft")).toHaveCount(1);
-  const placed = await board.locator(".is-draft").getAttribute("aria-label");
+  // Word-validation feedback is appended asynchronously; compare the saved
+  // square/letter/blank identity, not the current analysis suffix.
+  const draftIdentity = async () =>
+    (await board.locator(".is-draft").getAttribute("aria-label"))?.split(
+      ",",
+    )[0];
+  const placed = await draftIdentity();
   await page.getByRole("button", { name: "Hint", exact: true }).click();
   await expect(
     page.getByText("Practice saved on this device.", { exact: true }),
@@ -25,9 +31,7 @@ test("refresh restores rack identity, draft, cursor, help and undo", async ({
     .getByRole("button", { name: "Resume practice", exact: true })
     .click();
   await expect(board.locator(".is-draft")).toHaveCount(1, { timeout: 25000 });
-  expect(await board.locator(".is-draft").getAttribute("aria-label")).toBe(
-    placed,
-  );
+  await expect.poll(draftIdentity).toBe(placed);
   await expect(page.locator(".gym-hints")).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(board.locator(".is-draft")).toHaveCount(0);
