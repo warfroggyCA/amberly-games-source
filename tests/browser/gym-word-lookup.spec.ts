@@ -250,13 +250,20 @@ test("family lookup distinguishes a confirmed word from a failed save and record
   await page
     .getByRole("button", { name: "Start practice", exact: true })
     .click();
-  await page.locator(".gym-board button:not(.has-tile)").first().click();
+  // Occupied tiles gain has-tile only after their introduction animation.
+  // The accessible label identifies an empty square throughout that animation.
+  await page
+    .locator(".gym-board")
+    .getByRole("button", { name: /^[A-O]\d+ empty/ })
+    .first()
+    .click();
   await page
     .locator(
       '[data-gym-rack] button:not([disabled]):not([aria-label*="blank"])',
     )
     .first()
     .click();
+  await expect(page.locator(".gym-board .is-draft")).toHaveCount(1);
   await page.getByRole("button", { name: "Word lookup", exact: true }).click();
   await expect(
     page.getByText("shared across signed-in devices", { exact: false }),
