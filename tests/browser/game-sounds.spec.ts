@@ -9,7 +9,8 @@ import { installFixture } from "./fixtures/crokinole";
 import type { Letter } from "../../src/domain/types";
 
 async function instrumentAudio(page: Page) {
-  // Exercise the real asset fetch/decode pipeline without making the CI host audible.
+  // Fetch real assets and identify game cues by size, without making CI audible.
+  // Background loops share Web Audio but are audited separately in lobby-music.spec.ts.
   await page.addInitScript(() => {
     const log: number[] = [];
     Object.assign(window, { soundStarts: log });
@@ -30,17 +31,27 @@ async function instrumentAudio(page: Page) {
         return {
           connect() {},
           disconnect() {},
-          gain: { setValueAtTime() {}, linearRampToValueAtTime() {} },
+          gain: {
+            value: 1,
+            cancelScheduledValues() {},
+            setValueAtTime(value: number) {
+              this.value = value;
+            },
+            linearRampToValueAtTime(value: number) {
+              this.value = value;
+            },
+          },
         };
       }
       createBufferSource() {
         return {
           buffer: null as { size: number } | null,
+          loop: false,
           onended: null as (() => void) | null,
           connect() {},
           disconnect() {},
           start() {
-            log.push(this.buffer!.size);
+            if (!this.loop) log.push(this.buffer!.size);
           },
           stop() {
             this.onended?.();

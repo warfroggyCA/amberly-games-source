@@ -48,9 +48,11 @@ export function FamilyHub({
   onSignOut,
   signOutGuardRef,
   lobbyMusicSlot,
+  lobbyMusicSettingsSlot,
 }: {
   gymEnabled?: boolean;
   lobbyMusicSlot?: ReactNode;
+  lobbyMusicSettingsSlot?: ReactNode;
   sharedStore: SharedScorerStore;
   shared: SharedState;
   userId: string;
@@ -762,6 +764,7 @@ export function FamilyHub({
       ) : pathname === "/family/settings" ? (
         <main className="hub-content">
           <h1>Settings</h1>
+          {lobbyMusicSettingsSlot}
           <h2>Rules & defaults</h2>
           <button
             className="button light"
