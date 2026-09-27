@@ -164,13 +164,11 @@ test("photo touch gestures pinch in and out and continue dragging after a finger
   })
     .png()
     .toBuffer();
-  await dialog
-    .getByLabel("Profile photo", { exact: true })
-    .setInputFiles({
-      name: "portrait.png",
-      mimeType: "image/png",
-      buffer: image,
-    });
+  await dialog.getByLabel("Profile photo", { exact: true }).setInputFiles({
+    name: "portrait.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
   await expect(
     dialog.getByRole("button", { name: "Use photo", exact: true }),
   ).toBeEnabled();
