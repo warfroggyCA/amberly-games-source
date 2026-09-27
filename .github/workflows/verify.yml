@@ -64,12 +64,15 @@ jobs:
           retention-days: 7
 
   browser:
-    name: Browser (${{ matrix.project }})
+    name: Browser (${{ matrix.project }}, ${{ matrix.shard }}/4)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
+        project:
+          [desktop-chromium, iphone-webkit, ipad-webkit, iphone-landscape]
+        shard: [1, 2, 3, 4]
         include:
           - project: desktop-chromium
             browser: chromium
@@ -108,11 +111,11 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps "${{ matrix.browser }}"
-      - run: npm run test:browser -- --project="${{ matrix.project }}" --workers=1
+      - run: npm run test:browser -- --project="${{ matrix.project }}" --shard="${{ matrix.shard }}/4" --workers=1
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
-          name: browser-failure-evidence-${{ matrix.project }}
+          name: browser-failure-evidence-${{ matrix.project }}-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
