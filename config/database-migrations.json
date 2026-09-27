@@ -13,5 +13,6 @@
   "20260924011827_superadmin_game_removal.sql",
   "20260924214100_gym_profile_history.sql",
   "20260926032143_gameplay_timing_viewers.sql",
-  "20260926185952_player_archiving.sql"
+  "20260926185952_player_archiving.sql",
+  "20260927005922_access_usage.sql"
 ]

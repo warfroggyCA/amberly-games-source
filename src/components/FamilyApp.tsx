@@ -1,4 +1,7 @@
 "use client";
+import { AccessUsageReport } from "./AccessUsageReport";
+import { useUsageTracking } from "../lib/use-usage-tracking";
+import { usageArea } from "../lib/access-usage";
 import { useRouter, usePathname } from "next/navigation";
 import { LobbyMusic } from "./LobbyMusic";
 import { lobbyTrack } from "../lib/lobby-track";
@@ -80,6 +83,11 @@ function FamilyWorkspace({
     store.getServerSnapshot,
   );
   const [admin, setAdmin] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
+  useUsageTracking(
+    state.status === "ready" && state.shared ? user.id : undefined,
+    usageOpen ? "administration" : usageArea(path),
+  );
   const [adminPlayerId, setAdminPlayerId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -310,6 +318,17 @@ function FamilyWorkspace({
               </button>
             )}
 
+            {state.shared!.member.role === "superadmin" && (
+              <div>
+                <strong>Administration</strong>
+                <button
+                  className="text-button"
+                  onClick={() => setUsageOpen(true)}
+                >
+                  Access &amp; Usage
+                </button>
+              </div>
+            )}
             <button
               className="text-button"
               disabled={working || !!state.pending || state.unresolved}
@@ -391,12 +410,19 @@ function FamilyWorkspace({
           userId={user.id}
           renderScrabble={renderScorer}
           onAdmin={() => setAdmin(true)}
+          onUsage={() => setUsageOpen(true)}
           onSignOut={signOut}
         />
       ) : (
         renderScorer()
       )}
 
+      {usageOpen && state.shared!.member.role === "superadmin" && (
+        <AccessUsageReport
+          userId={user.id}
+          onClose={() => setUsageOpen(false)}
+        />
+      )}
       <LobbyMusic
         active={musicActive}
         track={lobbyTrack}

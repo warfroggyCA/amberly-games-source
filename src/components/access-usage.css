@@ -1,0 +1,97 @@
+.usage-report {
+  width: min(960px, calc(100vw - 24px));
+}
+.usage-report .usage-explanation {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--muted, #52635b);
+}
+.usage-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 20px 0;
+}
+.usage-filters label {
+  display: grid;
+  gap: 5px;
+  font-size: 0.9rem;
+}
+.usage-filters input,
+.usage-filters select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.usage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.usage-summary > div {
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.usage-summary dt {
+  font-size: 0.85rem;
+}
+.usage-summary dd {
+  margin: 6px 0 0;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+.usage-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.usage-timeline {
+  padding: 0;
+  list-style: none;
+}
+.usage-timeline li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.usage-timeline li > div {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+}
+.usage-timeline time,
+.usage-timeline small {
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  .usage-filters,
+  .usage-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .usage-timeline li {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+.usage-report details {
+  margin: 12px 0;
+}
+.usage-report summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  align-content: center;
+}
