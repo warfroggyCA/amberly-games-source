@@ -12,7 +12,10 @@ describe("profile photo gestures", () => {
       [{ x: 100, y: 100 }],
       [{ x: 130, y: 80 }],
     );
-    expect(photoCrop(800, 400, frame)).toEqual({ size: 200, x: 270, y: 120 });
+    const crop = photoCrop(800, 400, frame);
+    expect(crop.size).toBe(200);
+    expect(crop.x).toBeCloseTo(270);
+    expect(crop.y).toBeCloseTo(120);
   });
   it("anchors a pinch to its moving midpoint and reverses without drift", () => {
     const frame = { zoom: 2, x: 0.5, y: 0.5 };
@@ -39,33 +42,63 @@ describe("profile photo gestures", () => {
     expect(restored.x).toBeCloseTo(0.5);
     expect(restored.y).toBeCloseTo(0.5);
   });
-  it("limits zoom and panning so portrait and landscape crops stay covered", () => {
-    for (const [width, height] of [
-      [800, 400],
-      [400, 800],
-    ]) {
-      for (const distance of [0, 10000]) {
-        const next = movePhotoFrame(
-          { zoom: 2, x: 0.5, y: 0.5 },
-          width,
-          height,
-          200,
-          [
-            { x: 50, y: 100 },
-            { x: 150, y: 100 },
-          ],
-          [
-            { x: -1000, y: 1000 },
-            { x: -1000 + distance, y: 1000 },
-          ],
-        );
-        expect(next.zoom).toBe(distance === 0 ? 1 : 4);
-        const crop = photoCrop(width, height, next);
-        expect(crop.x).toBeGreaterThanOrEqual(0);
-        expect(crop.y).toBeGreaterThanOrEqual(0);
-        expect(crop.x + crop.size).toBeLessThanOrEqual(width);
-        expect(crop.y + crop.size).toBeLessThanOrEqual(height);
-      }
-    }
+  it("allows subpixel movement past every edge at minimum zoom", () => {
+    const frame = movePhotoFrame(
+      { zoom: 1, x: 0.5, y: 0.5 },
+      256,
+      256,
+      256,
+      [{ x: 100, y: 100 }],
+      [{ x: 100.25, y: 130.25 }],
+    );
+    expect(photoCrop(256, 256, frame)).toEqual({
+      size: 256,
+      x: -0.25,
+      y: -30.25,
+    });
+    const reverse = movePhotoFrame(
+      frame,
+      256,
+      256,
+      256,
+      [{ x: 100.25, y: 130.25 }],
+      [{ x: 99.75, y: 99.75 }],
+    );
+    expect(photoCrop(256, 256, reverse)).toEqual({
+      size: 256,
+      x: 0.25,
+      y: 0.25,
+    });
+  });
+  it("can shrink below frame size while keeping zoom bounded", () => {
+    const before = [
+      { x: 50, y: 100 },
+      { x: 150, y: 100 },
+    ];
+    const next = movePhotoFrame(
+      { zoom: 1, x: 0.5, y: 0.5 },
+      400,
+      800,
+      200,
+      before,
+      [
+        { x: 100, y: 100 },
+        { x: 100, y: 100 },
+      ],
+    );
+    expect(next.zoom).toBe(0.25);
+    expect(photoCrop(400, 800, next).size).toBe(1600);
+    const large = movePhotoFrame(
+      { zoom: 1, x: 0.5, y: 0.5 },
+      400,
+      800,
+      200,
+      before,
+      [
+        { x: -1000, y: 100 },
+        { x: 1000, y: 100 },
+      ],
+    );
+    expect(large.zoom).toBe(4);
   });
 });

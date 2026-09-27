@@ -60,6 +60,7 @@ The required local files, in order, are:
 14. `20260926032143_gameplay_timing_viewers.sql`
 15. `20260926185952_player_archiving.sql`
 16. `20260927005922_access_usage.sql`
+17. `20260927123000_transparent_profile_photos.sql`
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 
@@ -79,3 +80,5 @@ Migration 13 adds private Gym sessions/events only; it has been prepared for loc
 Player archiving is additive: historical games and linked accounts remain intact. Permanent deletion is restricted to archived profiles without account, invitation, game or Gym references. Rehearse migration 15 against an isolated restore and verify its guards before applying it to the hosted database, then deploy the matching API. Retain its schema and tombstones on application rollback so delayed retries cannot resurrect deleted profiles.
 
 Access & Usage adds migration 16 and a superadmin-only report. Review [access/usage semantics and rollout](access-usage.md) before publication. Its table and narrow Gym metadata projection are additive; raw practice ownership remains unchanged. Apply the approved migration before the app, keep receipts on rollback, and verify both report/CSV denial for a member and recording for a signed-in account. The presence of source files is not evidence that tracking has started on the hosted app.
+
+Transparent photo migration 17 widens the existing image constraint without changing rows. Apply before publishing transparent-photo support; retain PNG-capable readers on rollback after PNGs are saved. See [profile personalization](profile-personalization.md).

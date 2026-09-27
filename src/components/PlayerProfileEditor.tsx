@@ -192,11 +192,16 @@ export function PlayerProfileEditor({
             className="text-button"
             disabled={saving || processing}
             onClick={() => {
-              const bytes = Uint8Array.from(atob(photo.slice(23)), (c) =>
-                c.charCodeAt(0),
+              const bytes = Uint8Array.from(
+                atob(photo.slice(photo.indexOf(",") + 1)),
+                (c) => c.charCodeAt(0),
               );
               setFraming(
-                new File([bytes], "profile.jpg", { type: "image/jpeg" }),
+                new File([bytes], "profile", {
+                  type: photo.startsWith("data:image/png;")
+                    ? "image/png"
+                    : "image/jpeg",
+                }),
               );
             }}
           >

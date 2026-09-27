@@ -71,8 +71,9 @@ export function ProfilePhotoFramer({
       <strong>Frame your photo</strong>
       <p className="muted">
         Drag in any direction to position. Pinch with two fingers to zoom in or
-        out, or use the sliders. The crown previews your winner portrait; it is
-        not saved in your photo.
+        out, or use the sliders. You can move beyond the edges; empty areas stay
+        transparent. The crown previews your winner portrait; it is not saved in
+        your photo.
       </p>
       <label className="profile-crown-toggle">
         <input
@@ -158,9 +159,9 @@ export function ProfilePhotoFramer({
         <input
           aria-label="Photo zoom"
           type="range"
-          min="1"
+          min="0.25"
           max="4"
-          step="0.01"
+          step="0.001"
           value={frame.zoom}
           disabled={busy}
           onChange={(e) => setFrame({ ...frame, zoom: Number(e.target.value) })}
@@ -172,9 +173,9 @@ export function ProfilePhotoFramer({
           Horizontal position{" "}
           <input
             type="range"
-            min="0"
-            max="1"
-            step="0.01"
+            min={Math.min(-1, frame.x, frame.y)}
+            max={Math.max(2, frame.x, frame.y)}
+            step="0.001"
             value={frame.x}
             disabled={busy}
             onChange={(e) => setFrame({ ...frame, x: Number(e.target.value) })}
@@ -184,9 +185,9 @@ export function ProfilePhotoFramer({
           Vertical position{" "}
           <input
             type="range"
-            min="0"
-            max="1"
-            step="0.01"
+            min={Math.min(-1, frame.x, frame.y)}
+            max={Math.max(2, frame.x, frame.y)}
+            step="0.001"
             value={frame.y}
             disabled={busy}
             onChange={(e) => setFrame({ ...frame, y: Number(e.target.value) })}

@@ -12,7 +12,7 @@ Permanent deletion is offered only in Archived players. It requires confirmation
 
 History rows show participant photos using current profiles matched by player ID. Winners receive a crown, including each member of a winning doubles team and every tied winner. Missing or corrupt winner photos fall back to the crown; other players use initials. Saved participant names remain the fallback if a profile is unavailable. Photos and nicknames do not rewrite historical scores or journals.
 
-The photo editor previews the same crown geometry used by result portraits and share images. Show crown starts on; toggling it leaves the crop unchanged, and the overlay does not capture drag input. The saved 256-pixel JPEG contains only the photo. Existing cropped photos cannot recover pixels discarded from the original upload.
+The photo editor previews the same crown geometry used by result portraits and share images. Show crown starts on; toggling it leaves the crop unchanged, and the overlay does not capture drag input. The saved 256-pixel image contains only the photo (JPEG for opaque photos, PNG for transparent photos after the transparency migration). Existing cropped photos cannot recover pixels discarded from the original upload.
 
 ## Family standings
 

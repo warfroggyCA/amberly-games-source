@@ -13,8 +13,9 @@ export function isValidProfilePhoto(value: unknown): value is string {
     value.length > 23 + 4 * Math.ceil(MAX_PROFILE_PHOTO_BYTES / 3)
   )
     return false;
-  if (!value.startsWith("data:image/jpeg;base64,")) return false;
-  const encoded = value.slice(23);
+  const png = value.startsWith("data:image/png;base64,");
+  if (!png && !value.startsWith("data:image/jpeg;base64,")) return false;
+  const encoded = value.slice(png ? 22 : 23);
   if (
     !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
       encoded,
@@ -27,11 +28,18 @@ export function isValidProfilePhoto(value: unknown): value is string {
       bytes.length >= 5 &&
       bytes.length <= MAX_PROFILE_PHOTO_BYTES &&
       btoa(bytes) === encoded &&
-      bytes.charCodeAt(0) === 255 &&
-      bytes.charCodeAt(1) === 216 &&
-      bytes.charCodeAt(2) === 255 &&
-      bytes.charCodeAt(bytes.length - 2) === 255 &&
-      bytes.charCodeAt(bytes.length - 1) === 217
+      (png
+        ? [137, 80, 78, 71, 13, 10, 26, 10].every(
+            (v, i) => bytes.charCodeAt(i) === v,
+          ) &&
+          [0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130].every(
+            (v, i) => bytes.charCodeAt(bytes.length - 12 + i) === v,
+          )
+        : bytes.charCodeAt(0) === 255 &&
+          bytes.charCodeAt(1) === 216 &&
+          bytes.charCodeAt(2) === 255 &&
+          bytes.charCodeAt(bytes.length - 2) === 255 &&
+          bytes.charCodeAt(bytes.length - 1) === 217)
     );
   } catch {
     return false;
@@ -105,6 +113,7 @@ export function playerDisplayName(player: {
 }): string {
   return player.nickname || player.name;
 }
+// Transient editor state: x/y are the crop centre in source-image fractions.
 export type PhotoFrame = { zoom: number; x: number; y: number };
 export const DEFAULT_PHOTO_FRAME: PhotoFrame = { zoom: 1, x: 0.5, y: 0.5 };
 export function photoCrop(width: number, height: number, frame: PhotoFrame) {
@@ -114,15 +123,16 @@ export function photoCrop(width: number, height: number, frame: PhotoFrame) {
     height <= 0
   )
     throw new Error("Invalid photo dimensions.");
-  const size = Math.min(width, height) / Math.max(1, Math.min(4, frame.zoom));
+  const size =
+    Math.min(width, height) / Math.max(0.25, Math.min(4, frame.zoom));
   return {
     size,
-    x: (width - size) * Math.max(0, Math.min(1, frame.x)),
-    y: (height - size) * Math.max(0, Math.min(1, frame.y)),
+    x: width * frame.x - size / 2,
+    y: height * frame.y - size / 2,
   };
 }
 
-/** Decode locally and discard the original; only the small JPEG is persisted. */
+/** Decode locally and discard the original; only the small processed image is persisted. */
 export async function prepareProfilePhoto(
   file: File,
   signal?: AbortSignal,
@@ -196,8 +206,6 @@ export async function prepareProfilePhoto(
       const context = canvas.getContext("2d");
       if (!context)
         throw new Error("Photo processing is unavailable in this browser.");
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
       if (crop)
         context.drawImage(
           img,
@@ -211,7 +219,18 @@ export async function prepareProfilePhoto(
           256,
         );
       else context.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const result = canvas.toDataURL("image/jpeg", 0.85);
+      const pixels = context.getImageData(
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      ).data;
+      const transparent = pixels.some(
+        (value, index) => index % 4 === 3 && value < 255,
+      );
+      const result = transparent
+        ? canvas.toDataURL("image/png")
+        : canvas.toDataURL("image/jpeg", 0.85);
       if (!isValidProfilePhoto(result))
         throw new Error(
           "The processed photo is too large or unreadable. Choose another image.",

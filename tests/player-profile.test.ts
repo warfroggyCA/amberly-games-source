@@ -7,6 +7,16 @@ import {
 } from "../src/lib/player-profile";
 const photo = (bytes: number[]) =>
   "data:image/jpeg;base64," + btoa(String.fromCharCode(...bytes));
+const validPng =
+  "data:image/png;base64," +
+  btoa(
+    String.fromCharCode(
+      ...[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66,
+        96, 130,
+      ],
+    ),
+  );
 const validPhoto = photo([255, 216, 255, 224, 255, 217]);
 describe("player profile validation", () => {
   it("accepts existing profiles and bounded optional information", () => {
@@ -53,8 +63,10 @@ describe("player profile validation", () => {
     expect(isValidPlayerProfile(Object.create({ name: "Doug" }))).toBe(false);
     expect(isValidSavedPlayerProfile({ id: "", name: "Doug" })).toBe(false);
   });
-  it("accepts only bounded canonical JPEG data with JPEG signature and ending", () => {
+  it("accepts bounded canonical JPEG and PNG signatures and rejects other formats", () => {
     expect(isValidProfilePhoto(validPhoto)).toBe(true);
+    expect(isValidProfilePhoto(validPng)).toBe(true);
+    expect(isValidProfilePhoto(validPng.slice(0, -4))).toBe(false);
     for (const bad of [
       "https://example.com/a.jpg",
       "data:image/svg+xml;base64,PHN2Zz4=",
@@ -109,7 +121,12 @@ describe("local photo preparation", () => {
     const canvas = {
       width: 0,
       height: 0,
-      getContext: () => ({ fillStyle: "", fillRect, drawImage }),
+      getContext: () => ({
+        fillStyle: "",
+        fillRect,
+        drawImage,
+        getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, 255]) }),
+      }),
       toDataURL: vi.fn(() => validPhoto),
     };
     vi.stubGlobal("document", { createElement: () => canvas });
@@ -130,7 +147,7 @@ describe("local photo preparation", () => {
     s.images[0].onload!();
     expect(await pending).toBe(validPhoto);
     expect(s.drawImage).toHaveBeenCalledWith(s.images[0], 0, 0, 256, 128);
-    expect(s.fillRect).toHaveBeenCalledWith(0, 0, 256, 128);
+    expect(s.fillRect).not.toHaveBeenCalled();
     expect(s.canvas.width).toBe(0);
     expect(s.images[0].src).toBe("");
     expect(s.revoke).toHaveBeenCalledWith("blob:local-photo");
@@ -191,7 +208,7 @@ describe("local photo preparation", () => {
 
 import { photoCrop, playerDisplayName } from "../src/lib/player-profile";
 describe("profile framing and nicknames", () => {
-  it("crops portrait and landscape without uncovered edges and clamps zoom and position", () => {
+  it("centres defaults and allows crop bounds outside the image", () => {
     expect(photoCrop(1200, 600, { zoom: 1, x: 0.5, y: 0.5 })).toEqual({
       size: 600,
       x: 300,
@@ -199,13 +216,13 @@ describe("profile framing and nicknames", () => {
     });
     expect(photoCrop(600, 1200, { zoom: 2, x: 1, y: 0 })).toEqual({
       size: 300,
-      x: 300,
-      y: 0,
+      x: 450,
+      y: -150,
     });
     expect(photoCrop(600, 600, { zoom: 9, x: -2, y: 2 })).toEqual({
       size: 150,
-      x: 0,
-      y: 450,
+      x: -1275,
+      y: 1125,
     });
     expect(() => photoCrop(0, 10, { zoom: 1, x: 0, y: 0 })).toThrow();
     expect(() => photoCrop(10, 10, { zoom: NaN, x: 0, y: 0 })).toThrow();

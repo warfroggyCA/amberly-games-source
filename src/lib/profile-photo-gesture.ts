@@ -26,25 +26,11 @@ export function movePhotoFrame(
     before.length === 2 && distance(before) > 1
       ? distance(after) / distance(before)
       : 1;
-  const zoom = Math.max(1, Math.min(4, frame.zoom * ratio));
+  const zoom = Math.max(0.25, Math.min(4, frame.zoom * ratio));
   const crop = photoCrop(width, height, frame);
   const size = Math.min(width, height) / zoom;
-  const position = (
-    origin: number,
-    from: number,
-    to: number,
-    length: number,
-  ) =>
-    length === size
-      ? 0.5
-      : Math.max(
-          0,
-          Math.min(
-            1,
-            (origin + (from * crop.size - to * size) / windowSize) /
-              (length - size),
-          ),
-        );
+  const position = (origin: number, from: number, to: number, length: number) =>
+    (origin + (from * crop.size - to * size) / windowSize + size / 2) / length;
   return {
     zoom,
     x: position(crop.x, start.x, end.x, width),
