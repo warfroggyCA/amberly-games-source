@@ -9,6 +9,7 @@ import {
   isUsageReport,
   type UsageReport,
   type UsagePerson,
+  type UsageRow,
 } from "../lib/access-usage";
 import "./access-usage.css";
 const dateInput = (d: Date) =>
@@ -22,6 +23,46 @@ const time = (s: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   });
+function consecutiveActivity(rows: UsageRow[]) {
+  const groups: UsageRow[][] = [];
+  for (const row of rows) {
+    const last = groups.at(-1);
+    if (last?.[0].actorId === row.actorId) last.push(row);
+    else groups.push([row]);
+  }
+  return groups;
+}
+function ActivityEntry({ row: r }: { row: UsageRow }) {
+  return (
+    <li className="usage-entry">
+      <div>
+        <strong>{r.name || r.email || r.actorId}</strong>
+        {r.name && <small>{r.email}</small>}
+        <time dateTime={r.at}>{time(r.at)}</time>
+      </div>
+      <div>
+        <strong>{usageActionLabel(r.action)}</strong>
+        <span>
+          {USAGE_LABELS[r.area]} ·{" "}
+          {r.kind === "saved"
+            ? "Saved action"
+            : r.kind === "view"
+              ? "Screen view"
+              : "Visit in this area"}
+        </span>
+        {r.kind === "visit" ? (
+          <span>
+            Last observed {time(r.lastAt)} · {duration(r.activeMs ?? 0)} active
+          </span>
+        ) : (
+          r.kind === "saved" && (
+            <small className="usage-reference">Reference: {r.subject}</small>
+          )
+        )}
+      </div>
+    </li>
+  );
+}
 function initialDates() {
   const to = new Date(),
     from = new Date(to);
@@ -339,38 +380,32 @@ export function AccessUsageReport({
             <p role="status">No activity matches these filters.</p>
           ) : (
             <ol className="usage-timeline">
-              {report.rows.map((r) => (
-                <li key={r.id}>
-                  <div>
-                    <strong>{r.name || r.email || r.actorId}</strong>
-                    {r.name && <small>{r.email}</small>}
-                    <time dateTime={r.at}>{time(r.at)}</time>
-                  </div>
-                  <div>
-                    <strong>{usageActionLabel(r.action)}</strong>
-                    <span>
-                      {USAGE_LABELS[r.area]} ·{" "}
-                      {r.kind === "saved"
-                        ? "Saved action"
-                        : r.kind === "view"
-                          ? "Screen view"
-                          : "Visit in this area"}
-                    </span>
-                    {r.kind === "visit" ? (
-                      <span>
-                        Last observed {time(r.lastAt)} ·{" "}
-                        {duration(r.activeMs ?? 0)} active
-                      </span>
-                    ) : (
-                      r.kind === "saved" && (
-                        <small className="usage-reference">
-                          Reference: {r.subject}
+              {consecutiveActivity(report.rows).map((rows) => {
+                const first = rows[0];
+                if (rows.length === 1)
+                  return <ActivityEntry key={first.id} row={first} />;
+                return (
+                  <li className="usage-group" key={first.id}>
+                    <details>
+                      <summary>
+                        <strong>
+                          {first.name || first.email || first.actorId}
+                        </strong>
+                        <span> · {rows.length} entries</span>
+                        {first.name && <small>{first.email}</small>}
+                        <small>
+                          {time(rows[rows.length - 1].at)} – {time(first.at)}
                         </small>
-                      )
-                    )}
-                  </div>
-                </li>
-              ))}
+                      </summary>
+                      <ol className="usage-timeline">
+                        {rows.map((row) => (
+                          <ActivityEntry key={row.id} row={row} />
+                        ))}
+                      </ol>
+                    </details>
+                  </li>
+                );
+              })}
             </ol>
           )}
           {report.nextCursor && (

@@ -241,3 +241,70 @@ test("a brief visible visit is measured, while closing an idle tab creates no ex
   await page.clock.runFor(5000);
   expect(pulses).toHaveLength(2);
 });
+
+test("only consecutive account entries collapse, including across loaded pages", async ({
+  page,
+}, info) => {
+  await installFixture(page);
+  const entry = (id: string, actorId = report.rows[0].actorId) => ({
+    ...report.rows[0],
+    id,
+    actorId,
+    name: actorId === report.rows[0].actorId ? "Doug" : "Cristine",
+    email:
+      actorId === report.rows[0].actorId
+        ? "doug@example.test"
+        : "cristine@example.test",
+  });
+  await page.route("**/api/family/usage**", (route) => {
+    if (route.request().method() === "POST")
+      return route.fulfill({ json: { accepted: true } });
+    const more = new URL(route.request().url()).searchParams.has("cursor");
+    return route.fulfill({
+      json: {
+        ...report,
+        rows: more
+          ? [entry("doug-4")]
+          : [
+              entry("doug-1"),
+              entry("doug-2"),
+              entry("cristine-1", "22222222-2222-4222-8222-222222222222"),
+              entry("doug-3"),
+            ],
+        nextCursor: more ? null : "next-page",
+      },
+    });
+  });
+  await openReport(page);
+  const timeline = page.locator(".usage-toolbar + .usage-timeline");
+  const groups = timeline.locator(":scope > .usage-group > details");
+  await expect(groups).toHaveCount(1);
+  await expect(groups.first()).not.toHaveAttribute("open", "");
+  await expect(groups.first().locator("summary")).toContainText(
+    "Doug · 2 entries",
+  );
+  await expect(groups.first().locator(".usage-entry").first()).toBeHidden();
+  await expect(timeline.locator(":scope > li")).toHaveCount(3);
+  await expect(timeline.locator(":scope > .usage-entry")).toHaveCount(2);
+  await expect(timeline.locator(":scope > .usage-entry").first()).toContainText(
+    "Cristine",
+  );
+  await groups.first().locator("summary").focus();
+  await page.keyboard.press("Enter");
+  await expect(groups.first().locator(".usage-entry").first()).toBeVisible();
+  await page.getByRole("button", { name: "Load more activity" }).click();
+  await expect(groups).toHaveCount(2);
+  await expect(groups.first()).toHaveAttribute("open", "");
+  await expect(groups.nth(1)).not.toHaveAttribute("open", "");
+  await expect(groups.nth(1).locator("summary")).toContainText(
+    "Doug · 2 entries",
+  );
+  await expect(timeline.locator(":scope > li")).toHaveCount(3);
+  await fitsWidth(page);
+  await page
+    .getByRole("dialog", { name: "Access & Usage", exact: true })
+    .screenshot({ path: info.outputPath("consecutive-activity.png") });
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await expect(groups).toHaveCount(1);
+  await expect(groups.first()).not.toHaveAttribute("open", "");
+});
