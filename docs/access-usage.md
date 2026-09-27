@@ -13,6 +13,8 @@ Open the Amberly menu, then **Administration → Access & Usage**. The entry and
 
 Anonymous viewing-link visitors and unauthenticated/local previews are not tracked. Gym telemetry follows the authenticated profile-history identity and therefore requires the existing Gym history feature to be enabled. No IP addresses, user agents, raw URLs, viewing tokens, typed input, private notes or practice payloads are collected for this feature. Abandoned requests, abrupt page closure, network failure and service downtime can leave gaps; there is no online-now indicator or invented logout time.
 
+Consecutive timeline entries from the same account are grouped into a collapsed section showing the account, entry count and time range. Single entries stay visible. Another account breaks the group; loading more activity joins only adjacent entries at the page boundary. CSV exports retain individual rows.
+
 The default window is seven local calendar days. The UI supports about a month at a time (30 calendar days safely across DST); the API limits the exact interval to 31 days. UTC instants are stored/exported; the UI shows the browser's time zone. Account, area and date filters apply to the totals; activity type filters the timeline only. Pagination preserves database timestamp precision. CSV exports the complete filtered timeline, not merely the loaded page, and rejects more than 10,000 rows with an instruction to narrow the filter. Spreadsheet formula prefixes are neutralized.
 
 ## Storage and release
