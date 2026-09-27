@@ -567,6 +567,23 @@ export function FamilyHub({
                 history.
               </p>
             )}
+            {game && game.status !== "active" && (
+              <nav
+                className="game-return-navigation"
+                aria-label="Return to game lists"
+              >
+                <button
+                  className="button light"
+                  onClick={() =>
+                    void navigate("/family/history").catch((e) =>
+                      setError(e.message),
+                    )
+                  }
+                >
+                  ← Back to history
+                </button>
+              </nav>
+            )}
             <CrokinoleApp
               key={gameId ?? "new"}
               defaults={state.palette?.defaults}
