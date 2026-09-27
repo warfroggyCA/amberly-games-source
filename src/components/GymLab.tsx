@@ -1,4 +1,5 @@
 "use client";
+import { useUsageTracking } from "../lib/use-usage-tracking";
 import { GymStrategyProgress } from "./GymStrategyFeedback";
 import {
   GymStrategyComparison,
@@ -82,6 +83,7 @@ export function GymLab({
     words.map((entry) => entry.word),
   );
   const catalogUserId = historySync.identity?.userId;
+  useUsageTracking(profileHistory ? catalogUserId : undefined, "gym");
   const lookupOwner = useRef(catalogUserId);
   useEffect(() => {
     lookupOwner.current = catalogUserId;

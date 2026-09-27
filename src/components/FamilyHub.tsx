@@ -45,6 +45,7 @@ export function FamilyHub({
   userId,
   renderScrabble,
   onAdmin,
+  onUsage,
   onSignOut,
   signOutGuardRef,
   lobbyMusicSlot,
@@ -61,6 +62,7 @@ export function FamilyHub({
     newGame?: boolean,
   ) => ReactNode;
   onAdmin: () => void;
+  onUsage: () => void;
   onSignOut: () => Promise<void>;
   signOutGuardRef: RefObject<(() => Promise<void>) | null>;
 }) {
@@ -425,6 +427,20 @@ export function FamilyHub({
               </p>
             )}
             <span>{shared.member.email}</span>
+            {shared.member.role === "superadmin" && (
+              <div>
+                <strong>Administration</strong>
+                <button
+                  className="button light"
+                  onClick={() => {
+                    setMenu(false);
+                    onUsage();
+                  }}
+                >
+                  Access &amp; Usage
+                </button>
+              </div>
+            )}
             {gameId && state.creationEnabled && (
               <button
                 className="button light"

@@ -344,6 +344,54 @@ test("real invitation/profile, persisted scoring, final history, and reduced per
     await expect(
       member.getByRole("button", { name: "Retry saved action", exact: true }),
     ).toHaveCount(0);
+
+    // Real report API + database, with the same Auth boundary as gameplay.
+    const usageQuery = new URLSearchParams({
+      from: new Date(Date.now() - 86400000).toISOString(),
+      to: new Date(Date.now() + 86400000).toISOString(),
+    });
+    for (const format of ["", "&format=csv"]) {
+      const blocked = await member.request.get(
+        "/api/family/usage?" + usageQuery + format,
+        { headers: memberHeaders },
+      );
+      expect(blocked.status()).toBe(403);
+    }
+    const usage = await owner.request.get("/api/family/usage?" + usageQuery, {
+      headers: ownerHeaders,
+    });
+    expect(usage.status(), await usage.text()).toBe(200);
+    const usageData = await usage.json();
+    expect(usageData.summary.savedActions).toBeGreaterThan(0);
+    expect(usageData.summary.visits).toBeGreaterThan(0);
+    expect(
+      usageData.rows.some((r: { kind: string }) => r.kind === "saved"),
+    ).toBe(true);
+    const csv = await owner.request.get(
+      "/api/family/usage?" + usageQuery + "&format=csv",
+      { headers: ownerHeaders },
+    );
+    expect(csv.status()).toBe(200);
+    expect(csv.headers()["cache-control"]).toContain("no-store");
+    expect(await csv.text()).toContain("Estimated active seconds");
+    await owner.goto("/family");
+    await owner
+      .getByRole("button", { name: "Open Amberly menu", exact: true })
+      .click();
+    await owner
+      .getByRole("button", { name: "Access & Usage", exact: true })
+      .click();
+    const usageDialog = owner.getByRole("dialog", {
+      name: "Access & Usage",
+      exact: true,
+    });
+    await expect(
+      usageDialog.getByRole("button", { name: "Export filtered CSV" }),
+    ).toBeVisible();
+    await expect(usageDialog.getByRole("alert")).toHaveCount(0);
+    await usageDialog.screenshot({
+      path: testInfo.outputPath("real-access-usage.png"),
+    });
   } finally {
     await memberContext.close();
   }

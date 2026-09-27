@@ -1,3 +1,4 @@
+import { usageDatabaseCases } from "./usage-database-cases";
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
 import { createCrokinoleRepository } from "../src/server/crokinole-repository";
@@ -139,6 +140,7 @@ const code = (value: Promise<unknown>, expected: string) =>
   expect(value).rejects.toMatchObject({ code: expected });
 
 suite("isolated real PostgreSQL shared family repository", () => {
+  usageDatabaseCases(owner, runtime);
   gymHistoryDatabaseCases(owner, runtime);
   playerArchiveDatabaseCases(owner, runtime);
   it("shares confirmed words with scorer and Gym, retries without duplicates, and isolates families", async () => {

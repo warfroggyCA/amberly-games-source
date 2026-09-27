@@ -1,3 +1,4 @@
+import { createUsageRepository } from "./usage-repository";
 import { createGymRepository } from "./gym-repository";
 import "server-only";
 import { createGameSummaryRepository } from "./game-summary-repository";
@@ -82,4 +83,9 @@ export function getGameSummaryRepository() {
 export function getGymRepository() {
   getSharedRepository();
   return createGymRepository(connectionPool!);
+}
+
+export function getUsageRepository() {
+  getSharedRepository();
+  return createUsageRepository(connectionPool!);
 }
