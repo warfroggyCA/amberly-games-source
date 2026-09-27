@@ -102,7 +102,7 @@ test("shared profiles crop photos, preserve cancelled adjustments and save nickn
   const original = await dialog
     .getByAltText("Selected profile photo")
     .getAttribute("src");
-  expect(original).toMatch(/^data:image\/jpeg;base64,/);
+  expect(original).toMatch(/^data:image\/(jpeg|png);base64,/);
   const dimensions = await sharp(
     Buffer.from(original!.split(",")[1], "base64"),
   ).metadata();
@@ -213,4 +213,96 @@ test("photo touch gestures pinch in and out and continue dragging after a finger
   await expect(crop.locator("img")).toHaveAttribute("style", afterCancel!);
   await dialog.getByRole("button", { name: "Reset framing" }).click();
   await expect(zoom).toHaveValue("1");
+});
+
+test("transparent photos can move below the frame edge and retain alpha when saved and reopened", async ({
+  page,
+}) => {
+  const { family } = await installFixture(page);
+  family.playerAccess.doug = { revision: 0, userId: family.member.userId };
+  let savedPhoto = "";
+  await page.route(/\/api\/family(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === "GET")
+      return route.fulfill({ json: family });
+    const { operation: op } = route.request().postDataJSON() as SharedMutation;
+    if (op.type !== "update-player") throw Error("Unexpected operation");
+    savedPhoto = op.profile.photoDataUrl!;
+    const player = { id: op.id, ...op.profile };
+    family.players = family.players.map((p) => (p.id === op.id ? player : p));
+    family.playerAccess[op.id].revision++;
+    return route.fulfill({
+      json: { player, playerAccess: family.playerAccess[op.id] },
+    });
+  });
+  await page.goto("/family/players");
+  await page
+    .getByRole("article", { name: "Doug", exact: true })
+    .getByRole("button", { name: "Edit profile" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Edit player profile" });
+  const image = await sharp({
+    create: {
+      width: 256,
+      height: 256,
+      channels: 4,
+      background: { r: 20, g: 150, b: 50, alpha: 0.5 },
+    },
+  })
+    .png()
+    .toBuffer();
+  await dialog.getByLabel("Profile photo", { exact: true }).setInputFiles({
+    name: "transparent.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Use photo", exact: true }),
+  ).toBeEnabled();
+  const crop = dialog.locator(".profile-crop-window");
+  await crop.scrollIntoViewIfNeeded();
+  const box = (await crop.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.75, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  // The image's top now sits inside the frame, instead of being clamped at zero.
+  expect(
+    await crop
+      .locator("img")
+      .evaluate((el) => parseFloat((el as HTMLElement).style.top)),
+  ).toBeCloseTo(25, 0);
+  await dialog.getByRole("button", { name: "Use photo", exact: true }).click();
+  const src = (await dialog
+    .getByAltText("Selected profile photo")
+    .getAttribute("src"))!;
+  expect(src).toMatch(/^data:image\/png;base64,/);
+  const { data, info } = await sharp(Buffer.from(src.split(",")[1], "base64"))
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  expect(info.channels).toBe(4);
+  expect(data[(20 * 256 + 128) * 4 + 3]).toBe(0);
+  expect(data[(128 * 256 + 128) * 4 + 3]).toBeGreaterThan(120);
+  expect(data[(128 * 256 + 128) * 4 + 3]).toBeLessThan(135);
+  await dialog.getByRole("button", { name: "Save profile" }).click();
+  await expect(dialog).toBeHidden();
+  expect(savedPhoto).toBe(src);
+  await page.reload();
+  await page
+    .getByRole("article", { name: "Doug", exact: true })
+    .getByRole("button", { name: "Edit profile" })
+    .click();
+  await dialog
+    .getByRole("button", { name: "Adjust photo", exact: true })
+    .click();
+  await expect(
+    dialog.getByRole("button", { name: "Use photo", exact: true }),
+  ).toBeEnabled();
+  await dialog.getByRole("slider", { name: "Photo zoom" }).fill("0.5");
+  await dialog.getByRole("button", { name: "Use photo", exact: true }).click();
+  await expect(dialog.getByAltText("Selected profile photo")).toHaveAttribute(
+    "src",
+    /^data:image\/png;base64,/,
+  );
 });

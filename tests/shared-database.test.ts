@@ -1637,6 +1637,79 @@ suite("isolated real PostgreSQL shared family repository", () => {
       (await repository.readState(f.admin, f.familyId)).games[0].players,
     ).toEqual(game.players);
   });
+  it("saves transparent PNG profiles and rejects counterfeit PNGs without overwriting them", async () => {
+    const f = await fixture();
+    const { default: sharp } = await import("sharp");
+    const bytes = await sharp({
+      create: {
+        width: 256,
+        height: 256,
+        channels: 4,
+        background: { r: 0, g: 128, b: 0, alpha: 0.5 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const photoDataUrl = `data:image/png;base64,${bytes.toString("base64")}`;
+    await f.mutate({
+      type: "update-player",
+      id: "ada",
+      expectedRevision: 0,
+      profile: { name: "Ada", photoDataUrl },
+    });
+    const read = () => repository.readState(f.admin, f.familyId);
+    expect(
+      (await read()).players.find((p) => p.id === "ada")!.photoDataUrl,
+    ).toBe(photoDataUrl);
+    const migration = await readFile(
+      new URL(
+        "../supabase/migrations/20260927123000_transparent_profile_photos.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    // Repeat application with a saved image present: no row rewrite or loss.
+    await owner.unsafe(migration);
+    await owner.unsafe(migration);
+    const oversized = await sharp({
+      create: {
+        width: 257,
+        height: 256,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer();
+    await code(
+      f.mutate({
+        type: "update-player",
+        id: "ada",
+        expectedRevision: 1,
+        profile: {
+          name: "Changed",
+          photoDataUrl: `data:image/png;base64,${oversized.toString("base64")}`,
+        },
+      }),
+      "INVALID_PROFILE_PHOTO",
+    );
+    const fake = Buffer.concat([bytes.subarray(0, 8), bytes.subarray(-12)]);
+    await code(
+      f.mutate({
+        type: "update-player",
+        id: "ada",
+        expectedRevision: 1,
+        profile: {
+          name: "Changed",
+          photoDataUrl: `data:image/png;base64,${fake.toString("base64")}`,
+        },
+      }),
+      "INVALID_PROFILE_PHOTO",
+    );
+    expect(
+      (await read()).players.find((p) => p.id === "ada")!.photoDataUrl,
+    ).toBe(photoDataUrl);
+  });
   it("decodes profile JPEGs on the server and rejects malformed images without changing the profile", async () => {
     const f = await fixture();
     const counterfeit = `data:image/jpeg;base64,${Buffer.from([255, 216, 255, 0, 255, 217]).toString("base64")}`;

@@ -1712,12 +1712,16 @@ export function createSharedRepository(
     ) {
       try {
         const image = sharp(
-          Buffer.from(input.operation.profile.photoDataUrl.slice(23), "base64"),
+          Buffer.from(
+            input.operation.profile.photoDataUrl.split(",")[1],
+            "base64",
+          ),
           { limitInputPixels: 256 * 256, failOn: "warning" },
         );
         const metadata = await image.metadata();
         if (
-          metadata.format !== "jpeg" ||
+          !["jpeg", "png"].includes(metadata.format ?? "") ||
+          (metadata.pages ?? 1) !== 1 ||
           !metadata.width ||
           !metadata.height ||
           metadata.width > 256 ||
@@ -1728,7 +1732,7 @@ export function createSharedRepository(
       } catch {
         reject(
           "INVALID_PROFILE_PHOTO",
-          "Choose a valid JPEG profile photo no larger than 256 by 256 pixels.",
+          "Choose a valid JPEG or PNG profile photo no larger than 256 by 256 pixels.",
         );
       }
     }
