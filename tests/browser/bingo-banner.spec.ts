@@ -37,6 +37,8 @@ function games() {
 test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async ({
   page,
 }, info) => {
+  const pausedAt = new Date("2026-09-26T20:00:00Z");
+  await page.clock.install({ time: pausedAt.getTime() - 60 * 60 * 1000 });
   await page.goto("/");
   await page.getByRole("button", { name: /New preview game/ }).click();
   for (const name of ["Ada", "Ben"]) {
@@ -53,6 +55,9 @@ test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async (
   await expect(banner).toHaveCount(0);
   await page.getByRole("button", { name: "Review turn", exact: true }).click();
   await expect(banner).toHaveCount(0);
+  // Pause JavaScript timers before the banner exists. Native CSS animations and
+  // the real dismiss click still run, without racing its eight-second lifetime.
+  await page.clock.pauseAt(pausedAt);
   await page
     .getByRole("button", { name: "Record 70 points", exact: true })
     .click();
@@ -113,6 +118,7 @@ test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async (
   await page.screenshot({ path: info.outputPath("bingo-motion-settled.png") });
   await page.getByRole("button", { name: "Dismiss bingo celebration" }).click();
   await expect(banner).toHaveCount(0);
+  await page.clock.resume();
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })
@@ -214,9 +220,15 @@ test("a seven-letter word made with fewer than seven new tiles is not a bingo", 
 test("bingo celebration expires despite repeated viewer polls", async ({
   page,
 }) => {
+  const pausedAt = new Date("2026-09-26T20:00:00Z");
+  await page.clock.install({ time: pausedAt.getTime() - 60 * 60 * 1000 });
   const { empty, played } = games();
   let game = empty;
-  await page.route("**/api/watch", (r) => r.fulfill({ json: { game } }));
+  let polls = 0;
+  await page.route("**/api/watch", (r) => {
+    polls++;
+    return r.fulfill({ json: { game } });
+  });
   await page.route("**/api/watch/draft", (r) =>
     r.fulfill({ json: { draft: null } }),
   );
@@ -224,8 +236,25 @@ test("bingo celebration expires despite repeated viewer polls", async ({
   await expect(
     page.getByRole("region", { name: "Live game viewer" }),
   ).toBeVisible();
+  await page.clock.pauseAt(pausedAt);
   game = played;
   const banner = page.getByRole("complementary", { name: "Bingo celebration" });
+  // Load the committed turn without advancing time while its response is in
+  // flight; the banner's entire lifetime then starts at one paused timestamp.
+  await expect
+    .poll(async () => {
+      await page.evaluate(() =>
+        document.dispatchEvent(new Event("visibilitychange")),
+      );
+      return banner.isVisible();
+    })
+    .toBe(true);
+  const initialPolls = polls;
+  await page.clock.runFor(5000);
+  await expect.poll(() => polls).toBeGreaterThan(initialPolls);
   await expect(banner).toBeVisible();
-  await expect(banner).toHaveCount(0, { timeout: 12000 });
+  await page.clock.runFor(2999);
+  await expect(banner).toBeVisible();
+  await page.clock.runFor(1);
+  await expect(banner).toHaveCount(0);
 });
