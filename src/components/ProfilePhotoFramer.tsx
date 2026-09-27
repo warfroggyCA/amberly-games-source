@@ -6,6 +6,10 @@ import {
   prepareProfilePhoto,
 } from "../lib/player-profile";
 import { PortraitCrown } from "./PortraitCrown";
+import {
+  movePhotoFrame,
+  type PhotoPointer,
+} from "../lib/profile-photo-gesture";
 
 export function ProfilePhotoFramer({
   file,
@@ -18,14 +22,17 @@ export function ProfilePhotoFramer({
 }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [frame, setFrame] = useState(DEFAULT_PHOTO_FRAME);
+  const [frame, renderFrame] = useState(DEFAULT_PHOTO_FRAME);
+  const frameRef = useRef(DEFAULT_PHOTO_FRAME);
+  const pointers = useRef(new Map<number, PhotoPointer>());
+  function setFrame(next: typeof frame) {
+    frameRef.current = next;
+    renderFrame(next);
+  }
   const [showCrown, setShowCrown] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const abort = useRef<AbortController | null>(null);
-  const drag = useRef<{ x: number; y: number; frame: typeof frame } | null>(
-    null,
-  );
   useEffect(() => {
     const url = URL.createObjectURL(file);
     if (imageRef.current) imageRef.current.src = url;
@@ -41,6 +48,7 @@ export function ProfilePhotoFramer({
     if (abort.current || !crop) return;
     const controller = new AbortController();
     abort.current = controller;
+    pointers.current.clear();
     setBusy(true);
     setError("");
     try {
@@ -62,9 +70,9 @@ export function ProfilePhotoFramer({
     <section className="profile-framer" aria-label="Adjust profile photo">
       <strong>Frame your photo</strong>
       <p className="muted">
-        Drag to position, then zoom to fill the circle. You can also use the
-        position sliders. The crown previews your winner portrait; it is not
-        saved in your photo.
+        Drag in any direction to position. Pinch with two fingers to zoom in or
+        out, or use the sliders. The crown previews your winner portrait; it is
+        not saved in your photo.
       </p>
       <label className="profile-crown-toggle">
         <input
@@ -79,46 +87,43 @@ export function ProfilePhotoFramer({
         <div
           className="profile-crop-window"
           onPointerDown={(e) => {
-            if (busy || !crop) return;
+            if (busy || !crop || (e.pointerType === "mouse" && e.button !== 0))
+              return;
             e.currentTarget.setPointerCapture(e.pointerId);
-            drag.current = { x: e.clientX, y: e.clientY, frame };
-          }}
-          onPointerMove={(e) => {
-            if (!drag.current || !crop || busy) return;
-            const scale =
-              e.currentTarget.getBoundingClientRect().width / crop.size;
-            const start = drag.current;
-            const clamp = (n: number) => Math.max(0, Math.min(1, n));
-            setFrame({
-              ...start.frame,
-              x:
-                dimensions.width === crop.size
-                  ? 0.5
-                  : clamp(
-                      start.frame.x -
-                        (e.clientX - start.x) /
-                          scale /
-                          (dimensions.width - crop.size),
-                    ),
-              y:
-                dimensions.height === crop.size
-                  ? 0.5
-                  : clamp(
-                      start.frame.y -
-                        (e.clientY - start.y) /
-                          scale /
-                          (dimensions.height - crop.size),
-                    ),
+            const rect = e.currentTarget.getBoundingClientRect();
+            pointers.current.set(e.pointerId, {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
             });
           }}
-          onPointerUp={() => {
-            drag.current = null;
+          onPointerMove={(e) => {
+            if (!pointers.current.has(e.pointerId) || !crop || busy) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const before = [...pointers.current.values()].slice(0, 2);
+            pointers.current.set(e.pointerId, {
+              x: e.clientX - rect.left,
+              y: e.clientY - rect.top,
+            });
+            const after = [...pointers.current.values()].slice(0, 2);
+            setFrame(
+              movePhotoFrame(
+                frameRef.current,
+                dimensions.width,
+                dimensions.height,
+                rect.width,
+                before,
+                after,
+              ),
+            );
           }}
-          onPointerCancel={() => {
-            drag.current = null;
+          onPointerUp={(e) => {
+            pointers.current.delete(e.pointerId);
           }}
-          onLostPointerCapture={() => {
-            drag.current = null;
+          onPointerCancel={(e) => {
+            pointers.current.delete(e.pointerId);
+          }}
+          onLostPointerCapture={(e) => {
+            pointers.current.delete(e.pointerId);
           }}
         >
           {/* Local object URL, never uploaded or persisted. */}
