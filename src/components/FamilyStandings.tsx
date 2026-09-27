@@ -1,11 +1,15 @@
 "use client";
 import { useState } from "react";
+import { PlayerPortrait } from "./PlayerPortrait";
 import {
   rankStandings,
   type Standing,
   type StandingsView,
 } from "../lib/standings";
-import { playerDisplayName } from "../lib/player-profile";
+import {
+  type PlayerProfileFields,
+  playerDisplayName,
+} from "../lib/player-profile";
 import "./family-standings.css";
 
 type Sort = "rank" | "name" | "played" | "wins" | "ties" | "winRate";
@@ -20,7 +24,7 @@ export function FamilyStandings({
   gameFilter,
 }: {
   rows: Standing[];
-  players: { id: string; name: string; nickname?: string }[];
+  players: (PlayerProfileFields & { id: string })[];
   gameFilter: string;
 }) {
   const [selection, setSelection] = useState<{
@@ -125,7 +129,19 @@ export function FamilyStandings({
                 <tr key={row.playerId}>
                   <td>{row.rank}</td>
                   <th scope="row">
-                    {row.name}
+                    <span className="standings-player">
+                      <span className="standings-portrait">
+                        <PlayerPortrait
+                          name={row.name}
+                          photoDataUrl={
+                            players.find((player) => player.id === row.playerId)
+                              ?.photoDataUrl
+                          }
+                          lazy
+                        />
+                      </span>
+                      {row.name}
+                    </span>
                     {view === "overall" && (
                       <small className="standings-breakdown">
                         {views

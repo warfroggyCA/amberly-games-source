@@ -166,6 +166,11 @@ test("viewers can inspect original Crokinole results and excluded entries after 
     path: info.outputPath("crokinole-changes.png"),
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Back to history" }).click();
+  await expect(page).toHaveURL(/\/family\/history$/);
+  await expect(page.locator(".history-participant-winner")).toContainText(
+    "Doug",
+  );
   expect(f.game()).toEqual(game);
 });
 

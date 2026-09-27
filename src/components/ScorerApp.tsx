@@ -140,6 +140,7 @@ export function ScorerApp({
     "confirmed",
   );
   const [view, setView] = useState<View>(initialView);
+  const [returnView, setReturnView] = useState<View | null>(null);
   useEffect(() => {
     onGameViewChange?.(view === "Play");
     return () => onGameViewChange?.(false);
@@ -318,8 +319,10 @@ export function ScorerApp({
         const synced = shared ? data : saveVerifiedWords(data, [], gameId);
         return { ...synced, activeGameId: gameId };
       })
-    )
+    ) {
+      setReturnView(view);
       setView("Play");
+    }
   }
   async function addPlayer(name: string): Promise<string | null> {
     const trimmed = name.trim();
@@ -833,6 +836,39 @@ export function ScorerApp({
         onExport={store.exportWorkspace}
       />
     );
+  const returnNavigation = view === "Play" &&
+    game &&
+    (returnView || game.status === "finalized") && (
+      <nav className="game-return-navigation" aria-label="Return to game lists">
+        <button
+          className="button light"
+          onClick={() => {
+            setPanelOpen(false);
+            if (returnView) setView(returnView);
+            else if (onNavigate) onNavigate("/family/history");
+            else setView("History");
+          }}
+        >
+          ←{" "}
+          {returnView === "Records"
+            ? "Back to records"
+            : returnView === "Home"
+              ? "Back to leaderboard"
+              : "Back to history"}
+        </button>
+        {returnView && returnView !== "History" && (
+          <button
+            className="text-button"
+            onClick={() => {
+              if (onNavigate) onNavigate("/family/history");
+              else setView("History");
+            }}
+          >
+            Game history
+          </button>
+        )}
+      </nav>
+    );
   const setupDialog = (modal === "setup" || modal === "rematch") && (
     <PlayerSetup
       initialSetup={
@@ -894,6 +930,7 @@ export function ScorerApp({
               {error ?? state.error}
             </p>
           )}
+          {returnNavigation}
           {playAgain}
           {draftRecovery}
           <SpectatorGame
@@ -941,6 +978,7 @@ export function ScorerApp({
         />
       )}
       <main>
+        {returnNavigation}
         {notice && (
           <p className="inline-message" role="status">
             {notice}
@@ -1223,6 +1261,7 @@ export function ScorerApp({
                 onHistory={() => setView("History")}
               />
             )}
+            {returnNavigation}
             {playAgain}
             {draftRecovery}
             {view === "Play" &&
