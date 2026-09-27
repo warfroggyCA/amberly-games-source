@@ -131,120 +131,132 @@ test("Crokinole tied teams show both partners without assigning a teammate's pho
   await fitsWidth(page);
 });
 
-test("saved Scrabble results return to history and use the latest profile photo", async ({
-  page,
-}, info) => {
-  const fixture = await installFixture(page);
-  const { createGame } = await import("../../src/domain/game");
-  const { testLexicon } = await import("../../src/lib/test-lexicon");
-  const created = createGame({
-    id: "return-history",
-    players: [
-      { id: "doug", name: "Doug", seat: 0 },
-      { id: "erin", name: "Erin", seat: 2 },
-    ],
-    firstPlayerId: "doug",
-    direction: "clockwise",
-    lexicon: testLexicon,
-  });
-  if (!created.ok) throw new Error(created.error.message);
-  const game = {
-    ...created.game,
-    status: "finalized" as const,
-    result: {
-      scores: { doug: 197, erin: 126 },
-      winnerIds: ["doug"],
-      reason: "natural" as const,
-      racks: {},
-      actualBagCount: 0,
-      competitiveEligible: true,
-      revision: 0,
-      assisted: false,
-      unequalTurns: false,
-      scoresBeforeAdjustments: { doug: 197, erin: 126 },
-      adjustments: {
-        doug: { deduction: 0, transfer: 0, finalScore: 197 },
-        erin: { deduction: 0, transfer: 0, finalScore: 126 },
+for (const canScore of [false, true])
+  test(`saved Scrabble results return to history and use the latest profile photo (scorer: ${canScore})`, async ({
+    page,
+  }, info) => {
+    const fixture = await installFixture(page);
+    const { createGame } = await import("../../src/domain/game");
+    const { testLexicon } = await import("../../src/lib/test-lexicon");
+    const created = createGame({
+      id: "return-history",
+      players: [
+        { id: "doug", name: "Doug", seat: 0 },
+        { id: "erin", name: "Erin", seat: 2 },
+      ],
+      firstPlayerId: "doug",
+      direction: "clockwise",
+      lexicon: testLexicon,
+    });
+    if (!created.ok) throw new Error(created.error.message);
+    const game = {
+      ...created.game,
+      status: "finalized" as const,
+      result: {
+        scores: { doug: 197, erin: 126 },
+        winnerIds: ["doug"],
+        reason: "natural" as const,
+        racks: {},
+        actualBagCount: 0,
+        competitiveEligible: true,
+        revision: 0,
+        assisted: false,
+        unequalTurns: false,
+        scoresBeforeAdjustments: { doug: 197, erin: 126 },
+        adjustments: {
+          doug: { deduction: 0, transfer: 0, finalScore: 197 },
+          erin: { deduction: 0, transfer: 0, finalScore: 126 },
+        },
       },
-    },
-  };
-  fixture.family.games.push(game);
-  const saved = JSON.stringify(game);
-  const photo = async (background: string) =>
-    `data:image/png;base64,${(
-      await sharp({
-        create: { width: 96, height: 96, channels: 4, background },
-      })
-        .png()
-        .toBuffer()
-    ).toString("base64")}`;
-  const oldPhoto = await photo("#25885580");
-  const newPhoto = await photo("#aa558880");
-  fixture.family.players[0].photoDataUrl = oldPhoto;
-  await page.route("**/api/family/games?*", (route) =>
-    route.fulfill({
-      json: {
-        games: [
-          {
-            gameType: "scrabble",
-            id: game.id,
-            createdAt: game.definition.createdAt,
-            status: "finalized",
-            participants: game.players,
-            totals: game.result.scores,
-            winnerIds: ["doug"],
-            mode: "confirmed",
-            scorerUserId: fixture.family.member.userId,
-            revision: 0,
-          },
-        ],
-        nextCursor: null,
-        standings: [
-          {
-            playerId: "doug",
-            gameType: "scrabble",
-            played: 1,
-            wins: 1,
-            ties: 0,
-          },
-        ],
-      },
-    }),
-  );
-  await page.goto("/family/history");
-  const row = page.locator(".hub-recent-game");
-  await expect(row.getByAltText("Doug’s profile photo")).toHaveAttribute(
-    "src",
-    oldPhoto,
-  );
-  // Opening a saved game refreshes the current family profiles as well.
-  fixture.family.players[0].photoDataUrl = newPhoto;
-  await row.click();
-  const back = page.getByRole("button", { name: "Back to history" });
-  await expect(back).toBeVisible();
-  await page.screenshot({ path: info.outputPath("history-return.png") });
-  await back.click();
-  await expect(page).toHaveURL(/\/family\/history$/);
-  await expect(row.getByAltText("Doug’s profile photo")).toHaveAttribute(
-    "src",
-    newPhoto,
-  );
-  await page
-    .getByText("Family standings · wins & ranks", { exact: true })
-    .click();
-  await expect(
-    page.locator(".family-standings").getByAltText("Doug’s profile photo"),
-  ).toHaveAttribute("src", newPhoto);
-  await fitsWidth(page);
-  // The Scrabble recent-games screen also returns to its own list.
-  await page.goto("/family/scrabble");
-  await page.locator(".game-list button").first().click();
-  await page.getByRole("button", { name: "Back to leaderboard" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Recent games" }),
-  ).toBeVisible();
-  expect(JSON.stringify(fixture.family.games[0])).toBe(saved);
-  await page.screenshot({
-    path: info.outputPath("current-profile-standings.png"),
+    };
+    fixture.family.games.push(game);
+    fixture.family.gameAccess[game.id] = {
+      scorerUserId: fixture.family.member.userId,
+      deviceId: "test-device",
+      generation: 1,
+      mode: "confirmed",
+      recordsEligible: true,
+      protests: [],
+      canScore,
+      approvals: [],
+    };
+    const saved = JSON.stringify(game);
+    const photo = async (background: string) =>
+      `data:image/png;base64,${(
+        await sharp({
+          create: { width: 96, height: 96, channels: 4, background },
+        })
+          .png()
+          .toBuffer()
+      ).toString("base64")}`;
+    const oldPhoto = await photo("#25885580");
+    const newPhoto = await photo("#aa558880");
+    fixture.family.players[0].photoDataUrl = oldPhoto;
+    await page.route("**/api/family/games?*", (route) =>
+      route.fulfill({
+        json: {
+          games: [
+            {
+              gameType: "scrabble",
+              id: game.id,
+              createdAt: game.definition.createdAt,
+              status: "finalized",
+              participants: game.players,
+              totals: game.result.scores,
+              winnerIds: ["doug"],
+              mode: "confirmed",
+              scorerUserId: fixture.family.member.userId,
+              revision: 0,
+            },
+          ],
+          nextCursor: null,
+          standings: [
+            {
+              playerId: "doug",
+              gameType: "scrabble",
+              played: 1,
+              wins: 1,
+              ties: 0,
+            },
+          ],
+        },
+      }),
+    );
+    await page.goto("/family/history");
+    const row = page.locator(".hub-recent-game");
+    await expect(row.getByAltText("Doug’s profile photo")).toHaveAttribute(
+      "src",
+      oldPhoto,
+    );
+    // Opening a saved game refreshes the current family profiles as well.
+    fixture.family.players[0].photoDataUrl = newPhoto;
+    await row.click();
+    const back = page.getByRole("button", { name: "Back to history" });
+    await expect(back).toHaveCount(1);
+    await expect(back).toBeVisible();
+    await page.screenshot({ path: info.outputPath("history-return.png") });
+    await back.click();
+    await expect(page).toHaveURL(/\/family\/history$/);
+    await expect(row.getByAltText("Doug’s profile photo")).toHaveAttribute(
+      "src",
+      newPhoto,
+    );
+    await page
+      .getByText("Family standings · wins & ranks", { exact: true })
+      .click();
+    await expect(
+      page.locator(".family-standings").getByAltText("Doug’s profile photo"),
+    ).toHaveAttribute("src", newPhoto);
+    await fitsWidth(page);
+    // The Scrabble recent-games screen also returns to its own list.
+    await page.goto("/family/scrabble");
+    await page.locator(".game-list button").first().click();
+    await page.getByRole("button", { name: "Back to leaderboard" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Recent games" }),
+    ).toBeVisible();
+    expect(JSON.stringify(fixture.family.games[0])).toBe(saved);
+    await page.screenshot({
+      path: info.outputPath("current-profile-standings.png"),
+    });
   });
-});

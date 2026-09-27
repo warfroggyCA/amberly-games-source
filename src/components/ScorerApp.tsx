@@ -1261,7 +1261,6 @@ export function ScorerApp({
                 onHistory={() => setView("History")}
               />
             )}
-            {returnNavigation}
             {playAgain}
             {draftRecovery}
             {view === "Play" &&
