@@ -10,7 +10,6 @@ import type { Letter } from "../../src/domain/types";
 
 async function instrumentAudio(page: Page) {
   // Fetch real assets and identify game cues by size, without making CI audible.
-  // Background loops share Web Audio but are audited separately in lobby-music.spec.ts.
   await page.addInitScript(() => {
     const log: number[] = [];
     Object.assign(window, { soundStarts: log });

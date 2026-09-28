@@ -3,8 +3,6 @@ import { AccessUsageReport } from "./AccessUsageReport";
 import { useUsageTracking } from "../lib/use-usage-tracking";
 import { usageArea } from "../lib/access-usage";
 import { useRouter, usePathname } from "next/navigation";
-import { LobbyMusic } from "./LobbyMusic";
-import { lobbyTrack } from "../lib/lobby-track";
 import { PlayerOnboarding } from "./PlayerOnboarding";
 import { FamilyHub } from "./FamilyHub";
 import { hasPermission } from "../lib/member-permissions";
@@ -61,21 +59,6 @@ function FamilyWorkspace({
 }) {
   const router = useRouter();
   const path = usePathname();
-  const [scorerPlaying, setScorerPlaying] = useState(false);
-  const [musicTarget, setMusicTarget] = useState<HTMLSpanElement | null>(null);
-  const [musicSettingsTarget, setMusicSettingsTarget] =
-    useState<HTMLDivElement | null>(null);
-  const musicSlot = lobbyTrack ? (
-    <span className="lobby-music-slot" ref={setMusicTarget} />
-  ) : undefined;
-  const musicActive =
-    [
-      "/family",
-      "/family/history",
-      "/family/players",
-      "/family/settings",
-      "/family/scrabble",
-    ].includes(path) && !scorerPlaying;
   const [store] = useState(() => createSharedStore(user.id));
   const state = useSyncExternalStore(
     store.subscribe,
@@ -282,8 +265,6 @@ function FamilyWorkspace({
         setAdmin(true);
       }}
       onPlayerOperation={(operation) => store.administer(operation)}
-      onGameViewChange={setScorerPlaying}
-      lobbyMusicSlot={musicSlot}
       liveContext={{
         userId: user.id,
         generation:
@@ -400,10 +381,6 @@ function FamilyWorkspace({
       {hubEnabled ? (
         <FamilyHub
           gymEnabled={gymEnabled}
-          lobbyMusicSlot={musicSlot}
-          lobbyMusicSettingsSlot={
-            lobbyTrack ? <div ref={setMusicSettingsTarget} /> : undefined
-          }
           signOutGuardRef={hubSignOutGuard}
           sharedStore={store}
           shared={state.shared!}
@@ -423,12 +400,6 @@ function FamilyWorkspace({
           onClose={() => setUsageOpen(false)}
         />
       )}
-      <LobbyMusic
-        active={musicActive}
-        track={lobbyTrack}
-        controlsTarget={musicTarget}
-        settingsTarget={musicSettingsTarget}
-      />
 
       {admin &&
         (state.shared!.member.role === "superadmin" ||

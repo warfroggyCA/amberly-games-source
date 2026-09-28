@@ -48,12 +48,8 @@ export function FamilyHub({
   onUsage,
   onSignOut,
   signOutGuardRef,
-  lobbyMusicSlot,
-  lobbyMusicSettingsSlot,
 }: {
   gymEnabled?: boolean;
-  lobbyMusicSlot?: ReactNode;
-  lobbyMusicSettingsSlot?: ReactNode;
   sharedStore: SharedScorerStore;
   shared: SharedState;
   userId: string;
@@ -392,7 +388,6 @@ export function FamilyHub({
         onMenu={() => setMenu(!menu)}
         menuOpen={menu}
       >
-        {!isCrokinole && lobbyMusicSlot}
         {isCrokinole && (
           <span className="crokinole-save-status" role="status">
             {state.pending
@@ -797,7 +792,6 @@ export function FamilyHub({
       ) : pathname === "/family/settings" ? (
         <main className="hub-content">
           <h1>Settings</h1>
-          {lobbyMusicSettingsSlot}
           <h2>Rules & defaults</h2>
           <button
             className="button light"
