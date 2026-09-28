@@ -5,6 +5,8 @@ import { LETTER_COUNTS, type TileSupply } from "../src/domain/board";
 import type { GameCommand, PhysicalTile } from "../src/domain/game";
 import type { Letter } from "../src/domain/types";
 import { competitiveResultEligible } from "../src/domain/records";
+import { readFileSync } from "node:fs";
+import type { GameState } from "../src/domain/game";
 import { isGameSummaryPage } from "../src/lib/game-summary";
 import type { SharedOperation } from "../src/lib/shared-contract";
 import { testLexicon } from "../src/lib/test-lexicon";
@@ -202,6 +204,27 @@ export function gameSummaryDatabaseCases(
         expect(result.standings).toHaveLength(2);
         for (const row of result.standings!) expect(row.played).toBe(1);
       }
+    });
+    it("applies each result's recorded eligibility rules to legacy journals", async () => {
+      // Parent-commit journals, inserted as they would exist in older databases.
+      const { games } = JSON.parse(
+        readFileSync(
+          new URL("./fixtures/legacy-finalized-games.json", import.meta.url),
+          "utf8",
+        ),
+      ) as { games: Record<string, GameState> };
+      const f = await fixture(false, true);
+      for (const state of Object.values(games)) {
+        await owner`insert into scrabble.game_definitions(family_id,game_id,mode,definition,created_by) values(${f.familyId}::uuid,${state.id},'confirmed',${owner.json(JSON.parse(JSON.stringify(state.definition)))},${f.actor.userId}::uuid)`;
+        await owner`insert into scrabble.game_heads(family_id,game_id,revision,state,scorer_user_id,scorer_device_id,scorer_device_hash) values(${f.familyId}::uuid,${state.id},${state.revision},${owner.json(JSON.parse(JSON.stringify(state)))},${f.actor.userId}::uuid,'legacy-device',${"b".repeat(64)})`;
+      }
+      const counted = Object.values(games).filter(competitiveResultEligible);
+      expect(counted.map((g) => g.id)).toEqual(["legacy-plain"]);
+      const standings = (await f.read()).standings!;
+      expect(standings.map((r) => [r.playerId, r.played])).toEqual([
+        ["a", counted.length],
+        ["b", counted.length],
+      ]);
     });
     it("keeps standings aligned with domain eligibility for excluded games", async () => {
       const f = await fixture(false, true, ["ZAX"]);

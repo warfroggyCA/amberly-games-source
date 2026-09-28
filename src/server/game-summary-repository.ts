@@ -113,6 +113,10 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
                 and (h.state->'assistance' is null or h.state->'assistance'='null'::jsonb)
                 and not (h.state ? 'tileSupply')
                 and not exists(select 1 from jsonb_array_elements(h.state->'events') e where e->'command'->>'type'='extend-supply')
+                -- Mirrors competitiveResultEligible: pre-policy results keep their original verified-word rule.
+                and (h.state->'result'->>'eligibilityPolicy'='2'
+                  or (jsonb_array_length(coalesce(h.state->'verifiedWords','[]'::jsonb))=0
+                    and not exists(select 1 from jsonb_array_elements(h.state->'events') e where e->'command'->>'type'='verify-words')))
                 and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
                 and not exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id where p.family_id=d.family_id and p.game_id=d.game_id and (r.outcome is null or r.outcome='upheld'))
               union all

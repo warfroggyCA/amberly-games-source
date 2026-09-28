@@ -5,6 +5,7 @@ import {
   createGame,
   hydrateGame,
   MAX_GAME_EVENTS,
+  RESULT_ELIGIBILITY_POLICY,
   getTileSupply,
   getTileTotal,
   hasCustomTileSupply,
@@ -1805,6 +1806,7 @@ describe("audited publisher word additions", () => {
       ),
     );
     expect(state.result?.competitiveEligible).toBe(true);
+    expect(state.result?.eligibilityPolicy).toBe(RESULT_ELIGIBILITY_POLICY);
     expect(competitiveResultEligible(state)).toBe(true);
     expect(humanTurnEligible(state, state.turns[0])).toBe(true);
     // The journal keeps the evidence and replays to the same result.

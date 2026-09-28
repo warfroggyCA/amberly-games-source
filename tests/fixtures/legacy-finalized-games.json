@@ -1,0 +1,2213 @@
+{
+  "generatedBy": "23c532b",
+  "lexicon": "legacy-fixture/1/ready",
+  "games": {
+    "playedAddition": {
+      "version": "family-v1.0.0",
+      "definition": {
+        "id": "legacy-played",
+        "players": [
+          {
+            "id": "a",
+            "name": "Doug",
+            "seat": 0
+          },
+          {
+            "id": "b",
+            "name": "Emma",
+            "seat": 2
+          }
+        ],
+        "firstPlayerId": "a",
+        "direction": "clockwise",
+        "lexicon": {
+          "id": "legacy-fixture",
+          "edition": "1",
+          "status": "ready"
+        },
+        "createdAt": "2026-09-20T20:00:00.000Z"
+      },
+      "id": "legacy-played",
+      "players": [
+        {
+          "id": "a",
+          "name": "Doug",
+          "seat": 0
+        },
+        {
+          "id": "b",
+          "name": "Emma",
+          "seat": 2
+        }
+      ],
+      "order": ["a", "b"],
+      "currentPlayerId": "b",
+      "direction": "clockwise",
+      "mode": "multiplayer",
+      "lexicon": {
+        "id": "legacy-fixture",
+        "edition": "1",
+        "status": "ready"
+      },
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "letter": "D",
+            "blank": false
+          },
+          {
+            "letter": "O",
+            "blank": false
+          },
+          {
+            "letter": "G",
+            "blank": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "scores": {
+        "a": 10,
+        "b": 0
+      },
+      "turns": [
+        {
+          "id": "c-2",
+          "number": 1,
+          "round": 1,
+          "type": "play",
+          "playerId": "a",
+          "score": 10,
+          "words": [
+            {
+              "word": "DOG",
+              "score": 10,
+              "row": 7,
+              "col": 7,
+              "direction": "across"
+            }
+          ],
+          "source": "human",
+          "placements": [
+            {
+              "row": 7,
+              "col": 7,
+              "tile": {
+                "letter": "D",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 8,
+              "tile": {
+                "letter": "O",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 9,
+              "tile": {
+                "letter": "G",
+                "blank": false
+              }
+            }
+          ],
+          "bingo": false,
+          "newTileCount": 3,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-3",
+          "number": 2,
+          "round": 1,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-4",
+          "number": 3,
+          "round": 2,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-5",
+          "number": 4,
+          "round": 2,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-6",
+          "number": 5,
+          "round": 3,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        }
+      ],
+      "events": [
+        {
+          "sequence": 1,
+          "command": {
+            "id": "c-1",
+            "expectedRevision": 0,
+            "type": "verify-words",
+            "words": [
+              {
+                "word": "DOG",
+                "source": "merriam-webster",
+                "sourceUrl": "https://scrabble.merriam.com/finder/dog",
+                "verifiedAt": "2026-09-20T17:00:00.000Z"
+              }
+            ]
+          },
+          "fingerprint": "{\"expectedRevision\":0,\"id\":\"c-1\",\"type\":\"verify-words\",\"words\":[{\"source\":\"merriam-webster\",\"sourceUrl\":\"https://scrabble.merriam.com/finder/dog\",\"verifiedAt\":\"2026-09-20T17:00:00.000Z\",\"word\":\"DOG\"}]}"
+        },
+        {
+          "sequence": 2,
+          "command": {
+            "id": "c-2",
+            "expectedRevision": 1,
+            "type": "play",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "D",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "O",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "G",
+                  "blank": false
+                }
+              }
+            ]
+          },
+          "fingerprint": "{\"expectedRevision\":1,\"id\":\"c-2\",\"placements\":[{\"col\":7,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"D\"}},{\"col\":8,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"O\"}},{\"col\":9,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"G\"}}],\"type\":\"play\"}",
+          "turn": {
+            "id": "c-2",
+            "number": 1,
+            "round": 1,
+            "type": "play",
+            "playerId": "a",
+            "score": 10,
+            "words": [
+              {
+                "word": "DOG",
+                "score": 10,
+                "row": 7,
+                "col": 7,
+                "direction": "across"
+              }
+            ],
+            "source": "human",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "D",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "O",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "G",
+                  "blank": false
+                }
+              }
+            ],
+            "bingo": false,
+            "newTileCount": 3,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 3,
+          "command": {
+            "id": "c-3",
+            "expectedRevision": 2,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":2,\"id\":\"c-3\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-3",
+            "number": 2,
+            "round": 1,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 4,
+          "command": {
+            "id": "c-4",
+            "expectedRevision": 3,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":3,\"id\":\"c-4\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-4",
+            "number": 3,
+            "round": 2,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 5,
+          "command": {
+            "id": "c-5",
+            "expectedRevision": 4,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":4,\"id\":\"c-5\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-5",
+            "number": 4,
+            "round": 2,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 6,
+          "command": {
+            "id": "c-6",
+            "expectedRevision": 5,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":5,\"id\":\"c-6\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-6",
+            "number": 5,
+            "round": 3,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 7,
+          "command": {
+            "id": "c-7",
+            "expectedRevision": 6,
+            "type": "finalize",
+            "reason": "blocked",
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            }
+          },
+          "fingerprint": "{\"expectedRevision\":6,\"id\":\"c-7\",\"racks\":{\"a\":[\"A\",\"A\",\"A\",\"A\",\"I\",\"I\",\"I\"],\"b\":[\"E\",\"E\",\"E\",\"E\",\"E\",\"R\",\"T\"]},\"reason\":\"blocked\",\"type\":\"finalize\"}",
+          "result": {
+            "reason": "blocked",
+            "assisted": false,
+            "scores": {
+              "a": 3,
+              "b": -7
+            },
+            "scoresBeforeAdjustments": {
+              "a": 10,
+              "b": 0
+            },
+            "adjustments": {
+              "a": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": 3
+              },
+              "b": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": -7
+              }
+            },
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            },
+            "actualBagCount": 83,
+            "winnerIds": ["a"],
+            "unequalTurns": true,
+            "competitiveEligible": false,
+            "revision": 7
+          }
+        }
+      ],
+      "revision": 7,
+      "status": "finalized",
+      "expectedRackCounts": {
+        "a": 7,
+        "b": 7
+      },
+      "expectedBagCount": 83,
+      "consecutivePasses": 4,
+      "pendingEnd": "blocked",
+      "assistance": null,
+      "result": {
+        "reason": "blocked",
+        "assisted": false,
+        "scores": {
+          "a": 3,
+          "b": -7
+        },
+        "scoresBeforeAdjustments": {
+          "a": 10,
+          "b": 0
+        },
+        "adjustments": {
+          "a": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": 3
+          },
+          "b": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": -7
+          }
+        },
+        "racks": {
+          "a": ["A", "A", "A", "A", "I", "I", "I"],
+          "b": ["E", "E", "E", "E", "E", "R", "T"]
+        },
+        "actualBagCount": 83,
+        "winnerIds": ["a"],
+        "unequalTurns": true,
+        "competitiveEligible": false,
+        "revision": 7
+      },
+      "verifiedWords": [
+        {
+          "word": "DOG",
+          "source": "merriam-webster",
+          "sourceUrl": "https://scrabble.merriam.com/finder/dog",
+          "verifiedAt": "2026-09-20T17:00:00.000Z"
+        }
+      ]
+    },
+    "unplayedAddition": {
+      "version": "family-v1.0.0",
+      "definition": {
+        "id": "legacy-unplayed",
+        "players": [
+          {
+            "id": "a",
+            "name": "Doug",
+            "seat": 0
+          },
+          {
+            "id": "b",
+            "name": "Emma",
+            "seat": 2
+          }
+        ],
+        "firstPlayerId": "a",
+        "direction": "clockwise",
+        "lexicon": {
+          "id": "legacy-fixture",
+          "edition": "1",
+          "status": "ready"
+        },
+        "createdAt": "2026-09-20T20:00:00.000Z"
+      },
+      "id": "legacy-unplayed",
+      "players": [
+        {
+          "id": "a",
+          "name": "Doug",
+          "seat": 0
+        },
+        {
+          "id": "b",
+          "name": "Emma",
+          "seat": 2
+        }
+      ],
+      "order": ["a", "b"],
+      "currentPlayerId": "b",
+      "direction": "clockwise",
+      "mode": "multiplayer",
+      "lexicon": {
+        "id": "legacy-fixture",
+        "edition": "1",
+        "status": "ready"
+      },
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "letter": "C",
+            "blank": false
+          },
+          {
+            "letter": "A",
+            "blank": false
+          },
+          {
+            "letter": "T",
+            "blank": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "scores": {
+        "a": 10,
+        "b": 0
+      },
+      "turns": [
+        {
+          "id": "c-2",
+          "number": 1,
+          "round": 1,
+          "type": "play",
+          "playerId": "a",
+          "score": 10,
+          "words": [
+            {
+              "word": "CAT",
+              "score": 10,
+              "row": 7,
+              "col": 7,
+              "direction": "across"
+            }
+          ],
+          "source": "human",
+          "placements": [
+            {
+              "row": 7,
+              "col": 7,
+              "tile": {
+                "letter": "C",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 8,
+              "tile": {
+                "letter": "A",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 9,
+              "tile": {
+                "letter": "T",
+                "blank": false
+              }
+            }
+          ],
+          "bingo": false,
+          "newTileCount": 3,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-3",
+          "number": 2,
+          "round": 1,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-4",
+          "number": 3,
+          "round": 2,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-5",
+          "number": 4,
+          "round": 2,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-6",
+          "number": 5,
+          "round": 3,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        }
+      ],
+      "events": [
+        {
+          "sequence": 1,
+          "command": {
+            "id": "c-1",
+            "expectedRevision": 0,
+            "type": "verify-words",
+            "words": [
+              {
+                "word": "DOG",
+                "source": "merriam-webster",
+                "sourceUrl": "https://scrabble.merriam.com/finder/dog",
+                "verifiedAt": "2026-09-20T17:00:00.000Z"
+              }
+            ]
+          },
+          "fingerprint": "{\"expectedRevision\":0,\"id\":\"c-1\",\"type\":\"verify-words\",\"words\":[{\"source\":\"merriam-webster\",\"sourceUrl\":\"https://scrabble.merriam.com/finder/dog\",\"verifiedAt\":\"2026-09-20T17:00:00.000Z\",\"word\":\"DOG\"}]}"
+        },
+        {
+          "sequence": 2,
+          "command": {
+            "id": "c-2",
+            "expectedRevision": 1,
+            "type": "play",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "C",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "A",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "T",
+                  "blank": false
+                }
+              }
+            ]
+          },
+          "fingerprint": "{\"expectedRevision\":1,\"id\":\"c-2\",\"placements\":[{\"col\":7,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"C\"}},{\"col\":8,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"A\"}},{\"col\":9,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"T\"}}],\"type\":\"play\"}",
+          "turn": {
+            "id": "c-2",
+            "number": 1,
+            "round": 1,
+            "type": "play",
+            "playerId": "a",
+            "score": 10,
+            "words": [
+              {
+                "word": "CAT",
+                "score": 10,
+                "row": 7,
+                "col": 7,
+                "direction": "across"
+              }
+            ],
+            "source": "human",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "C",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "A",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "T",
+                  "blank": false
+                }
+              }
+            ],
+            "bingo": false,
+            "newTileCount": 3,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 3,
+          "command": {
+            "id": "c-3",
+            "expectedRevision": 2,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":2,\"id\":\"c-3\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-3",
+            "number": 2,
+            "round": 1,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 4,
+          "command": {
+            "id": "c-4",
+            "expectedRevision": 3,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":3,\"id\":\"c-4\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-4",
+            "number": 3,
+            "round": 2,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 5,
+          "command": {
+            "id": "c-5",
+            "expectedRevision": 4,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":4,\"id\":\"c-5\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-5",
+            "number": 4,
+            "round": 2,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 6,
+          "command": {
+            "id": "c-6",
+            "expectedRevision": 5,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":5,\"id\":\"c-6\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-6",
+            "number": 5,
+            "round": 3,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 7,
+          "command": {
+            "id": "c-7",
+            "expectedRevision": 6,
+            "type": "finalize",
+            "reason": "blocked",
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            }
+          },
+          "fingerprint": "{\"expectedRevision\":6,\"id\":\"c-7\",\"racks\":{\"a\":[\"A\",\"A\",\"A\",\"A\",\"I\",\"I\",\"I\"],\"b\":[\"E\",\"E\",\"E\",\"E\",\"E\",\"R\",\"T\"]},\"reason\":\"blocked\",\"type\":\"finalize\"}",
+          "result": {
+            "reason": "blocked",
+            "assisted": false,
+            "scores": {
+              "a": 3,
+              "b": -7
+            },
+            "scoresBeforeAdjustments": {
+              "a": 10,
+              "b": 0
+            },
+            "adjustments": {
+              "a": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": 3
+              },
+              "b": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": -7
+              }
+            },
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            },
+            "actualBagCount": 83,
+            "winnerIds": ["a"],
+            "unequalTurns": true,
+            "competitiveEligible": false,
+            "revision": 7
+          }
+        }
+      ],
+      "revision": 7,
+      "status": "finalized",
+      "expectedRackCounts": {
+        "a": 7,
+        "b": 7
+      },
+      "expectedBagCount": 83,
+      "consecutivePasses": 4,
+      "pendingEnd": "blocked",
+      "assistance": null,
+      "result": {
+        "reason": "blocked",
+        "assisted": false,
+        "scores": {
+          "a": 3,
+          "b": -7
+        },
+        "scoresBeforeAdjustments": {
+          "a": 10,
+          "b": 0
+        },
+        "adjustments": {
+          "a": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": 3
+          },
+          "b": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": -7
+          }
+        },
+        "racks": {
+          "a": ["A", "A", "A", "A", "I", "I", "I"],
+          "b": ["E", "E", "E", "E", "E", "R", "T"]
+        },
+        "actualBagCount": 83,
+        "winnerIds": ["a"],
+        "unequalTurns": true,
+        "competitiveEligible": false,
+        "revision": 7
+      },
+      "verifiedWords": [
+        {
+          "word": "DOG",
+          "source": "merriam-webster",
+          "sourceUrl": "https://scrabble.merriam.com/finder/dog",
+          "verifiedAt": "2026-09-20T17:00:00.000Z"
+        }
+      ]
+    },
+    "noAddition": {
+      "version": "family-v1.0.0",
+      "definition": {
+        "id": "legacy-plain",
+        "players": [
+          {
+            "id": "a",
+            "name": "Doug",
+            "seat": 0
+          },
+          {
+            "id": "b",
+            "name": "Emma",
+            "seat": 2
+          }
+        ],
+        "firstPlayerId": "a",
+        "direction": "clockwise",
+        "lexicon": {
+          "id": "legacy-fixture",
+          "edition": "1",
+          "status": "ready"
+        },
+        "createdAt": "2026-09-20T20:00:00.000Z"
+      },
+      "id": "legacy-plain",
+      "players": [
+        {
+          "id": "a",
+          "name": "Doug",
+          "seat": 0
+        },
+        {
+          "id": "b",
+          "name": "Emma",
+          "seat": 2
+        }
+      ],
+      "order": ["a", "b"],
+      "currentPlayerId": "b",
+      "direction": "clockwise",
+      "mode": "multiplayer",
+      "lexicon": {
+        "id": "legacy-fixture",
+        "edition": "1",
+        "status": "ready"
+      },
+      "board": [
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "letter": "C",
+            "blank": false
+          },
+          {
+            "letter": "A",
+            "blank": false
+          },
+          {
+            "letter": "T",
+            "blank": false
+          },
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      ],
+      "scores": {
+        "a": 10,
+        "b": 0
+      },
+      "turns": [
+        {
+          "id": "c-1",
+          "number": 1,
+          "round": 1,
+          "type": "play",
+          "playerId": "a",
+          "score": 10,
+          "words": [
+            {
+              "word": "CAT",
+              "score": 10,
+              "row": 7,
+              "col": 7,
+              "direction": "across"
+            }
+          ],
+          "source": "human",
+          "placements": [
+            {
+              "row": 7,
+              "col": 7,
+              "tile": {
+                "letter": "C",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 8,
+              "tile": {
+                "letter": "A",
+                "blank": false
+              }
+            },
+            {
+              "row": 7,
+              "col": 9,
+              "tile": {
+                "letter": "T",
+                "blank": false
+              }
+            }
+          ],
+          "bingo": false,
+          "newTileCount": 3,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-2",
+          "number": 2,
+          "round": 1,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-3",
+          "number": 3,
+          "round": 2,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-4",
+          "number": 4,
+          "round": 2,
+          "type": "pass",
+          "playerId": "b",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        },
+        {
+          "id": "c-5",
+          "number": 5,
+          "round": 3,
+          "type": "pass",
+          "playerId": "a",
+          "score": 0,
+          "words": [],
+          "source": "human",
+          "placements": [],
+          "bingo": false,
+          "newTileCount": 0,
+          "runningScores": {
+            "a": 10,
+            "b": 0
+          }
+        }
+      ],
+      "events": [
+        {
+          "sequence": 1,
+          "command": {
+            "id": "c-1",
+            "expectedRevision": 0,
+            "type": "play",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "C",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "A",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "T",
+                  "blank": false
+                }
+              }
+            ]
+          },
+          "fingerprint": "{\"expectedRevision\":0,\"id\":\"c-1\",\"placements\":[{\"col\":7,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"C\"}},{\"col\":8,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"A\"}},{\"col\":9,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"T\"}}],\"type\":\"play\"}",
+          "turn": {
+            "id": "c-1",
+            "number": 1,
+            "round": 1,
+            "type": "play",
+            "playerId": "a",
+            "score": 10,
+            "words": [
+              {
+                "word": "CAT",
+                "score": 10,
+                "row": 7,
+                "col": 7,
+                "direction": "across"
+              }
+            ],
+            "source": "human",
+            "placements": [
+              {
+                "row": 7,
+                "col": 7,
+                "tile": {
+                  "letter": "C",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 8,
+                "tile": {
+                  "letter": "A",
+                  "blank": false
+                }
+              },
+              {
+                "row": 7,
+                "col": 9,
+                "tile": {
+                  "letter": "T",
+                  "blank": false
+                }
+              }
+            ],
+            "bingo": false,
+            "newTileCount": 3,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 2,
+          "command": {
+            "id": "c-2",
+            "expectedRevision": 1,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":1,\"id\":\"c-2\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-2",
+            "number": 2,
+            "round": 1,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 3,
+          "command": {
+            "id": "c-3",
+            "expectedRevision": 2,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":2,\"id\":\"c-3\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-3",
+            "number": 3,
+            "round": 2,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 4,
+          "command": {
+            "id": "c-4",
+            "expectedRevision": 3,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":3,\"id\":\"c-4\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-4",
+            "number": 4,
+            "round": 2,
+            "type": "pass",
+            "playerId": "b",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 5,
+          "command": {
+            "id": "c-5",
+            "expectedRevision": 4,
+            "type": "pass"
+          },
+          "fingerprint": "{\"expectedRevision\":4,\"id\":\"c-5\",\"type\":\"pass\"}",
+          "turn": {
+            "id": "c-5",
+            "number": 5,
+            "round": 3,
+            "type": "pass",
+            "playerId": "a",
+            "score": 0,
+            "words": [],
+            "source": "human",
+            "placements": [],
+            "bingo": false,
+            "newTileCount": 0,
+            "runningScores": {
+              "a": 10,
+              "b": 0
+            }
+          }
+        },
+        {
+          "sequence": 6,
+          "command": {
+            "id": "c-6",
+            "expectedRevision": 5,
+            "type": "finalize",
+            "reason": "blocked",
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            }
+          },
+          "fingerprint": "{\"expectedRevision\":5,\"id\":\"c-6\",\"racks\":{\"a\":[\"A\",\"A\",\"A\",\"A\",\"I\",\"I\",\"I\"],\"b\":[\"E\",\"E\",\"E\",\"E\",\"E\",\"R\",\"T\"]},\"reason\":\"blocked\",\"type\":\"finalize\"}",
+          "result": {
+            "reason": "blocked",
+            "assisted": false,
+            "scores": {
+              "a": 3,
+              "b": -7
+            },
+            "scoresBeforeAdjustments": {
+              "a": 10,
+              "b": 0
+            },
+            "adjustments": {
+              "a": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": 3
+              },
+              "b": {
+                "deduction": 7,
+                "transfer": 0,
+                "finalScore": -7
+              }
+            },
+            "racks": {
+              "a": ["A", "A", "A", "A", "I", "I", "I"],
+              "b": ["E", "E", "E", "E", "E", "R", "T"]
+            },
+            "actualBagCount": 83,
+            "winnerIds": ["a"],
+            "unequalTurns": true,
+            "competitiveEligible": true,
+            "revision": 6
+          }
+        }
+      ],
+      "revision": 6,
+      "status": "finalized",
+      "expectedRackCounts": {
+        "a": 7,
+        "b": 7
+      },
+      "expectedBagCount": 83,
+      "consecutivePasses": 4,
+      "pendingEnd": "blocked",
+      "assistance": null,
+      "result": {
+        "reason": "blocked",
+        "assisted": false,
+        "scores": {
+          "a": 3,
+          "b": -7
+        },
+        "scoresBeforeAdjustments": {
+          "a": 10,
+          "b": 0
+        },
+        "adjustments": {
+          "a": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": 3
+          },
+          "b": {
+            "deduction": 7,
+            "transfer": 0,
+            "finalScore": -7
+          }
+        },
+        "racks": {
+          "a": ["A", "A", "A", "A", "I", "I", "I"],
+          "b": ["E", "E", "E", "E", "E", "R", "T"]
+        },
+        "actualBagCount": 83,
+        "winnerIds": ["a"],
+        "unequalTurns": true,
+        "competitiveEligible": true,
+        "revision": 6
+      }
+    }
+  }
+}
