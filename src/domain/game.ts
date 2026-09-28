@@ -188,12 +188,6 @@ export function hasCustomTileSupply(game: GameState): boolean {
     game.events.some((event) => event.command.type === "extend-supply")
   );
 }
-export function hasVerifiedWords(game: GameState): boolean {
-  return (
-    !!game.verifiedWords?.length ||
-    game.events.some((event) => event.command.type === "verify-words")
-  );
-}
 const fail = (code: string, message: string): GameResult => ({
   ok: false,
   error: { code, message },
@@ -751,8 +745,9 @@ function makeFinalResult(
       game.mode === "multiplayer" &&
       game.lexicon.status === "ready" &&
       !game.assistance &&
+      // Officially verified additions are part of the accepted dictionary, not
+      // assistance. Their evidence stays in the journal, so the result replays.
       !hasCustomTileSupply(game) &&
-      !hasVerifiedWords(game) &&
       (command.reason === "natural" || command.reason === "blocked"),
     revision: game.revision + 1,
   };

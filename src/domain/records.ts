@@ -1,4 +1,4 @@
-import { hasCustomTileSupply, hasVerifiedWords } from "./game";
+import { hasCustomTileSupply } from "./game";
 import type { GameState, GameTurn, GameWord } from "./game";
 
 export const RECORD_DEFINITION_VERSION = "family-records-v1";
@@ -37,8 +37,8 @@ export function recordScope(game: GameState): RecordScope {
 export function competitiveResultEligible(game: GameState): boolean {
   // Recompute from source facts; never trust a saved or client-supplied eligibility flag.
   return (
+    // Verified additions count; solver help is excluded via assistance below.
     !hasCustomTileSupply(game) &&
-    !hasVerifiedWords(game) &&
     game.status === "finalized" &&
     !!game.result &&
     game.mode === "multiplayer" &&
