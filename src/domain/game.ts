@@ -112,8 +112,16 @@ export type FinalResult = {
   winnerIds: string[];
   unequalTurns: boolean;
   competitiveEligible: boolean;
+  /**
+   * Record-eligibility rules this result was finalized under. Absent on results
+   * finalized before verified additions became eligible; those journals replay
+   * under their original rules and are never rewritten.
+   */
+  eligibilityPolicy?: typeof RESULT_ELIGIBILITY_POLICY;
   revision: number;
 };
+/** Verified family word additions are part of the accepted dictionary, not assistance. */
+export const RESULT_ELIGIBILITY_POLICY = 2;
 export type Assistance = {
   startedAtRevision: number;
   humanTurnIds: string[];
@@ -182,16 +190,16 @@ export function getTileTotal(game: GameState): number {
     0,
   );
 }
-export function hasCustomTileSupply(game: GameState): boolean {
-  return (
-    game.tileSupply !== undefined ||
-    game.events.some((event) => event.command.type === "extend-supply")
-  );
-}
 export function hasVerifiedWords(game: GameState): boolean {
   return (
     !!game.verifiedWords?.length ||
     game.events.some((event) => event.command.type === "verify-words")
+  );
+}
+export function hasCustomTileSupply(game: GameState): boolean {
+  return (
+    game.tileSupply !== undefined ||
+    game.events.some((event) => event.command.type === "extend-supply")
   );
 }
 const fail = (code: string, message: string): GameResult => ({
@@ -640,6 +648,7 @@ function makeTurn(
 function makeFinalResult(
   game: GameState,
   command: Extract<GameCommand, { type: "finalize" }>,
+  legacyFinalization = false,
 ): FinalResult | GameError {
   const checked = checkRacks(game, command.racks);
   if (!checked.ok) return checked.error;
@@ -752,8 +761,12 @@ function makeFinalResult(
       game.lexicon.status === "ready" &&
       !game.assistance &&
       !hasCustomTileSupply(game) &&
-      !hasVerifiedWords(game) &&
+      // Original rules (replay only) treated any verified addition as ineligible.
+      (!legacyFinalization || !hasVerifiedWords(game)) &&
       (command.reason === "natural" || command.reason === "blocked"),
+    ...(legacyFinalization
+      ? {}
+      : { eligibilityPolicy: RESULT_ELIGIBILITY_POLICY }),
     revision: game.revision + 1,
   };
 }
@@ -979,6 +992,16 @@ export function applyCommand(
   command: GameCommand,
   lexicon: Lexicon,
   context: CommandContext = {},
+): GameResult {
+  return applyGameCommand(game, command, lexicon, context, false);
+}
+/** `legacyFinalization` is set only by journal replay of a result without a policy. */
+function applyGameCommand(
+  game: GameState,
+  command: GameCommand,
+  lexicon: Lexicon,
+  context: CommandContext,
+  legacyFinalization: boolean,
 ): GameResult {
   if (game.version !== GAME_VERSION)
     return fail(
@@ -1328,7 +1351,7 @@ export function applyCommand(
           "An empty rack must be resolved through end review before starting assistance.",
         );
     } else if (command.type === "finalize") {
-      const result = makeFinalResult(game, command);
+      const result = makeFinalResult(game, command, legacyFinalization);
       if ("code" in result) return { ok: false, error: result };
       event.result = result;
     }
@@ -1385,11 +1408,18 @@ function hydrateValidatedGame(
   for (const stored of value.events) {
     if (!isRecord(stored) || !isRecord(stored.command))
       return fail("INVALID_SAVED_GAME", "A journal action is malformed.");
-    const applied = applyCommand(
+    // A finalization saved before result policies existed replays under the
+    // rules it was recorded with. Every other field must still match exactly.
+    const legacyFinalization =
+      stored.command.type === "finalize" &&
+      isRecord(stored.result) &&
+      !Object.hasOwn(stored.result, "eligibilityPolicy");
+    const applied = applyGameCommand(
       restored.game,
       stored.command as GameCommand,
       lexicon,
       context,
+      legacyFinalization,
     );
     if (!applied.ok)
       return fail(

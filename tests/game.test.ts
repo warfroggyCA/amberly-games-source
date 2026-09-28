@@ -5,6 +5,7 @@ import {
   createGame,
   hydrateGame,
   MAX_GAME_EVENTS,
+  RESULT_ELIGIBILITY_POLICY,
   getTileSupply,
   getTileTotal,
   hasCustomTileSupply,
@@ -1772,26 +1773,70 @@ describe("audited publisher word additions", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("LEGAL_MOVE_AVAILABLE");
   });
-  it("excludes competitive outcomes but retains human word credit in the correct scope", () => {
+  it("keeps otherwise qualifying games eligible whether or not a verified addition is played", () => {
+    const finish = (state: GameState) => {
+      for (let i = 0; i < 4; i++)
+        state = command(state, { type: "pass" }, ready);
+      return command(
+        state,
+        {
+          type: "finalize",
+          reason: "blocked",
+          racks: { a: seven("AAAAIII"), b: seven("EEEEERT") },
+        },
+        ready,
+      );
+    };
+    // Addition imported but never played.
+    const unplayed = finish(
+      command(
+        verify(game(ready), ready),
+        { type: "play", placements: place("CAT") },
+        ready,
+      ),
+    );
+    expect(unplayed.result?.competitiveEligible).toBe(true);
+    expect(competitiveResultEligible(unplayed)).toBe(true);
+    // Addition actually played.
+    const state = finish(
+      command(
+        verify(game(ready), ready),
+        { type: "play", placements: place("DOG") },
+        ready,
+      ),
+    );
+    expect(state.result?.competitiveEligible).toBe(true);
+    expect(state.result?.eligibilityPolicy).toBe(RESULT_ELIGIBILITY_POLICY);
+    expect(competitiveResultEligible(state)).toBe(true);
+    expect(humanTurnEligible(state, state.turns[0])).toBe(true);
+    // The journal keeps the evidence and replays to the same result.
+    expect(
+      state.events.filter((e) => e.command.type === "verify-words"),
+    ).toHaveLength(1);
+    expect(
+      success(hydrateGame(JSON.parse(JSON.stringify(state)), ready)),
+    ).toEqual(state);
+  });
+  it("still excludes assisted games that also contain verified additions", () => {
     let state = command(
       verify(game(ready), ready),
-      { type: "play", placements: place("DOG") },
+      { type: "assist", racks },
       ready,
     );
-    for (let i = 0; i < 4; i++) state = command(state, { type: "pass" }, ready);
     state = command(
       state,
-      {
-        type: "finalize",
-        reason: "blocked",
-        racks: { a: seven("AAAAIII"), b: seven("EEEEERT") },
-      },
+      { type: "play", placements: place("READING") },
+      ready,
+    );
+    state = command(
+      state,
+      { type: "finalize", reason: "assisted", racks: { a: [], b: racks.b } },
       ready,
     );
     expect(state.result?.competitiveEligible).toBe(false);
     expect(competitiveResultEligible(state)).toBe(false);
-    expect(deriveGameAwards(state)).toEqual({ clutch: [], comeback: null });
-    expect(humanTurnEligible(state, state.turns[0])).toBe(true);
+  });
+  it("retains human word credit in the correct scope", () => {
     const preview = command(verify(game()), {
       type: "play",
       placements: place("DOG"),

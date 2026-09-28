@@ -4,6 +4,9 @@ import { describe, expect, it } from "vitest";
 import { LETTER_COUNTS, type TileSupply } from "../src/domain/board";
 import type { GameCommand, PhysicalTile } from "../src/domain/game";
 import type { Letter } from "../src/domain/types";
+import { competitiveResultEligible } from "../src/domain/records";
+import { readFileSync } from "node:fs";
+import type { GameState } from "../src/domain/game";
 import { isGameSummaryPage } from "../src/lib/game-summary";
 import type { SharedOperation } from "../src/lib/shared-contract";
 import { testLexicon } from "../src/lib/test-lexicon";
@@ -15,7 +18,11 @@ export function gameSummaryDatabaseCases(
   runtime: postgres.Sql,
 ) {
   const summary = createGameSummaryRepository(runtime);
-  async function fixture(emptyBag = false, competitive = false) {
+  async function fixture(
+    emptyBag = false,
+    competitive = false,
+    catalog: string[] = [],
+  ) {
     const reference = competitive
       ? { ...testLexicon, status: "ready" as const }
       : testLexicon;
@@ -68,6 +75,15 @@ export function gameSummaryDatabaseCases(
           ],
         },
       });
+    }
+    for (const word of catalog) {
+      const evidence = {
+        word,
+        source: "merriam-webster",
+        sourceUrl: `https://scrabble.merriam.com/finder/${word.toLowerCase()}`,
+        verifiedAt: "2026-09-28T00:00:00.000Z",
+      };
+      await owner`insert into scrabble.verified_words(family_id,word,evidence,verified_by) values(${familyId}::uuid,${word},${owner.json(evidence)},${actor.userId}::uuid)`;
     }
     const created = await mutate({
       type: "create-game",
@@ -164,6 +180,62 @@ export function gameSummaryDatabaseCases(
         (await summary.read(f.actor, f.familyId, { playerId: "nobody" }))
           .standings,
       ).toEqual(result.standings);
+    });
+    it("counts qualifying games that inherit or play verified family additions", async () => {
+      for (const play of [null, "TOAD"]) {
+        const f = await fixture(false, true, ["ZAX", "TOAD"]);
+        // Both non-base additions are imported into the journal at creation.
+        expect(f.getGame().verifiedWords?.map((v) => v.word)).toEqual([
+          "TOAD",
+          "ZAX",
+        ]);
+        if (play)
+          await f.command({ type: "play", placements: placements(play) });
+        for (let i = 0; i < 4; i++) await f.command({ type: "pass" });
+        const g = await f.command({
+          type: "finalize",
+          reason: "blocked",
+          racks: { alice: rack("CATDOG?"), bob: rack("READING") },
+        });
+        expect(g.result!.competitiveEligible).toBe(true);
+        // Domain eligibility and the standings query must agree.
+        expect(competitiveResultEligible(g)).toBe(true);
+        const result = await f.read();
+        expect(result.standings).toHaveLength(2);
+        for (const row of result.standings!) expect(row.played).toBe(1);
+      }
+    });
+    it("applies each result's recorded eligibility rules to legacy journals", async () => {
+      // Parent-commit journals, inserted as they would exist in older databases.
+      const { games } = JSON.parse(
+        readFileSync(
+          new URL("./fixtures/legacy-finalized-games.json", import.meta.url),
+          "utf8",
+        ),
+      ) as { games: Record<string, GameState> };
+      const f = await fixture(false, true);
+      for (const state of Object.values(games)) {
+        await owner`insert into scrabble.game_definitions(family_id,game_id,mode,definition,created_by) values(${f.familyId}::uuid,${state.id},'confirmed',${owner.json(JSON.parse(JSON.stringify(state.definition)))},${f.actor.userId}::uuid)`;
+        await owner`insert into scrabble.game_heads(family_id,game_id,revision,state,scorer_user_id,scorer_device_id,scorer_device_hash) values(${f.familyId}::uuid,${state.id},${state.revision},${owner.json(JSON.parse(JSON.stringify(state)))},${f.actor.userId}::uuid,'legacy-device',${"b".repeat(64)})`;
+      }
+      const counted = Object.values(games).filter(competitiveResultEligible);
+      expect(counted.map((g) => g.id)).toEqual(["legacy-plain"]);
+      const standings = (await f.read()).standings!;
+      expect(standings.map((r) => [r.playerId, r.played])).toEqual([
+        ["a", counted.length],
+        ["b", counted.length],
+      ]);
+    });
+    it("keeps standings aligned with domain eligibility for excluded games", async () => {
+      const f = await fixture(false, true, ["ZAX"]);
+      await f.command({ type: "play", placements: placements("AT") });
+      const g = await f.command({
+        type: "finalize",
+        reason: "early",
+        racks: { alice: rack("QZJXKFH"), bob: rack("EEEEEEE") },
+      });
+      expect(competitiveResultEligible(g)).toBe(false);
+      expect((await f.read()).standings).toEqual([]);
     });
     it("shows rack deductions and the changed winner after an early ending", async () => {
       const f = await fixture();

@@ -199,6 +199,35 @@ suite("isolated real PostgreSQL shared family repository", () => {
     expect(await repository.readWords(f.admin, f.familyId)).toEqual([]);
   });
 
+  it("records nothing when the official lookup fails or rejects a word", async () => {
+    const failing = createSharedRepository(runtime, {
+      verifyWord: async () => {
+        throw new Error("publisher unavailable");
+      },
+    });
+    const rejecting = createSharedRepository(runtime, {
+      verifyWord: async (word) => ({
+        word,
+        playable: false,
+        source: "merriam-webster",
+        sourceUrl: `https://scrabble.merriam.com/finder/${word.toLowerCase()}`,
+        verifiedAt: "2026-09-28T00:00:00.000Z",
+      }),
+    });
+    const f = await fixture();
+    await code(
+      failing.confirmWords(f.guest, f.familyId, ["ZZTEST"]),
+      "WORD_LOOKUP_UNAVAILABLE",
+    );
+    await code(
+      rejecting.confirmWords(f.guest, f.familyId, ["ZZTEST"]),
+      "WORD_NOT_PLAYABLE",
+    );
+    expect(await repository.readWords(f.admin, f.familyId)).toEqual([]);
+    const created = await f.create();
+    expect(created.game!.verifiedWords ?? []).toEqual([]);
+  });
+
   crokinoleDatabaseCases(owner, runtime);
   gameSummaryDatabaseCases(owner, runtime);
   crokinolePermissionDatabaseCases(owner, runtime);
