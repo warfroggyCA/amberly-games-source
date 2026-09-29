@@ -105,12 +105,8 @@ export function ScorerApp({
   onNavigate,
   onManagePlayerAccess,
   onPlayerOperation,
-  onGameViewChange,
-  lobbyMusicSlot,
 }: {
   store?: ScorerStore;
-  onGameViewChange?: (playing: boolean) => void;
-  lobbyMusicSlot?: ReactNode;
   onManagePlayerAccess?: (playerId?: string) => void;
   onPlayerOperation?: (operation: SharedOperation) => Promise<unknown>;
   initialView?: View;
@@ -141,10 +137,6 @@ export function ScorerApp({
   );
   const [view, setView] = useState<View>(initialView);
   const [returnView, setReturnView] = useState<View | null>(null);
-  useEffect(() => {
-    onGameViewChange?.(view === "Play");
-    return () => onGameViewChange?.(false);
-  }, [view, onGameViewChange]);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -961,7 +953,6 @@ export function ScorerApp({
         menuOpen={modal === "game-menu"}
         menuLabel="Open game menu"
       >
-        {view !== "Play" && lobbyMusicSlot}
         {fitGame && gameActions}
         {!fitGame && (
           <span className="local-label">
