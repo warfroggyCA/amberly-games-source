@@ -1,4 +1,5 @@
 import type { GymIdentity, GymWrite } from "./gym-history-contract";
+import { withGymStorage } from "./gym-storage";
 export interface PendingGymEvent {
   key: string;
   owner: GymIdentity;
@@ -6,44 +7,37 @@ export interface PendingGymEvent {
 }
 const ownerKey = (o: GymIdentity) =>
   JSON.stringify([o.familyId, o.userId, o.playerId]);
-function open(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const r = indexedDB.open("amberly-gym-outbox", 1);
-    r.onupgradeneeded = () =>
-      r.result.createObjectStore("events", { keyPath: "key" });
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-    r.onblocked = () =>
-      reject(
-        new Error("Close another Gym tab to finish opening practice storage."),
-      );
-  });
-}
+const storage = {
+  name: "amberly-gym-outbox",
+  store: "events",
+  blockedMessage: "Close another Gym tab to finish opening practice storage.",
+};
 async function run<T>(
   mode: IDBTransactionMode,
   work: (s: IDBObjectStore) => IDBRequest<T>,
 ): Promise<T> {
-  const db = await open();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("events", mode);
-    const req = work(tx.objectStore("events"));
-    let value: T;
-    req.onsuccess = () => {
-      value = req.result;
-    };
-    tx.oncomplete = () => {
-      db.close();
-      resolve(value);
-    };
-    tx.onerror = tx.onabort = () => {
-      db.close();
-      reject(
-        tx.error ??
-          req.error ??
-          new Error("Could not store practice on this device."),
-      );
-    };
-  });
+  return withGymStorage(
+    storage,
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction("events", mode);
+        const req = work(tx.objectStore("events"));
+        let value: T;
+        req.onsuccess = () => {
+          value = req.result;
+        };
+        tx.oncomplete = () => {
+          resolve(value);
+        };
+        tx.onerror = tx.onabort = () => {
+          reject(
+            tx.error ??
+              req.error ??
+              new Error("Could not store practice on this device."),
+          );
+        };
+      }),
+  );
 }
 export async function queueGymEvent(owner: GymIdentity, data: GymWrite) {
   const key = ownerKey(owner) + ":" + data.event.id;

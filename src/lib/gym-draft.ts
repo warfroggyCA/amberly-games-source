@@ -2,6 +2,7 @@ import { isBoard, isCoordinate, isLetter } from "../domain/board";
 import type { Puzzle } from "../domain/gym/model";
 import type { Draft } from "../domain/gym/placement";
 import type { GymIdentity } from "./gym-history-contract";
+import { withGymStorage } from "./gym-storage";
 export interface GymDraft {
   version: 1;
   puzzle: Puzzle;
@@ -98,33 +99,28 @@ export interface StoredGymDraft {
   revision: number;
   value: GymDraft;
 }
-async function open(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("amberly-gym-drafts", 1);
-    request.onupgradeneeded = () =>
-      request.result.createObjectStore("drafts", { keyPath: "key" });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-    request.onblocked = () =>
-      reject(new Error("Close other Gym tabs to enable draft recovery."));
-  });
-}
+const storage = {
+  name: "amberly-gym-drafts",
+  store: "drafts",
+  blockedMessage: "Close other Gym tabs to enable draft recovery.",
+};
 export async function readGymDraft(
   key: string,
 ): Promise<StoredGymDraft | null> {
-  const db = await open();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("drafts", "readonly");
-    const req = tx.objectStore("drafts").get(key);
-    tx.oncomplete = () => {
-      db.close();
-      resolve(req.result ?? null);
-    };
-    tx.onabort = tx.onerror = () => {
-      db.close();
-      reject(tx.error);
-    };
-  });
+  return withGymStorage(
+    storage,
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction("drafts", "readonly");
+        const req = tx.objectStore("drafts").get(key);
+        tx.oncomplete = () => {
+          resolve(req.result ?? null);
+        };
+        tx.onabort = tx.onerror = () => {
+          reject(tx.error);
+        };
+      }),
+  );
 }
 /** Compare and write in one transaction: another tab cannot silently overwrite this draft. */
 export async function writeGymDraft(
@@ -132,33 +128,34 @@ export async function writeGymDraft(
   revision: number,
   value: GymDraft,
 ): Promise<number> {
-  const db = await open();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("drafts", "readwrite"),
-      store = tx.objectStore("drafts");
-    let conflict = false;
-    const req = store.get(key);
-    req.onsuccess = () => {
-      if ((req.result?.revision ?? 0) !== revision) {
-        conflict = true;
-        tx.abort();
-        return;
-      }
-      store.put({ key, revision: revision + 1, value });
-    };
-    tx.oncomplete = () => {
-      db.close();
-      resolve(revision + 1);
-    };
-    tx.onabort = tx.onerror = () => {
-      db.close();
-      reject(
-        new Error(
-          conflict
-            ? "Another tab updated this practice. Your changes are still on screen; reload to use the saved draft."
-            : "Practice could not be saved on this device. Keep this page open.",
-        ),
-      );
-    };
-  });
+  return withGymStorage(
+    storage,
+    (db) =>
+      new Promise((resolve, reject) => {
+        const tx = db.transaction("drafts", "readwrite"),
+          store = tx.objectStore("drafts");
+        let conflict = false;
+        const req = store.get(key);
+        req.onsuccess = () => {
+          if ((req.result?.revision ?? 0) !== revision) {
+            conflict = true;
+            tx.abort();
+            return;
+          }
+          store.put({ key, revision: revision + 1, value });
+        };
+        tx.oncomplete = () => {
+          resolve(revision + 1);
+        };
+        tx.onabort = tx.onerror = () => {
+          reject(
+            new Error(
+              conflict
+                ? "Another tab updated this practice. Your changes are still on screen; reload to use the saved draft."
+                : "Practice could not be saved on this device. Keep this page open.",
+            ),
+          );
+        };
+      }),
+  );
 }
