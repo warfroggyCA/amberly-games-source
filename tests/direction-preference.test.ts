@@ -30,11 +30,12 @@ it("does not prevent scoring when storage is blocked or contains an unknown mode
     },
   });
   expect(readDirectionPreference("first")).toBe("auto");
-  expect(() => saveDirectionPreference("first", "down")).not.toThrow();
+  expect(() => saveDirectionPreference("denied", "down")).not.toThrow();
   vi.stubGlobal("localStorage", {
     getItem: () => {
       throw new Error("Storage denied");
     },
   });
   expect(readDirectionPreference("first")).toBe("auto");
+  expect(readDirectionPreference("denied")).toBe("down");
 });
