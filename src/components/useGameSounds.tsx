@@ -179,7 +179,7 @@ export function useGameSounds(
       {(mode === "waiting" || mode === "unavailable") && (
         <button
           type="button"
-          className="tabletop-tool game-sound-toggle"
+          className="tabletop-tool game-sound-toggle game-sound-mute"
           onClick={mute}
           aria-label="Mute game sounds"
           title="Mute game sounds · this device only"

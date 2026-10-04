@@ -157,6 +157,13 @@ body .spectator-table:has(.player-elapsed) {
     margin-right: 160px;
     gap: 4px;
   }
+  body
+    .app-shell.game-screen:not(.keyboard-open):has(.game-sound-mute)
+    .table-area
+    > .turn-actions {
+    /* The pending/unavailable sound preference has a separate mute action. */
+    margin-right: 208px;
+  }
   body .app-shell.game-screen:not(.keyboard-open) .turn-actions .save-state {
     position: absolute;
     top: 56px;
