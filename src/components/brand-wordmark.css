@@ -38,7 +38,8 @@
 }
 @media (max-width: 600px) {
   /* Keep both tiles visible alongside the game's controls on phones. */
-  .game-screen .brand-wordmark {
+  .game-screen .brand-wordmark,
+  .spectator-shell .brand-wordmark {
     flex-direction: column;
     align-items: flex-start;
     gap: 3px;

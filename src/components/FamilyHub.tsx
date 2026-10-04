@@ -368,12 +368,28 @@ export function FamilyHub({
         {renderScrabble("Players")}
       </>
     );
-  const resumeScrabble =
-    shared.games.find(
+  // Shared state is already scoped to this family. Keep every available
+  // unfinished game discoverable; a paused game must not mask a newer table.
+  const unfinishedScrabble = shared.games
+    .filter(
       (g) =>
         g.status !== "finalized" &&
-        shared.gameAccess[g.id]?.scorerUserId === userId,
-    ) ?? shared.games.find((g) => g.status !== "finalized");
+        shared.gameAccess[g.id] &&
+        (shared.gameAccess[g.id].mode !== "practice" ||
+          shared.member.role === "superadmin"),
+    )
+    .sort(
+      (a, b) =>
+        Number(a.status === "paused") - Number(b.status === "paused") ||
+        b.definition.createdAt.localeCompare(a.definition.createdAt) ||
+        b.id.localeCompare(a.id),
+    );
+  const resumeScrabble = unfinishedScrabble[0];
+  const openScrabble = (id: string) =>
+    sharedStore
+      .openGame(id)
+      .then(() => navigate("/family/scrabble?view=play"))
+      .catch((e) => setError(e.message));
   const resumeCroke =
     visibleGames.find(
       (g) =>
@@ -862,12 +878,7 @@ export function FamilyHub({
                   {resumeScrabble && (
                     <button
                       className="button primary"
-                      onClick={() =>
-                        void sharedStore
-                          .openGame(resumeScrabble.id)
-                          .then(() => navigate("/family/scrabble?view=play"))
-                          .catch((e) => setError(e.message))
-                      }
+                      onClick={() => void openScrabble(resumeScrabble.id)}
                     >
                       {shared.gameAccess[resumeScrabble.id]?.scorerUserId ===
                       userId
@@ -944,6 +955,44 @@ export function FamilyHub({
               />
             )}
           </div>
+          {unfinishedScrabble.length > 0 && (
+            <section aria-label="Unfinished Scrabble games">
+              <h2>Unfinished Scrabble games</h2>
+              <div className="hub-recent">
+                {unfinishedScrabble.map((g) => (
+                  <button
+                    key={g.id}
+                    className="hub-recent-game"
+                    onClick={() => void openScrabble(g.id)}
+                  >
+                    <strong>
+                      {g.players.map((p) => playerDisplayName(p)).join(" vs ")}
+                    </strong>
+                    <span>
+                      {g.status === "paused"
+                        ? "Paused"
+                        : g.pendingEnd
+                          ? "Final review"
+                          : "In progress"}
+                      {" · "}
+                      {shared.gameAccess[g.id]?.scorerUserId === userId
+                        ? "You are the scorer"
+                        : "View game"}
+                      {shared.gameAccess[g.id]?.mode === "practice"
+                        ? " · Private test"
+                        : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          <button
+            className="button light"
+            onClick={() => void navigate("/family/history")}
+          >
+            All saved games
+          </button>
           {visibleGames.length > 0 && (
             <>
               <h2>Recent Crokinole games</h2>

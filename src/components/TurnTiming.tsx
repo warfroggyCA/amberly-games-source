@@ -3,6 +3,37 @@ import { useEffect, useState } from "react";
 import type { GameState } from "../domain/game";
 import { formatDuration, turnTiming, type TimedGame } from "../lib/turn-timing";
 
+function useTiming(game: TimedGame) {
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const timer = setInterval(tick, 1000);
+    tick();
+    return () => clearInterval(timer);
+  }, []);
+  return turnTiming(game, now);
+}
+
+export function GameClock({
+  game,
+  disabled,
+  onStart,
+}: {
+  game: TimedGame & Pick<GameState, "status" | "turns">;
+  disabled?: boolean;
+  onStart?: () => void;
+}) {
+  const timing = useTiming(game);
+  return timing.started ? (
+    <span className="game-clock" aria-label="Total game time">
+      {formatDuration(timing.totalMs)} · game time
+      {game.status === "paused" ? " · Paused" : ""}
+    </span>
+  ) : (
+    <TurnClock game={game} disabled={disabled} onStart={onStart} />
+  );
+}
+
 export function TurnClock({
   game,
   disabled,
@@ -12,14 +43,7 @@ export function TurnClock({
   disabled?: boolean;
   onStart?: () => void;
 }) {
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    const timer = setInterval(tick, 1000);
-    tick();
-    return () => clearInterval(timer);
-  }, []);
-  const timing = turnTiming(game, now);
+  const timing = useTiming(game);
   if (game.status === "finalized") return null;
   return timing.started ? (
     <span className="turn-clock" aria-label="Current turn elapsed time">

@@ -1,6 +1,6 @@
 "use client";
 import { PlayerElapsedTime } from "./TurnTiming";
-import { TurnClock, TimingSummary } from "./TurnTiming";
+import { GameClock, TurnClock, TimingSummary } from "./TurnTiming";
 import "./game-feedback.css";
 import { BingoBanner } from "./BingoBanner";
 import "./score-drawer.css";
@@ -26,10 +26,15 @@ import { useTurnPlayback, TurnAnimation } from "./TurnAnimation";
 import "./tile-appearance.css";
 import "./spectator-game.css";
 
+import { boardPerspective, displayedSeat } from "../lib/board-perspective";
+import "./board-perspective.css";
+import type { CSSProperties } from "react";
+
 type Selection = { type: "player" | "word"; id: string } | null;
 export function SpectatorGame({
   game,
   profiles = [],
+  viewerPlayerId,
   liveDraft,
   confirmation,
   soundControl,
@@ -38,12 +43,14 @@ export function SpectatorGame({
 }: {
   game: SpectatorState;
   profiles?: SavedPlayer[];
+  viewerPlayerId?: string | null;
   liveDraft?: LiveDraft | null;
   confirmation?: ReactNode;
   soundControl?: ReactNode;
   toolsTarget?: HTMLElement | null;
   assisted?: boolean;
 }) {
+  const perspective = boardPerspective(game.players, viewerPlayerId);
   const playback = useTurnPlayback(game);
   const provisional = currentLiveDraft(liveDraft, game);
   const provisionalTiles = new Map(
@@ -163,7 +170,6 @@ export function SpectatorGame({
   const tools = (
     <div className="spectator-view-actions">
       {soundControl}
-      <TurnClock game={game} />
       <TileBagButton
         key={game.id}
         remaining={game.expectedBagCount}
@@ -191,7 +197,14 @@ export function SpectatorGame({
   return (
     <section
       ref={stageRef}
-      className="spectator-game"
+      className="spectator-game board-perspective"
+      data-board-perspective={perspective}
+      style={
+        {
+          "--board-rotation": `${perspective * 90}deg`,
+          "--letter-rotation": `${-perspective * 90}deg`,
+        } as CSSProperties
+      }
       aria-label="Live game viewer"
     >
       <BingoBanner game={game} containerRef={stageRef} />
@@ -228,6 +241,9 @@ export function SpectatorGame({
             : null
         }
       />
+      <div className="spectator-game-clock">
+        <GameClock game={game} />
+      </div>
       <div className="spectator-stage">
         <div className="spectator-table">
           {game.players.map((player) => {
@@ -251,7 +267,7 @@ export function SpectatorGame({
             return (
               <div
                 key={player.id}
-                className={`spectator-seat spectator-seat-${player.seat} ${isCurrent ? "is-current" : ""} ${isSelected ? "is-selected" : ""}`}
+                className={`spectator-seat spectator-seat-${displayedSeat(player.seat, perspective)} ${isCurrent ? "is-current" : ""} ${isSelected ? "is-selected" : ""}`}
                 data-turn-player={player.id}
                 data-turn-seat={player.seat}
               >
@@ -289,6 +305,14 @@ export function SpectatorGame({
                     {displayScores[player.id]}
                   </b>
                   <PlayerElapsedTime game={game} playerId={player.id} />
+                  {player.id === game.currentPlayerId && (
+                    <TurnClock game={game} />
+                  )}
+                  {player.id === viewerPlayerId && (
+                    <small className="viewer-seat-label">
+                      You · seat {player.seat + 1}
+                    </small>
+                  )}
                   {game.expectedRackCounts && (
                     <small className="board-seat-rack">
                       {game.expectedRackCounts[player.id]} tiles left

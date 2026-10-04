@@ -1,0 +1,33 @@
+.board-perspective .board-grid {
+  transform: rotate(var(--board-rotation, 0deg));
+}
+.board-perspective .square > .letter-tile,
+.board-perspective .square > .premium-label,
+.board-perspective .spectator-tile > .letter-tile {
+  transform: rotate(var(--letter-rotation, 0deg));
+}
+.board-seat .turn-clock,
+.spectator-seat .turn-clock {
+  display: block;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+.viewer-seat-label {
+  display: block;
+  font-size: 0.65rem;
+}
+.game-clock {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #f5eddf;
+  color: #184d3c;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.spectator-game-clock {
+  align-self: flex-start;
+  padding: 2px 8px;
+}

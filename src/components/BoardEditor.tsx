@@ -1,5 +1,5 @@
 "use client";
-import { PlayerElapsedTime } from "./TurnTiming";
+import { PlayerElapsedTime, TurnClock } from "./TurnTiming";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
 import { draftWordFeedback, wordCellFeedback } from "../domain/word-feedback";
 import { PlayerName } from "./PlayerName";
@@ -31,6 +31,14 @@ import { positionScoreBubble } from "../lib/score-bubble-position";
 import { getFormedWords } from "../lib/formed-words";
 import "./board-entry.css";
 import "./tile-appearance.css";
+import {
+  boardPerspective,
+  boardDirectionArrow,
+  displayedSeat,
+  boardArrowStep,
+} from "../lib/board-perspective";
+import "./board-perspective.css";
+import type { CSSProperties } from "react";
 import { extendLexicon } from "../domain/verified-words";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -88,6 +96,7 @@ export function BoardEditor({
   onOfficialSearch,
   profiles,
   fitScreen = false,
+  viewerPlayerId,
   displayScores,
   displayTurns = game.turns,
   displayCurrentPlayerId = game.currentPlayerId,
@@ -97,6 +106,7 @@ export function BoardEditor({
   displayTurns?: readonly GameTurn[];
   displayCurrentPlayerId?: string;
   fitScreen?: boolean;
+  viewerPlayerId?: string | null;
   profiles: SavedPlayer[];
   onOfficialSearch: (query: string) => void;
   savedDraft?: Draft;
@@ -107,6 +117,7 @@ export function BoardEditor({
   locked: boolean;
   onRequestExtraTiles?: (placements: Placement[]) => void;
 }) {
+  const perspective = boardPerspective(game.players, viewerPlayerId);
   const initial: Draft =
     savedDraft?.revision === game.revision
       ? savedDraft
@@ -353,10 +364,11 @@ export function BoardEditor({
           obstacle.bottom > top &&
           obstacle.top < bottom,
       );
-      const vertical =
+      const canonicalVertical =
         draft.placements.length > 1
           ? draft.placements.every((placement) => placement.col === anchorCol)
           : draft.direction === "down";
+      const vertical = perspective % 2 ? !canonicalVertical : canonicalVertical;
       const placement = positionScoreBubble(
         rect,
         { width, height },
@@ -410,6 +422,7 @@ export function BoardEditor({
     lastPlacement,
     draft.placements,
     draft.direction,
+    perspective,
     zoom,
     fitScreen,
     review,
@@ -632,18 +645,19 @@ export function BoardEditor({
             disabled={disabled}
             onClick={() => direction("across")}
           >
-            Across →
+            Across {boardDirectionArrow("across", perspective)}
           </button>
           <button
             aria-pressed={manualDirection && draft.direction === "down"}
             disabled={disabled}
             onClick={() => direction("down")}
           >
-            Down ↓
+            Down {boardDirectionArrow("down", perspective)}
           </button>
         </div>
         <span className="direction-caption">
-          {draft.direction === "across" ? "Across →" : "Down ↓"}
+          {draft.direction === "across" ? "Across" : "Down"}{" "}
+          {boardDirectionArrow(draft.direction, perspective)}
           {manualDirection ? " · chosen" : " · automatic"}
         </span>
       </div>
@@ -668,7 +682,17 @@ export function BoardEditor({
   );
 
   return (
-    <section className="board-editor" aria-label="Scrabble board and entry">
+    <section
+      className="board-editor board-perspective"
+      aria-label="Scrabble board and entry"
+      data-board-perspective={perspective}
+      style={
+        {
+          "--board-rotation": `${perspective * 90}deg`,
+          "--letter-rotation": `${-perspective * 90}deg`,
+        } as CSSProperties
+      }
+    >
       <dialog
         ref={workspace}
         open
@@ -762,7 +786,7 @@ export function BoardEditor({
               <div
                 key={p.id}
                 data-turn-player={p.id}
-                className={`board-seat board-seat-${p.seat} ${p.id === displayCurrentPlayerId && game.status === "active" ? "is-current" : ""}`}
+                className={`board-seat board-seat-${displayedSeat(p.seat, perspective)} ${p.id === displayCurrentPlayerId && game.status === "active" ? "is-current" : ""}`}
                 aria-label={`${p.name}, ${displayedScores[p.id]} points${p.id === displayCurrentPlayerId && game.status === "active" ? ", current player" : ""}`}
               >
                 <span className="board-seat-avatar">
@@ -803,6 +827,12 @@ export function BoardEditor({
                     </b>
                   </span>
                   <PlayerElapsedTime game={game} playerId={p.id} />
+                  {p.id === game.currentPlayerId && <TurnClock game={game} />}
+                  {p.id === viewerPlayerId && (
+                    <small className="viewer-seat-label">
+                      You · seat {p.seat + 1}
+                    </small>
+                  )}
                   <small className="board-seat-rack">
                     {game.expectedRackCounts[p.id]} tiles left
                   </small>
@@ -813,7 +843,7 @@ export function BoardEditor({
                       game.status !== "active"
                     }
                   >
-                    Your turn
+                    {p.id === viewerPlayerId ? "Your turn" : "Playing now"}
                   </small>
                 </span>
               </div>
@@ -1000,31 +1030,10 @@ export function BoardEditor({
                     ) {
                       event.preventDefault();
                       const d = current.current;
+                      const step = boardArrowStep(event.key, perspective);
                       selectSquare(
-                        Math.max(
-                          0,
-                          Math.min(
-                            14,
-                            d.row +
-                              (event.key === "ArrowDown"
-                                ? 1
-                                : event.key === "ArrowUp"
-                                  ? -1
-                                  : 0),
-                          ),
-                        ),
-                        Math.max(
-                          0,
-                          Math.min(
-                            14,
-                            d.col +
-                              (event.key === "ArrowRight"
-                                ? 1
-                                : event.key === "ArrowLeft"
-                                  ? -1
-                                  : 0),
-                          ),
-                        ),
+                        Math.max(0, Math.min(14, d.row + step.row)),
+                        Math.max(0, Math.min(14, d.col + step.col)),
                       );
                     }
                   }}
@@ -1111,7 +1120,7 @@ export function BoardEditor({
               }
             >
               <span aria-hidden="true">
-                {draft.direction === "down" ? "↓" : "→"}
+                {boardDirectionArrow(draft.direction, perspective)}
               </span>
               <small>{manualDirection ? "" : "AUTO"}</small>
             </button>

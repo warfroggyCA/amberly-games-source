@@ -4,7 +4,8 @@ import { historyLabel, type HistoryProfile } from "../lib/history-participants";
 import { PlayerDirectory } from "./PlayerDirectory";
 import type { SharedOperation } from "../lib/shared-contract";
 import { EditRecordedTurn } from "./EditRecordedTurn";
-import { TurnClock, TimingSummary } from "./TurnTiming";
+import { GameClock, TimingSummary } from "./TurnTiming";
+import { commandTiming } from "../lib/turn-timing";
 import "./game-feedback.css";
 import { availableRackTiles } from "../lib/rack-entry";
 import { browserId } from "../lib/browser-id";
@@ -237,10 +238,7 @@ export function ScorerApp({
     let next: GameState | null = null;
     const command = {
       ...action,
-      ...(action.type === "start-clock" ||
-      target.events.some((e) => e.command.type === "start-clock")
-        ? { timedAt: new Date().toISOString() }
-        : {}),
+      ...commandTiming(target, action.type),
       id: id(),
       expectedRevision: target.revision,
     } as GameCommand;
@@ -517,7 +515,7 @@ export function ScorerApp({
   }, [fitGame]);
   const turnActions = game && (
     <div className="turn-actions">
-      <TurnClock
+      <GameClock
         game={game}
         disabled={busy || running || readOnly}
         onStart={() => void execute({ type: "start-clock" })}
@@ -928,6 +926,7 @@ export function ScorerApp({
           <SpectatorGame
             soundControl={soundControl}
             game={game}
+            viewerPlayerId={state.shared?.member.playerId}
             profiles={state.data.players}
             liveDraft={livePreview.draft}
             toolsTarget={draftRecovery ? undefined : viewerTools}
@@ -1275,6 +1274,7 @@ export function ScorerApp({
                 <SpectatorGame
                   soundControl={soundControl}
                   game={game}
+                  viewerPlayerId={state.shared?.member.playerId}
                   profiles={state.data.players}
                   liveDraft={livePreview.draft}
                   confirmation={renderGameStatus?.(game)}
@@ -1390,6 +1390,7 @@ export function ScorerApp({
                         key={game.id}
                         game={game}
                         fitScreen={fitGame}
+                        viewerPlayerId={state.shared?.member.playerId}
                         profiles={state.data.players}
                         onOfficialSearch={(query) => setOfficialQuery(query)}
                         savedDraft={state.data.drafts[game.id]}
@@ -2142,6 +2143,7 @@ function Ending({
         game,
         {
           ...action,
+          ...commandTiming(game, action.type),
           id: "preview-review",
           expectedRevision: game.revision,
         } as GameCommand,
