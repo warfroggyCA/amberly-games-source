@@ -11,7 +11,8 @@ successful metadata lookup is not evidence that this executor can transfer files
 2. Verify the existing approved network settings in the supported environment UI
    when available. For this workflow the approved exact hosts include
    `chatgpt.com`, `oaisdmntpreastus.blob.core.windows.net`, and
-   `oaisdmntprwestus.blob.core.windows.net`, alongside the existing project hosts.
+   `oaisdmntprwestus.blob.core.windows.net`, and
+   `oaisdmntprwestus3.blob.core.windows.net`, alongside the existing project hosts.
    Do not infer an active allowlist from a saved version number. Record whether
    the active configuration was actually visible. Inspect the returned hostname
    for every required reference, not just one sample: assets may use different
@@ -61,3 +62,11 @@ applicable tool. These are observed failure stages, not proof of a missing domai
 an expired credential, or a verified platform fix. Resolve through the supported
 platform workflow and repeat this preflight in a fresh session before declaring
 recovery. This check catches known transfer gaps; it cannot prevent every failure.
+
+## Later configuration evidence — October 4
+
+The user republished the environment at 11:31 and 12:41 UTC. The supported UI
+showed the exact four-host list above at 13:01. This supersedes the earlier
+three-host approval description, but effective policy and consumer transfer
+failures remained unresolved. Mac input/output success does not establish cloud
+recovery. Repeat the complete preflight in the fresh final-main cloud workspace.

@@ -11,6 +11,7 @@ export function TileBagButton({
   board,
   tileSupply,
   assisted = false,
+  finalized = false,
   onOpen,
   onCheckCounts,
   checkCountsDisabled = false,
@@ -19,6 +20,7 @@ export function TileBagButton({
   board: Board;
   tileSupply?: TileSupply | null;
   assisted?: boolean;
+  finalized?: boolean;
   onOpen?: () => void;
   onCheckCounts?: () => void;
   checkCountsDisabled?: boolean;
@@ -100,7 +102,7 @@ export function TileBagButton({
           setOpen(!open);
         }}
         aria-label={`Tiles remaining in bag: ${remaining}`}
-        title={`${remaining} tiles expected in the bag`}
+        title={`${remaining} tiles ${finalized ? "left" : "expected"} in the bag`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
@@ -136,6 +138,7 @@ export function TileBagButton({
               tileSupply={tileSupply}
               expectedBagCount={remaining}
               assisted={assisted}
+              finalized={finalized}
             />
             {onCheckCounts && (
               <button

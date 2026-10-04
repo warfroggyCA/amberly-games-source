@@ -11,11 +11,13 @@ export function LetterInventory({
   tileSupply,
   expectedBagCount,
   assisted = false,
+  finalized = false,
 }: {
   board: Board;
   tileSupply?: TileSupply | null;
   expectedBagCount: number;
   assisted?: boolean;
+  finalized?: boolean;
 }) {
   const supply = tileSupply ?? LETTER_COUNTS;
   const remaining = countUnplayed(board, supply);
@@ -26,17 +28,24 @@ export function LetterInventory({
   return (
     <>
       <div className="tile-inventory-heading">
-        <strong>{total} tiles not yet played</strong>
+        <strong>
+          {total} tiles {finalized ? "weren’t played" : "not yet played"}
+        </strong>
         <span>
           {expectedBagCount}{" "}
-          {assisted ? "left unused in the bag" : "expected in the bag"} ·{" "}
-          {Object.values(supply).reduce((sum, count) => sum + count, 0)} in this
-          set
+          {finalized
+            ? "left in the bag"
+            : assisted
+              ? "left unused in the bag"
+              : "expected in the bag"}{" "}
+          · {Object.values(supply).reduce((sum, count) => sum + count, 0)} in
+          this set
         </span>
       </div>
       <p className="inventory-explainer">
-        Letter counts include tiles on everyone’s racks. The exact letters in
-        the bag are unknown during normal play.
+        {finalized
+          ? "Counts include tiles that remained on players’ racks or in the bag when the game ended."
+          : "Letter counts include tiles on everyone’s racks. The exact letters in the bag are unknown during normal play."}
       </p>
       <div className="tile-inventory">
         {Object.entries(supply).map(([letter, original]) => (

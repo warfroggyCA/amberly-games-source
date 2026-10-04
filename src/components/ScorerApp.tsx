@@ -639,6 +639,7 @@ export function ScorerApp({
         remaining={game.expectedBagCount}
         board={game.board}
         tileSupply={game.tileSupply}
+        finalized={game.status === "finalized"}
         assisted={!!game.assistance}
         checkCountsDisabled={busy || running || readOnly}
         onCheckCounts={
@@ -1592,7 +1593,9 @@ export function ScorerApp({
                             ))}
                             {!game.turns.length && (
                               <p className="empty-log">
-                                Your first play starts the story.
+                                {game.status === "finalized"
+                                  ? "No turns were recorded."
+                                  : "Your first play starts the story."}
                               </p>
                             )}
                           </div>
