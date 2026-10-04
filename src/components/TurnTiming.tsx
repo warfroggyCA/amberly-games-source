@@ -56,7 +56,7 @@ export function TurnClock({
       disabled={disabled || game.status !== "active"}
       onClick={onStart}
     >
-      {game.turns.length ? "Start timing" : "Begin play & timer"}
+      Start timing
     </button>
   ) : (
     <span className="turn-clock">Timer not started</span>

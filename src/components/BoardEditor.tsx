@@ -1,5 +1,9 @@
 "use client";
-import { PlayerElapsedTime, TurnClock } from "./TurnTiming";
+import { PlayerElapsedTime } from "./TurnTiming";
+import {
+  readDirectionPreference,
+  saveDirectionPreference,
+} from "../lib/direction-preference";
 import { WordDirectionMarkers, WordFeedbackHelp } from "./WordDirectionMarkers";
 import { draftWordFeedback, wordCellFeedback } from "../domain/word-feedback";
 import { PlayerName } from "./PlayerName";
@@ -90,6 +94,7 @@ export function BoardEditor({
   onDraft,
   onRecord,
   onUndo,
+  onBeginPlay,
   undoDisabled = false,
   locked,
   onRequestExtraTiles,
@@ -113,11 +118,15 @@ export function BoardEditor({
   onDraft: (draft: Draft) => void;
   onRecord: (placements: Placement[]) => Promise<boolean>;
   onUndo?: () => void;
+  onBeginPlay?: () => void;
   undoDisabled?: boolean;
   locked: boolean;
   onRequestExtraTiles?: (placements: Placement[]) => void;
 }) {
   const perspective = boardPerspective(game.players, viewerPlayerId);
+  const [directionPreference] = useState(() =>
+    readDirectionPreference(game.id),
+  );
   const initial: Draft =
     savedDraft?.revision === game.revision
       ? savedDraft
@@ -126,7 +135,7 @@ export function BoardEditor({
           placements: [],
           row: 7,
           col: 7,
-          direction: "across",
+          direction: directionPreference === "down" ? "down" : "across",
         };
   const [draft, setDraft] = useState(initial);
   const [hasStart, setHasStart] = useState(true);
@@ -138,7 +147,7 @@ export function BoardEditor({
   const [focused, setFocused] = useState(false);
   const focusedRef = useRef(false);
   const [manualDirection, setManualDirection] = useState(
-    initial.placements.length > 0,
+    directionPreference !== "auto",
   );
   const [message, setMessage] = useState<string | null>(null);
   const [blank, setBlank] = useState(false);
@@ -496,9 +505,7 @@ export function BoardEditor({
       focusInput();
       return;
     }
-    const keepManual =
-      manualDirection &&
-      (d.placements.length > 0 || (d.row === row && d.col === col));
+    const keepManual = manualDirection;
     if (!keepManual) setManualDirection(false);
     setHasStart(true);
     change({
@@ -517,6 +524,7 @@ export function BoardEditor({
     input.current?.blur();
     setHasStart(false);
     setManualDirection(false);
+    saveDirectionPreference(game.id, "auto");
     setBlank(false);
     setEntryOptions(false);
     change({
@@ -598,6 +606,7 @@ export function BoardEditor({
   function direction(value: Draft["direction"] | "auto") {
     const d = current.current;
     setManualDirection(value !== "auto");
+    saveDirectionPreference(game.id, value);
     change({
       ...d,
       atEdge: false,
@@ -827,7 +836,6 @@ export function BoardEditor({
                     </b>
                   </span>
                   <PlayerElapsedTime game={game} playerId={p.id} />
-                  {p.id === game.currentPlayerId && <TurnClock game={game} />}
                   {p.id === viewerPlayerId && (
                     <small className="viewer-seat-label">
                       You · seat {p.seat + 1}
@@ -850,6 +858,18 @@ export function BoardEditor({
             ))}
             <div className="board-scroll">
               <div className={`board-frame ${zoom ? "is-zoomed" : ""}`}>
+                {onBeginPlay && (
+                  <div className="board-begin-play">
+                    <button
+                      type="button"
+                      className="button primary"
+                      disabled={disabled}
+                      onClick={onBeginPlay}
+                    >
+                      Begin play
+                    </button>
+                  </div>
+                )}
                 <div
                   className="board-grid"
                   role="grid"

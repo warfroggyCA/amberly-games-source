@@ -160,3 +160,112 @@ test("successful background refresh clears its failure without hiding local vali
   await expect.poll(() => refreshCount).toBeGreaterThan(before);
   await expect(validation).toBeVisible();
 });
+
+test("Begin play retry preserves one clock start, draft, and another game", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const other = { ...structuredClone(f.family.games[0]), id: "other-game" };
+  f.family.games.push(other);
+  const originalOther = JSON.stringify(other);
+  const requests: SharedMutation[] = [];
+  await page.route("**/api/family/draft*", (route) =>
+    route.fulfill({ json: { accepted: true, draft: null } }),
+  );
+  await page.route(/\/api\/family(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === "GET") return route.fallback();
+    const mutation = route.request().postDataJSON() as SharedMutation;
+    requests.push(mutation);
+    if (mutation.operation.type !== "game-commands")
+      throw Error("Unexpected mutation");
+    if (requests.length === 1) {
+      expect(mutation.operation.commands).toHaveLength(1);
+      expect(mutation.operation.commands[0].type).toBe("start-clock");
+      const result = applyCommand(
+        f.family.games[0],
+        mutation.operation.commands[0],
+        testLexicon,
+      );
+      if (!result.ok) throw Error(result.error.message);
+      f.family.games[0] = result.game;
+      return route.abort("internetdisconnected");
+    }
+    expect(mutation).toEqual(requests[0]);
+    return route.fulfill({
+      json: {
+        replayed: true,
+        game: f.family.games[0],
+        gameAccess: f.family.gameAccess[f.family.games[0].id],
+      },
+    });
+  });
+  await page.goto("/family");
+  await page.getByRole("button", { name: "Resume game", exact: true }).click();
+  await page.getByTestId("cell-H8").click();
+  await page
+    .getByRole("textbox", { name: "Type letters on the board" })
+    .pressSequentially("CAT");
+  await page
+    .getByRole("button", { name: "Begin play", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await page
+    .getByRole("button", { name: "Retry saved action", exact: true })
+    .click();
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+  expect(requests).toHaveLength(2);
+  expect(
+    f.family.games[0].events.filter((e) => e.command.type === "start-clock"),
+  ).toHaveLength(1);
+  expect(JSON.stringify(f.family.games[1])).toBe(originalOther);
+});
+
+test("spectators cannot begin play and resumed untimed games retain late timing", async ({
+  page,
+}) => {
+  const f = await fixture(page);
+  const game = f.family.games[0];
+  f.family.gameAccess[game.id].canScore = false;
+  f.family.gameAccess[game.id].scorerUserId =
+    "44444444-4444-4444-8444-444444444444";
+  await page.route("**/api/family/draft*", (route) =>
+    route.fulfill({ json: { draft: null } }),
+  );
+  await page.goto("/family/scrabble?view=play");
+  await expect(
+    page.getByRole("region", { name: "Live game viewer" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Start timing", exact: true }),
+  ).toHaveCount(0);
+  f.family.gameAccess[game.id].canScore = true;
+  f.family.gameAccess[game.id].scorerUserId = f.family.member.userId;
+  for (const type of ["pause", "resume"] as const) {
+    const result = applyCommand(
+      f.family.games[0],
+      { type, id: type, expectedRevision: f.family.games[0].revision },
+      testLexicon,
+    );
+    if (!result.ok) throw Error(result.error.message);
+    f.family.games[0] = result.game;
+  }
+  await page.reload();
+  await expect(page.getByTestId("cell-H8")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Start timing", exact: true }),
+  ).toBeEnabled();
+});

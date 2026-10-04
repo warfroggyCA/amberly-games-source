@@ -112,7 +112,7 @@ test("viewer sounds unlock on tap, play committed cues, suppress refresh and rec
   );
   await page.goto(`/watch#${"a".repeat(64)}`);
   await page
-    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Mute game sounds", exact: true }),
@@ -122,7 +122,7 @@ test("viewer sounds unlock on tap, play committed cues, suppress refresh and rec
   await expect.poll(() => starts(page), { timeout: 12000 }).toEqual([709696]);
   await page.reload();
   await page
-    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Mute game sounds", exact: true }),
@@ -176,7 +176,7 @@ test("scorer keeps drafts silent, retries unavailable audio, then sounds a saved
   await page.getByLabel("Who plays first?").selectOption({ label: "Ada" });
   await page.getByRole("button", { name: "Start game", exact: true }).click();
   await page
-    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Retry game sounds", exact: true }),
@@ -203,7 +203,7 @@ test("scorer keeps drafts silent, retries unavailable audio, then sounds a saved
     .getByRole("button", { name: "Mute game sounds", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+    page.getByRole("button", { name: /^(Enable|Activate) game sounds$/ }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath("scorer-sound-control.png") });
 });
@@ -220,7 +220,7 @@ test("real browser audio unlocks and decodes all six packaged recordings", async
   );
   await page.goto(`/watch#${"a".repeat(64)}`);
   await page
-    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
     .click();
   await expect(
     page.getByRole("button", { name: "Mute game sounds", exact: true }),
@@ -230,7 +230,7 @@ test("real browser audio unlocks and decodes all six packaged recordings", async
     .getByRole("button", { name: "Mute game sounds", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+    page.getByRole("button", { name: /^(Enable|Activate) game sounds$/ }),
   ).toBeVisible();
 });
 
@@ -265,7 +265,7 @@ for (const listener of ["ada", "ben"]) {
       .getByRole("button", { name: "View current game", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Enable game sounds", exact: true })
+      .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
       .click();
     await expect(
       page.getByRole("button", { name: "Mute game sounds", exact: true }),
@@ -277,3 +277,117 @@ for (const listener of ["ada", "ben"]) {
       .toEqual(listener === "ben" ? [709696, 424934] : [709696]);
   });
 }
+
+async function freshScorer(page: Page) {
+  await page.goto("/");
+  await page.getByRole("button", { name: /New preview game/ }).click();
+  for (const name of ["Ada", "Ben"]) {
+    await page.getByRole("textbox", { name: "Player name" }).fill(name);
+    await page.getByRole("button", { name: "Add player", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+}
+
+test("Begin play unlocks default-on audio; mute persists across reload", async ({
+  page,
+}) => {
+  await instrumentAudio(page);
+  await freshScorer(page);
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(await starts(page)).toEqual([]);
+  // Dispatch twice in one turn to exercise the synchronous busy guard.
+  await page
+    .getByRole("button", { name: "Begin play", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Mute game sounds", exact: true })
+    .click();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
+  expect(await starts(page)).toEqual([]);
+});
+
+test("Begin play saves timing when audio fails and the pending preference can be muted", async ({
+  page,
+}) => {
+  await instrumentAudio(page);
+  await page.route("**/sounds/*.wav", (route) =>
+    route.fulfill({ status: 503, body: "unavailable" }),
+  );
+  await freshScorer(page);
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Retry game sounds", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Mute game sounds", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+});
+
+test("Begin play unlocks real browser audio on this device", async ({
+  page,
+}, info) => {
+  await freshScorer(page);
+  const begin = page.getByRole("button", { name: "Begin play", exact: true });
+  const board = await page.getByRole("grid").boundingBox();
+  const button = await begin.boundingBox();
+  expect(button!.x).toBeGreaterThanOrEqual(board!.x);
+  expect(button!.y).toBeGreaterThanOrEqual(board!.y);
+  expect(button!.x + button!.width).toBeLessThanOrEqual(
+    board!.x + board!.width,
+  );
+  await page.screenshot({ path: info.outputPath("fresh-begin-play.png") });
+  await begin.click();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Retry game sounds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mute game sounds", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await page.screenshot({ path: info.outputPath("started-turn-timer.png") });
+});
+
+test("deliberate mute before Begin play is honored without an audio request", async ({
+  page,
+}) => {
+  await instrumentAudio(page);
+  let audioRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/sounds/")) audioRequests++;
+  });
+  await freshScorer(page);
+  await page
+    .getByRole("button", { name: "Mute game sounds", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  expect(audioRequests).toBe(0);
+});

@@ -4,7 +4,7 @@ import { historyLabel, type HistoryProfile } from "../lib/history-participants";
 import { PlayerDirectory } from "./PlayerDirectory";
 import type { SharedOperation } from "../lib/shared-contract";
 import { EditRecordedTurn } from "./EditRecordedTurn";
-import { GameClock, TimingSummary } from "./TurnTiming";
+import { TurnClock, TimingSummary } from "./TurnTiming";
 import { commandTiming } from "../lib/turn-timing";
 import "./game-feedback.css";
 import { availableRackTiles } from "../lib/rack-entry";
@@ -185,7 +185,7 @@ export function ScorerApp({
   } | null>(null);
   const game =
     state.data.games.find((g) => g.id === state.data.activeGameId) ?? null;
-  const soundControl = useGameSounds(
+  const { control: soundControl, unlock: unlockSounds } = useGameSounds(
     view === "Play" ? game : null,
     state.status === "ready" && !state.error && !state.unresolved,
     state.pending > 0,
@@ -513,12 +513,33 @@ export function ScorerApp({
   useEffect(() => {
     if (fitGame) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [fitGame]);
+  // Paused/resumed and previously played untimed games keep the late timing action.
+  const freshGame =
+    !!game &&
+    game.status === "active" &&
+    !game.pendingEnd &&
+    game.turns.length === 0 &&
+    game.events.length === 0;
+  function startClock() {
+    if (
+      !game ||
+      busyRef.current ||
+      runningRef.current ||
+      readOnly ||
+      game.status !== "active" ||
+      game.pendingEnd
+    )
+      return;
+    // Keep audio resume inside this gesture; audio failure never blocks saving.
+    unlockSounds();
+    void execute({ type: "start-clock" });
+  }
   const turnActions = game && (
     <div className="turn-actions">
-      <GameClock
+      <TurnClock
         game={game}
         disabled={busy || running || readOnly}
-        onStart={() => void execute({ type: "start-clock" })}
+        onStart={freshGame || readOnly ? undefined : startClock}
       />
       {game.status !== "finalized" && (
         <>
@@ -1389,6 +1410,9 @@ export function ScorerApp({
                       <AnimatedBoardEditor
                         key={game.id}
                         game={game}
+                        onBeginPlay={
+                          freshGame && !readOnly ? startClock : undefined
+                        }
                         fitScreen={fitGame}
                         viewerPlayerId={state.shared?.member.playerId}
                         profiles={state.data.players}

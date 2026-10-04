@@ -114,9 +114,7 @@ test("vertical entry stays readable through short landscape rotation and acciden
     await page.getByRole("button", { name: "Add player", exact: true }).click();
   }
   await page.getByRole("button", { name: "Start game", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Begin play & timer", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   const input = page.getByRole("textbox", {
     name: "Type letters on the board",
   });

@@ -20,7 +20,7 @@ export function WatchGame() {
   const [toolsTarget, setToolsTarget] = useState<HTMLDivElement | null>(null);
   const [menu, setMenu] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const soundControl = useGameSounds(game, !error);
+  const { control: soundControl } = useGameSounds(game, !error);
   useEffect(() => {
     let disposed = false;
     let stopped = false;
