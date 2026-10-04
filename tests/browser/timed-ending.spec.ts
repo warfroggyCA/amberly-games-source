@@ -188,6 +188,13 @@ test("timed rack-out validates letters, previews transfer, retries final save on
     .getByRole("button", { name: "Continue to ending review", exact: true })
     .click();
   const ending = page.getByRole("dialog", { name: "Review the ending" });
+  const pool = ending.getByRole("region", {
+    name: "Unassigned tiles",
+    exact: true,
+  });
+  await expect(pool).toContainText("7 remaining · 0 assigned");
+  await expect(pool).toContainText("The bag is empty");
+  await expect(pool.getByLabel("Blank: 2", { exact: true })).toBeVisible();
   const confirm = ending.getByRole("button", { name: "Confirm final results" });
   await expect(confirm).toBeDisabled();
   await ending.getByLabel("Erin remaining tiles", { exact: true }).fill("EEEE");
@@ -197,6 +204,7 @@ test("timed rack-out validates letters, previews transfer, retries final save on
     .getByLabel("Erin remaining tiles", { exact: true })
     .fill("EEEEE??");
   await expect(confirm).toBeEnabled();
+  await expect(pool).toContainText("All remaining tiles allocated.");
   const emptyRack = ending.getByLabel("Doug remaining tiles", { exact: true });
   await emptyRack.fill("H");
   await expect(ending.getByRole("alert")).toContainText("Only 0 H tiles");

@@ -777,3 +777,88 @@ it("failed quarantine cannot overwrite the original corrupt workspace", async ()
   expect((await localRows()).values).toEqual([corrupt]);
   expect(s.getSnapshot().recoveryNeeded).toBe(true);
 });
+
+it("Record Book refresh retains loaded pages and reads new, updated and removed games atomically", async () => {
+  const copy = (id: string) => ({
+    ...structuredClone(game),
+    definition: { ...structuredClone(game.definition), id },
+  });
+  const older = copy("older");
+  const newer = copy("newer");
+  let pages = [[newer], [older]];
+  request.mockImplementation(async (path: string) => {
+    const cursor = new URL(path, "http://test").searchParams.get("cursor");
+    const index = cursor ? Number(cursor) : 0;
+    const games = pages[index];
+    return {
+      ...state(),
+      games,
+      access: Object.fromEntries(
+        games.map((g) => [g.definition.id, state().access.game]),
+      ),
+      nextCursor: index + 1 < pages.length ? String(index + 1) : null,
+    };
+  });
+  const s = store();
+  await s.load();
+  await s.load(undefined, "1");
+  expect(s.getSnapshot().games).toHaveLength(2);
+  const updated = applyCrokinoleCommand(older, {
+    id: "record",
+    type: "record_round",
+    expectedRevision: 0,
+    roundId: "round",
+    entries: [
+      { participantId: "a", rawScore: 65 },
+      { participantId: "b", rawScore: 0 },
+    ],
+  });
+  pages = [[copy("newest")], [newer], [updated]];
+  await s.refresh(undefined, undefined, true);
+  expect(s.getSnapshot().games.map((g) => g.definition.id)).toEqual([
+    "newest",
+    "newer",
+    "older",
+  ]);
+  expect(s.getSnapshot().games[2].totals.a).toBe(65);
+  expect(s.getSnapshot().nextCursor).toBeNull();
+  pages = [[copy("newest")], [updated]];
+  await s.refresh(undefined, undefined, true);
+  expect(s.getSnapshot().games.map((g) => g.definition.id)).toEqual([
+    "newest",
+    "older",
+  ]);
+  expect(s.getSnapshot().access.newer).toBeUndefined();
+});
+
+it("Record Book refresh keeps partially loaded history and its advancing cursor", async () => {
+  const copy = (id: string) => ({
+    ...structuredClone(game),
+    definition: { ...structuredClone(game.definition), id },
+  });
+  let pages = [[copy("first")], [copy("second")], [copy("third")]];
+  request.mockImplementation(async (path: string) => {
+    const cursor = new URL(path, "http://test").searchParams.get("cursor");
+    const index = cursor ? Number(cursor) : 0;
+    const games = pages[index];
+    return {
+      ...state(),
+      games,
+      access: Object.fromEntries(
+        games.map((g) => [g.definition.id, state().access.game]),
+      ),
+      nextCursor: index + 1 < pages.length ? String(index + 1) : null,
+    };
+  });
+  const s = store();
+  await s.load();
+  await s.load(undefined, "1");
+  pages = [[copy("new")], ...pages];
+  await s.refresh(undefined, undefined, true);
+  expect(s.getSnapshot().games.map((g) => g.definition.id)).toEqual([
+    "new",
+    "first",
+    "second",
+  ]);
+  expect(s.getSnapshot().nextCursor).toBe("3");
+});

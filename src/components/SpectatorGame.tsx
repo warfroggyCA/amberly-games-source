@@ -1,6 +1,6 @@
 "use client";
 import { PlayerElapsedTime } from "./TurnTiming";
-import { GameClock, TurnClock, TimingSummary } from "./TurnTiming";
+import { TurnClock, TimingSummary } from "./TurnTiming";
 import "./game-feedback.css";
 import { BingoBanner } from "./BingoBanner";
 import "./score-drawer.css";
@@ -242,7 +242,7 @@ export function SpectatorGame({
         }
       />
       <div className="spectator-game-clock">
-        <GameClock game={game} />
+        <TurnClock game={game} />
       </div>
       <div className="spectator-stage">
         <div className="spectator-table">
@@ -305,9 +305,6 @@ export function SpectatorGame({
                     {displayScores[player.id]}
                   </b>
                   <PlayerElapsedTime game={game} playerId={player.id} />
-                  {player.id === game.currentPlayerId && (
-                    <TurnClock game={game} />
-                  )}
                   {player.id === viewerPlayerId && (
                     <small className="viewer-seat-label">
                       You · seat {player.seat + 1}

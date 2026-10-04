@@ -358,9 +358,7 @@ test("visible timer, pause, skip and audited earlier-play correction", async ({
   page,
 }) => {
   await startGame(page);
-  await page
-    .getByRole("button", { name: "Begin play & timer", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await expect(page.getByLabel("Player accrued time")).toHaveCount(2);
   await page.getByRole("button", { name: "Pause game", exact: true }).click();
   await expect(page.getByLabel("Current turn elapsed time")).toContainText(
@@ -410,4 +408,46 @@ test("visible timer, pause, skip and audited earlier-play correction", async ({
   await expect(
     page.getByLabel("Ben, 3 points, current player", { exact: true }),
   ).toBeVisible();
+});
+
+test("automatic and deliberate placement choices survive draft reload and timer start", async ({
+  page,
+}) => {
+  await startGame(page);
+  const direction = page.getByRole("button", { name: /^Word direction:/ });
+  await expect(direction).toHaveAccessibleName("Word direction: auto across");
+  await enter(page, "H8", "CAT");
+  // Reload only after IndexedDB confirms the draft is durable.
+  await expect(page.locator(".save-state")).toHaveText("Saved on this device");
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(direction).toHaveAccessibleName("Word direction: auto across");
+  await direction.click();
+  await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  // Reload only after IndexedDB confirms the draft is durable.
+  await expect(page.locator(".save-state")).toHaveText("Saved on this device");
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Pause game", exact: true }).click();
+  await page.getByRole("button", { name: "Resume game", exact: true }).click();
+  await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  await expect(
+    page.getByRole("button", { name: "Begin play", exact: true }),
+  ).toHaveCount(0);
 });

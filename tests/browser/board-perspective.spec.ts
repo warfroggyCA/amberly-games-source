@@ -114,13 +114,13 @@ async function boardLayout(page: Page, board: Locator, seat: Locator) {
   expect(seatBox!.y + seatBox!.height / 2).toBeGreaterThan(
     gridBox!.y + gridBox!.height / 2,
   );
-  const clock = page.getByLabel("Total game time", { exact: true });
+  const clock = page.getByLabel("Current turn elapsed time", { exact: true });
   await expect(clock).toBeVisible();
   const clockBox = await clock.boundingBox();
   expect(clockBox!.y).toBeLessThan(gridBox!.y);
   expect(clockBox!.x).toBeLessThan(gridBox!.x + gridBox!.width / 2);
   await expect(
-    board.locator(".is-current").getByLabel("Current turn elapsed time"),
+    board.locator(".is-current").getByLabel("Player accrued time"),
   ).toBeVisible();
   await expect(page.getByLabel("Current turn elapsed time")).toHaveCount(1);
   await fitsWidth(page);

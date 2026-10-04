@@ -792,3 +792,18 @@
     margin-block: 8px;
   }
 }
+
+.board-begin-play {
+  position: absolute;
+  top: 12px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.board-begin-play button {
+  pointer-events: auto;
+  min-height: 44px;
+}

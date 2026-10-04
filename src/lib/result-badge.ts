@@ -1,6 +1,5 @@
 import { isValidProfilePhoto } from "./player-profile";
 import { LETTER_VALUES } from "../domain/board";
-import { portraitCrownRect } from "./portrait-geometry";
 
 export type BadgeResult = {
   gameId: string;
@@ -110,6 +109,13 @@ function drawPortrait(
   ctx.stroke();
 }
 
+/** Entire crown stays above the portrait rim, including ties and doubles. */
+export function badgePortraitCrownRect(x: number, y: number, radius: number) {
+  const width = radius * 1.65;
+  const height = (width * 2) / 3;
+  return { x: x - width / 2, y: y - radius - 10 - height, width, height };
+}
+
 function drawPortraitCrown(
   ctx: CanvasRenderingContext2D,
   crown: HTMLImageElement,
@@ -117,7 +123,7 @@ function drawPortraitCrown(
   y: number,
   radius: number,
 ) {
-  const box = portraitCrownRect(x - radius, y - radius, radius * 2);
+  const box = badgePortraitCrownRect(x, y, radius);
   ctx.drawImage(crown, box.x, box.y, box.width, box.height);
 }
 
@@ -152,13 +158,8 @@ export async function makeResultBadge(
     ),
   );
   const hasPhotos = photos.some(Boolean);
-  // The optional crown uses the same vector artwork as the in-app portrait.
-  const crown = hasPhotos
-    ? await loadArtwork("/results/crown.svg", signal).catch((error) => {
-        if (signal.aborted) throw error;
-        return null;
-      })
-    : null;
+  // One approved crown asset is used for photo and no-photo winners alike.
+  const crown = await loadArtwork("/results/winner-crown-v2.png", signal);
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1080;
   const ctx = canvas.getContext("2d");
@@ -170,43 +171,46 @@ export async function makeResultBadge(
   fitText(ctx, "GAME NIGHT WINNER", 33, 870);
   ctx.fillText("GAME NIGHT WINNER", 540, 264);
 
-  if (hasPhotos && crown) {
-    // Opaque framed medallion covers the original artwork's central crown.
-    ctx.beginPath();
-    ctx.arc(540, 530, 198, 0, Math.PI * 2);
-    ctx.fillStyle = "#12392b";
-    ctx.fill();
-    ctx.strokeStyle = "#d8ae50";
-    ctx.lineWidth = 8;
-    ctx.stroke();
+  // Cover the original fixed crown before composing the shared photo/no-photo art.
+  ctx.beginPath();
+  ctx.roundRect(310, 302, 460, 430, 80);
+  ctx.fillStyle = "#12392b";
+  ctx.fill();
+  ctx.strokeStyle = "#d8ae50";
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  if (hasPhotos) {
     if (photos.length === 1 && photos[0]) {
-      drawPortrait(ctx, photos[0], 540, 530, 190);
-      drawPortraitCrown(ctx, crown, 540, 530, 190);
+      drawPortrait(ctx, photos[0], 540, 584, 130);
+      drawPortraitCrown(ctx, crown, 540, 584, 130);
     } else {
       const columns = Math.min(2, photos.length);
       const rows = Math.ceil(photos.length / columns);
-      const radius = rows > 1 ? 70 : 80;
+      const radius = rows > 1 ? 58 : 78;
       photos.forEach((photo, index) => {
-        const x = 540 + ((index % columns) - (columns - 1) / 2) * 174;
-        const y = 530 + (Math.floor(index / columns) - (rows - 1) / 2) * 164;
+        const x = 540 + ((index % columns) - (columns - 1) / 2) * 200;
+        const y = rows > 1 ? 468 + Math.floor(index / columns) * 190 : 585;
         if (photo) {
           drawPortrait(ctx, photo, x, y, radius);
           drawPortraitCrown(ctx, crown, x, y, radius);
-        } else
+        } else {
           ctx.drawImage(
             crown,
             x - radius,
-            y - radius * 0.8,
+            y - radius,
             radius * 2,
-            radius * 1.6,
+            (radius * 4) / 3,
           );
+        }
       });
     }
+  } else {
+    ctx.drawImage(crown, 350, 380, 380, (380 * 2) / 3);
   }
 
   // One band per winner; long team names use readable lettering rather than tiny tiles.
   const names = result.winners.flatMap((winner) => badgeNameRows(winner.name));
-  const portraitsDrawn = hasPhotos && !!crown;
+  const portraitsDrawn = true;
   const band = (portraitsDrawn ? 120 : 190) / names.length;
   names.forEach((name, index) => {
     const chars = badgeCharacters(name);
