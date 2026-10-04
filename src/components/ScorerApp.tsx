@@ -1048,7 +1048,7 @@ export function ScorerApp({
   if (shared && view === "Play" && game && readOnly)
     return (
       <div
-        className={`app-shell ${draftRecovery ? "draft-recovery-shell" : "spectator-shell"}`}
+        className={`app-shell ${draftRecovery ? "draft-recovery-shell" : "spectator-shell"}${game.status === "finalized" ? " history-result-shell" : ""}`}
       >
         {beginPanel}
         <AmberlyHeader

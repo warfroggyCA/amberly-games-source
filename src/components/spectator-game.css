@@ -766,3 +766,22 @@ body:has(> .spectator-shell) > .error-banner {
 body .app-shell.spectator-shell .spectator-game .spectator-board .board-frame {
   border-width: clamp(5px, calc(var(--spectator-board-size) * 0.013), 10px);
 }
+
+/* Saved results can scroll: return/share actions must not squeeze their tiles. */
+body:has(> .spectator-shell.history-result-shell) {
+  height: auto;
+  min-height: 100dvh;
+  overflow: auto;
+}
+.app-shell.spectator-shell.history-result-shell {
+  flex: none;
+  min-height: 100dvh;
+}
+.app-shell.spectator-shell.history-result-shell > main {
+  flex: none;
+}
+.app-shell.spectator-shell.history-result-shell .spectator-game {
+  flex: none;
+  min-height: 640px;
+  height: max(640px, calc(100svh - 160px));
+}
