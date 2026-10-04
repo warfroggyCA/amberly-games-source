@@ -17,6 +17,7 @@ import {
   type PlaybackGame,
 } from "../lib/turn-playback";
 import { positionScoreBubble } from "../lib/score-bubble-position";
+import { PlaybackClock } from "../lib/playback-clock";
 import { startTurnSparkles } from "../lib/turn-sparkles";
 import "./turn-animation.css";
 
@@ -70,45 +71,37 @@ export function useTurnPlayback(game: PlaybackGame) {
   };
 }
 
-function wait(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException("Cancelled", "AbortError"));
-      return;
-    }
-    const stop = () => {
-      clearTimeout(timer);
-      reject(new DOMException("Cancelled", "AbortError"));
-    };
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", stop);
-      resolve();
-    }, ms);
-    signal.addEventListener("abort", stop, { once: true });
-  });
-}
-
 export function TurnAnimation({
   turn,
   containerRef,
   onScore,
   onComplete,
   interruptOnInput = true,
+  playbackRate = 1,
 }: {
   turn: GameTurn | null;
   containerRef: RefObject<HTMLElement | null>;
   onScore: () => void;
   onComplete: () => void;
   interruptOnInput?: boolean;
+  playbackRate?: number;
 }) {
   const overlay = useRef<HTMLDivElement>(null);
+  const rate = useRef(playbackRate);
+  const clockRef = useRef<PlaybackClock | null>(null);
+  // A rate change preserves the current turn and each animation's progress.
+  useLayoutEffect(() => {
+    rate.current = playbackRate;
+    clockRef.current?.setRate(playbackRate);
+  }, [playbackRate]);
   useLayoutEffect(() => {
     if (!turn) return;
     const root = containerRef.current;
     const layer = overlay.current;
     const controller = new AbortController();
     const { signal } = controller;
-    const animations = new Set<Animation>();
+    const clock = new PlaybackClock(rate.current);
+    clockRef.current = clock;
     const hidden = new Map<HTMLElement, string>();
     let disposed = false;
     let observer: ResizeObserver | undefined;
@@ -124,8 +117,8 @@ export function TurnAnimation({
       disposed = true;
       controller.abort();
       sparkles?.stop();
-      animations.forEach((a) => a.cancel());
-      animations.clear();
+      clock.dispose();
+      if (clockRef.current === clock) clockRef.current = null;
       restore();
       if (layer) layer.style.visibility = "hidden";
       observer?.disconnect();
@@ -142,12 +135,12 @@ export function TurnAnimation({
     ) {
       if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
       const animation = node.animate(frames, { ...options, fill: "both" });
-      animations.add(animation);
+      const untrack = clock.track(animation);
       try {
         await animation.finished;
         if (signal.aborted) throw new DOMException("Cancelled", "AbortError");
       } finally {
-        animations.delete(animation);
+        untrack();
         animation.cancel();
       }
     }
@@ -232,7 +225,7 @@ export function TurnAnimation({
         }
         badge.style.visibility = "visible";
         onScore();
-        await wait(1100, signal);
+        await clock.wait(1100);
         finish();
         return;
       }
@@ -266,7 +259,7 @@ export function TurnAnimation({
       // Decoration is optional even when a device cannot allocate a canvas.
       if (canvas) {
         try {
-          sparkles = startTurnSparkles(canvas, flying, badge);
+          sparkles = startTurnSparkles(canvas, flying, badge, clock.now);
           sparkles.land({ left: origin.x, top: origin.y, width: 0, height: 0 });
         } catch {
           /* Keep the tile animation. */
@@ -274,7 +267,7 @@ export function TurnAnimation({
       }
       await Promise.all(
         flying.map(async (node, i) => {
-          await wait(i * 125, signal);
+          await clock.wait(i * 125);
           if (signal.aborted) return;
           node.style.visibility = "visible";
           await animate(node, tumbleFrames(origin, destinations[i], i), {
@@ -288,7 +281,7 @@ export function TurnAnimation({
           sparkles?.land(destinations[i]);
         }),
       );
-      await wait(120, signal);
+      await clock.wait(120);
       if (!position) {
         finish();
         return;
@@ -308,7 +301,7 @@ export function TurnAnimation({
         ],
         { duration: 380, easing: "cubic-bezier(.2,.8,.2,1)" },
       );
-      await wait(650, signal);
+      await clock.wait(650);
       const from = badge.getBoundingClientRect(),
         to = score.getBoundingClientRect();
       const dx = to.left + to.width / 2 - from.left - from.width / 2;

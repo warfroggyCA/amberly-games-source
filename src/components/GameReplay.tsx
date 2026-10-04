@@ -1,7 +1,15 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { gameReplay, type GameState } from "../domain/game";
 import type { SavedPlayer } from "../lib/preview-store";
+import { PlaybackClock } from "../lib/playback-clock";
 import { replayStepLabel } from "../lib/game-replay";
 import { SpectatorGame } from "./SpectatorGame";
 import "./game-replay.css";
@@ -19,6 +27,13 @@ export function GameReplay({
   onClose: () => void;
 }) {
   const [record] = useState(game);
+  const [speed, setSpeed] = useState(1);
+  const rate = useRef(speed);
+  const paceClock = useRef<PlaybackClock | null>(null);
+  useLayoutEffect(() => {
+    rate.current = speed;
+    paceClock.current?.setRate(speed);
+  }, [speed]);
   const timeline = useMemo(() => gameReplay(record), [record]);
   const [position, setPosition] = useState({
     index: 0,
@@ -101,11 +116,16 @@ export function GameReplay({
       const timer = window.setTimeout(pause, 0);
       return () => window.clearTimeout(timer);
     }
-    const timer = window.setTimeout(
+    const clock = new PlaybackClock(rate.current);
+    paceClock.current = clock;
+    void clock.wait(1100).then(
       () => seek(position.index + 1, true, true),
-      1100,
+      () => {}, // Pause, seek and unmount cancel this pending step.
     );
-    return () => window.clearTimeout(timer);
+    return () => {
+      clock.dispose();
+      if (paceClock.current === clock) paceClock.current = null;
+    };
   }, [position, timeline, pause, seek]);
   return (
     <main className="game-replay">
@@ -163,6 +183,19 @@ export function GameReplay({
                 Next
               </button>
             </div>
+            <label className="replay-speed">
+              Playback speed
+              <select
+                value={speed}
+                onChange={(event) => setSpeed(Number(event.target.value))}
+              >
+                {[1, 2, 4, 8].map((value) => (
+                  <option key={value} value={value}>
+                    {value}×
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="replay-position">
               Step {position.index} of {timeline.length}
               <input
@@ -184,7 +217,7 @@ export function GameReplay({
                   : "About this read-only replay"}
               </summary>
               <p>
-                Read-only · playback uses a steady pace.{" "}
+                Read-only · playback uses a steady pace at {speed}× speed.{" "}
                 {record.events.some((event) => !event.command.timedAt)
                   ? "Some original timing was not recorded. "
                   : ""}
@@ -199,6 +232,7 @@ export function GameReplay({
             assisted={!!frame.assistance}
             replayPlayback={{
               turn,
+              playbackRate: speed,
               scores:
                 turn && !position.scored
                   ? (before.result?.scores ?? before.scores)
