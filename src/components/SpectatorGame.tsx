@@ -50,7 +50,9 @@ export function SpectatorGame({
   soundControl?: ReactNode;
   toolsTarget?: HTMLElement | null;
   assisted?: boolean;
-  replayPlayback?: ReturnType<typeof useTurnPlayback>;
+  replayPlayback?: ReturnType<typeof useTurnPlayback> & {
+    playbackRate?: number;
+  };
 }) {
   // Viewer perspective rearranges seats only; the shared board stays canonical.
   const perspective = boardPerspective(game.players, viewerPlayerId);
@@ -430,6 +432,7 @@ export function SpectatorGame({
         onScore={playback.revealScore}
         onComplete={playback.finish}
         interruptOnInput={!replayPlayback}
+        playbackRate={replayPlayback?.playbackRate}
       />
       {chosenWord && (
         <aside

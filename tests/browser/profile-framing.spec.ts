@@ -202,7 +202,9 @@ test("photo touch gestures pinch in and out and continue dragging after a finger
   await expect(crop.locator("img")).toHaveAttribute("style", beforeLift!);
   await pointer("pointermove", 11, 70, 100);
   await expect(zoom).toHaveValue("1.5");
-  expect(await crop.locator("img").getAttribute("style")).not.toBe(beforeLift);
+  // A pan keeps zoom unchanged. Wait for its rendered position, rather than
+  // treating the already-matching zoom value as evidence that it committed.
+  await expect(crop.locator("img")).not.toHaveAttribute("style", beforeLift!);
   await pointer("pointercancel", 11, 70, 100);
   const afterCancel = await crop.locator("img").getAttribute("style");
   await pointer("pointermove", 11, 90, 120);
