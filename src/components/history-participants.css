@@ -11,7 +11,7 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding-block: 8px;
+  padding-block: 20px 8px;
 }
 .history-participants .history-participant-portraits {
   display: flex;
@@ -35,6 +35,10 @@
 .history-participants .winner-portrait-photo {
   outline-width: 2px;
   box-shadow: none;
+}
+.history-participants .winner-portrait-crown {
+  /* Small history portraits need the crown above the photo, not over the face. */
+  transform: translateY(-75%);
 }
 .history-participants
   .player-portrait:not(.winner-portrait)
