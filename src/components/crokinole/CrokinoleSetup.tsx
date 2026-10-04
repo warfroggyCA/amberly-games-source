@@ -52,7 +52,7 @@ export function CrokinoleSetup({
   const [individual, setIndividual] = useState(
     (initialDefinition?.format ?? defaults.format) === "free_for_all",
   );
-  const [ids, setIds] = useState<string[]>(() =>
+  const [savedIds, setIds] = useState<string[]>(() =>
     [
       ...new Set([
         ...(initialDefinition?.players ?? [])
@@ -64,6 +64,10 @@ export function CrokinoleSetup({
       ]),
     ].slice(0, 4),
   );
+  const ids = savedIds.map((id) =>
+    players.some((player) => player.id === id) ? id : "",
+  );
+  if (ids.some((id, index) => id !== savedIds[index])) setIds(ids);
   const [colours, setColours] = useState<string[]>(() =>
     [
       ...new Set([
@@ -99,7 +103,12 @@ export function CrokinoleSetup({
           ).rounds,
     ),
   );
-  const [starter, setStarter] = useState("random");
+  const [savedStarter, setStarter] = useState("random");
+  const starter =
+    savedStarter === "random" || ids.slice(0, count).includes(savedStarter)
+      ? savedStarter
+      : "random";
+  if (starter !== savedStarter) setStarter(starter);
   const [practice, setPractice] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
