@@ -153,6 +153,17 @@
   }
 }
 @media (max-height: 550px) {
+  .replay-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 16px;
+  }
+  .replay-position,
+  .replay-caption,
+  .replay-note {
+    grid-column: 1 / -1;
+  }
   .app-shell.replay-shell {
     height: auto;
   }
