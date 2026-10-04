@@ -9,7 +9,7 @@ export type SoundGame = Pick<
   | "currentPlayerId"
   | "result"
   | "pendingEnd"
->;
+> & { definition?: { createdAt: string } };
 export type GameSound = "score" | "bingo" | "winner" | "crowd" | "tie" | "turn";
 export type SoundFrame = {
   id: string;

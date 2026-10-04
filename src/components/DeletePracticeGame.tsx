@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { GameState } from "../domain/game";
 import type { SharedScorerStore } from "../lib/shared-store";
 import { SwipeToDelete } from "./SwipeToDelete";
@@ -25,6 +25,13 @@ export function DeletePracticeGame({
   onClose?: () => void;
 }) {
   const [open, setOpen] = useState(initialOpen);
+  const [finalConfirm, setFinalConfirm] = useState(false);
+  const [confirmationReady, setConfirmationReady] = useState(false);
+  useEffect(() => {
+    if (!finalConfirm) return;
+    const timer = setTimeout(() => setConfirmationReady(true), 500);
+    return () => clearTimeout(timer);
+  }, [finalConfirm]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -49,6 +56,23 @@ export function DeletePracticeGame({
   const remove = async (retry = false) => {
     if (busy.current || (!retry && (disabled || (!quit && !reason.trim()))))
       return;
+    if (quit && !retry) {
+      if (!finalConfirm || !confirmationReady) return;
+      const latest = store.getSnapshot();
+      const current = latest.data.games.find((item) => item.id === game.id);
+      if (
+        latest.shared?.member.role !== "superadmin" ||
+        !store.canScore?.(game.id) ||
+        !current ||
+        current.status === "finalized" ||
+        current.revision !== game.revision
+      ) {
+        setError(
+          "This game or your scoring access changed. Keep playing or close this confirmation, then review the current game before trying again. Nothing was discarded.",
+        );
+        return;
+      }
+    }
     busy.current = true;
     setWorking(true);
     setError(null);
@@ -99,9 +123,12 @@ export function DeletePracticeGame({
       ) : null}
       {open && (
         <Modal
+          key={finalConfirm ? "final" : "review"}
           title={
             quit
-              ? "Quit and discard this game?"
+              ? finalConfirm
+                ? "Are you sure?"
+                : "Quit and discard this game?"
               : practice
                 ? "Delete this practice game?"
                 : `${action}?`
@@ -134,7 +161,11 @@ export function DeletePracticeGame({
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              void remove();
+              if (quit && !finalConfirm) {
+                setError(null);
+                setConfirmationReady(false);
+                setFinalConfirm(true);
+              } else void remove();
             }}
           >
             {!quit && (
@@ -182,14 +213,41 @@ export function DeletePracticeGame({
                 {awaitingConfirmation && state.unresolved
                   ? "Close for now"
                   : quit
-                    ? "Cancel"
+                    ? finalConfirm
+                      ? "Keep playing"
+                      : "Cancel"
                     : "Keep game"}
               </button>
+              {quit && finalConfirm && !awaitingConfirmation && (
+                <button
+                  type="button"
+                  className="button light"
+                  disabled={working}
+                  onClick={() => {
+                    setError(null);
+                    setConfirmationReady(false);
+                    setFinalConfirm(false);
+                  }}
+                >
+                  Back
+                </button>
+              )}
               <button
                 className="button danger-outline"
-                disabled={disabled || working || (!quit && !reason.trim())}
+                disabled={
+                  disabled ||
+                  working ||
+                  (!quit && !reason.trim()) ||
+                  (quit && finalConfirm && !confirmationReady)
+                }
               >
-                {working ? "Removing…" : quit ? "Quit and discard" : action}
+                {working
+                  ? "Removing…"
+                  : quit
+                    ? finalConfirm
+                      ? "Yes, quit this game"
+                      : "Quit and discard"
+                    : action}
               </button>
             </div>
           </form>

@@ -265,9 +265,7 @@ for (const listener of ["ada", "ben"]) {
     await page
       .getByRole("button", { name: "View current game", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: /^(Enable|Activate) game sounds$/ })
-      .click();
+    await page.getByRole("gridcell").nth(112).click();
     await expect(
       page.getByRole("button", { name: "Mute game sounds", exact: true }),
     ).toBeVisible();
@@ -322,6 +320,29 @@ test("Begin play unlocks default-on audio; mute persists across reload", async (
   await expect(
     page.getByRole("button", { name: "Begin play", exact: true }),
   ).toHaveCount(0);
+  expect(await starts(page)).toEqual([]);
+});
+
+test("a resumed scorer unlocks On audio with an ordinary board tap", async ({
+  page,
+}) => {
+  await instrumentAudio(page);
+  await freshScorer(page);
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Return to game", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toBeVisible();
+  await page.getByTestId("cell-H8").click();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mute game sounds", exact: true }),
+  ).toBeVisible();
   expect(await starts(page)).toEqual([]);
 });
 
@@ -417,4 +438,127 @@ test("deliberate mute before Begin play is honored without an audio request", as
     page.getByRole("button", { name: "Enable game sounds", exact: true }),
   ).toHaveAttribute("aria-pressed", "false");
   expect(audioRequests).toBe(0);
+});
+
+test("ordinary viewer taps unlock quietly, same-game mute persists and a new game starts On", async ({
+  page,
+  browser,
+}) => {
+  await instrumentAudio(page);
+  const first = initialGame();
+  let game = first;
+  await page.route("**/api/watch", (route) =>
+    route.fulfill({ json: { game } }),
+  );
+  await page.route("**/api/watch/draft", (route) =>
+    route.fulfill({ json: { draft: null } }),
+  );
+  await page.goto(`/watch#${"a".repeat(64)}`);
+  const tap = async () => page.getByRole("gridcell").nth(112).click();
+  await tap();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mute game sounds", exact: true }),
+  ).toHaveCount(1);
+  expect(await starts(page)).toEqual([]);
+  await page
+    .getByRole("button", { name: "Mute game sounds", exact: true })
+    .click();
+  await tap();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toBeVisible();
+  const other = await browser.newContext();
+  try {
+    const otherPage = await other.newPage();
+    await instrumentAudio(otherPage);
+    await otherPage.route("**/api/watch", (route) =>
+      route.fulfill({ json: { game: first } }),
+    );
+    await otherPage.route("**/api/watch/draft", (route) =>
+      route.fulfill({ json: { draft: null } }),
+    );
+    await otherPage.goto(`http://127.0.0.1:4319/watch#${"b".repeat(64)}`);
+    await expect(
+      otherPage.getByRole("button", {
+        name: "Activate game sounds",
+        exact: true,
+      }),
+    ).toBeVisible();
+  } finally {
+    await other.close();
+  }
+  game = { ...first, id: "second-sound-game" };
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toBeVisible();
+  await tap();
+  await expect(
+    page.getByRole("button", { name: "Activate game sounds", exact: true }),
+  ).toHaveCount(0);
+  game = first;
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Mute game sounds", exact: true }),
+  ).toHaveCount(1);
+});
+
+test("failed gesture resume remains recoverable and mute blocks later automatic attempts", async ({
+  page,
+}) => {
+  await instrumentAudio(page);
+  await page.addInitScript(() => {
+    Object.assign(window, { rejectAudioResume: true });
+    const Base = window.AudioContext;
+    class RejectableContext extends Base {
+      async resume() {
+        if (
+          (window as unknown as { rejectAudioResume: boolean })
+            .rejectAudioResume
+        )
+          throw Error("Gesture rejected");
+        return super.resume();
+      }
+    }
+    Object.assign(window, { AudioContext: RejectableContext });
+  });
+  await freshScorer(page);
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Retry game sounds", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Mute game sounds", exact: true })
+    .click();
+  await page.evaluate(() =>
+    Object.assign(window, { rejectAudioResume: false }),
+  );
+  await page.getByTestId("cell-H8").click();
+  await expect(
+    page.getByRole("button", { name: "Enable game sounds", exact: true }),
+  ).toBeVisible();
+  expect(await starts(page)).toEqual([]);
+  await page
+    .getByRole("button", { name: "Enable game sounds", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Retry game sounds", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mute game sounds", exact: true }),
+  ).toHaveCount(1);
 });

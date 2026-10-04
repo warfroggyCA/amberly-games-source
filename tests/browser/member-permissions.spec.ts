@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { createGame } from "../../src/domain/game";
+import { applyCommand, createGame } from "../../src/domain/game";
 import { testLexicon } from "../../src/lib/test-lexicon";
 import type {
   SharedMutation,
@@ -634,15 +634,54 @@ test("Quit game cancels safely and retries only the chosen unfinished game", asy
       button.click();
       button.click();
     });
+  const finalDialog = page.getByRole("dialog", {
+    name: "Are you sure?",
+    exact: true,
+  });
   await expect(
-    dialog.getByRole("button", { name: "Retry saved deletion" }),
+    finalDialog.getByRole("button", { name: "Keep playing", exact: true }),
+  ).toBeFocused();
+  expect(writes).toHaveLength(0);
+  await finalDialog.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(dialog).toBeVisible();
+  await dialog
+    .getByRole("button", { name: "Quit and discard", exact: true })
+    .click();
+  await finalDialog
+    .getByRole("button", { name: "Keep playing", exact: true })
+    .click();
+  expect(writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page.getByRole("button", { name: "Quit game", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Quit and discard", exact: true })
+    .click();
+  const confirm = finalDialog.getByRole("button", {
+    name: "Yes, quit this game",
+    exact: true,
+  });
+  await expect(confirm).toBeEnabled();
+  await page.screenshot({
+    path: info.outputPath("quit-final-confirmation.png"),
+  });
+  await confirm.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(
+    finalDialog.getByRole("button", { name: "Retry saved deletion" }),
   ).toBeVisible();
   expect(writes).toHaveLength(1);
   await expect(
-    dialog.getByRole("button", { name: "Quit and discard", exact: true }),
+    finalDialog.getByRole("button", {
+      name: "Yes, quit this game",
+      exact: true,
+    }),
   ).toBeDisabled();
-  await dialog.getByRole("button", { name: "Retry saved deletion" }).click();
-  await expect(dialog).toHaveCount(0);
+  await finalDialog
+    .getByRole("button", { name: "Retry saved deletion" })
+    .click();
+  await expect(finalDialog).toHaveCount(0);
   expect(writes).toHaveLength(2);
   expect(writes[1]).toEqual(writes[0]);
   expect(JSON.stringify(shared.games[0])).toBe(otherBefore);
@@ -655,3 +694,69 @@ test("Quit game cancels safely and retries only the chosen unfinished game", asy
   await expect(page.locator(".game-list-item")).toHaveCount(1);
   await expect(page.locator(".game-list-item")).toContainText("Paused");
 });
+
+for (const change of ["ownership", "revision", "finalized"] as const) {
+  test(`Quit rechecks ${change} while final confirmation is open`, async ({
+    page,
+  }) => {
+    const shared = fixture();
+    const game = shared.games[0];
+    let writes = 0;
+    await mock(page, shared, async () => {
+      writes++;
+      throw Error("Quit must not send after the game changes");
+    });
+    await page
+      .getByRole("button", { name: "Return to game", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Open game menu" }).click();
+    await page.getByRole("button", { name: "Quit game", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Quit and discard", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Are you sure?",
+      exact: true,
+    });
+    if (change === "ownership") {
+      shared.gameAccess[game.id].scorerUserId = memberId;
+      shared.gameAccess[game.id].canScore = false;
+    } else {
+      const next = applyCommand(
+        game,
+        change === "revision"
+          ? { type: "pass", id: "elsewhere", expectedRevision: game.revision }
+          : {
+              type: "finalize",
+              reason: "early",
+              racks: { ada: Array.from({ length: 7 }, () => "A" as const) },
+              id: "ended-elsewhere",
+              expectedRevision: game.revision,
+            },
+        testLexicon,
+      );
+      if (!next.ok) throw Error(next.error.message);
+      shared.games[0] = next.game;
+    }
+    const refreshed = page.waitForResponse(
+      (r) => r.url().endsWith("/api/family") && r.request().method() === "GET",
+    );
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event("visibilitychange")),
+    );
+    await (await refreshed).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+    await dialog
+      .getByRole("button", { name: "Yes, quit this game", exact: true })
+      .click();
+    await expect(dialog.getByRole("alert")).toContainText(
+      "Nothing was discarded",
+    );
+    expect(writes).toBe(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+}

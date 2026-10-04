@@ -44,6 +44,12 @@ export function Modal({
     <dialog
       ref={ref}
       className={`modal ${wide ? "modal-wide" : ""} ${className}`}
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.stopPropagation();
+        event.preventDefault();
+        onClose();
+      }}
       onCancel={(event) => {
         event.stopPropagation();
         event.preventDefault();
