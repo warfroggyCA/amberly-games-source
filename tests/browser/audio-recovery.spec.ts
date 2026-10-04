@@ -50,6 +50,66 @@ const counts = (page: Page) =>
     };
   });
 
+test("anonymous viewer announces interruption without covering its toolbar and recovers on a tap", async ({
+  page,
+}, info) => {
+  await observe(page);
+  const created = createGame({
+    id: "anonymous-audio-recovery",
+    players: [
+      { id: "ada", name: "Ada", seat: 0 },
+      { id: "ben", name: "Ben", seat: 2 },
+    ],
+    firstPlayerId: "ada",
+    direction: "clockwise",
+    lexicon: testLexicon,
+  });
+  if (!created.ok) throw Error(created.error.message);
+  await page.route("**/api/watch", (route) =>
+    route.fulfill({ json: { game: created.game } }),
+  );
+  await page.route("**/api/watch/draft", (route) =>
+    route.fulfill({ json: { draft: null } }),
+  );
+  await page.goto(`/watch#${"a".repeat(64)}`);
+  await page.getByRole("gridcell").nth(0).click();
+  await expect
+    .poll(async () => (await counts(page)).states)
+    .toEqual(["running"]);
+  await page.evaluate(async () => {
+    await window.diagnosticAudio.contexts[0].suspend();
+  });
+  const retry = page.getByRole("button", {
+    name: "Retry game sounds",
+    exact: true,
+  });
+  await expect(retry).toBeVisible();
+  const status = retry.getByRole("status");
+  await expect(status).toHaveText(
+    "Sound unavailable. Tap to retry; scoring is unaffected.",
+  );
+  const bounds = await status.boundingBox();
+  expect(bounds!.width).toBeLessThanOrEqual(1);
+  expect(bounds!.height).toBeLessThanOrEqual(1);
+  expect(await status.evaluate((el) => getComputedStyle(el).overflow)).toBe(
+    "hidden",
+  );
+  await page.screenshot({
+    path: info.outputPath("viewer-audio-interrupted.png"),
+    fullPage: true,
+  });
+  await page.getByRole("gridcell").nth(0).click();
+  await expect(retry).toHaveCount(0);
+  await expect
+    .poll(async () => (await counts(page)).states)
+    .toEqual(["running"]);
+  expect((await counts(page)).starts).toBe(0);
+  await page.screenshot({
+    path: info.outputPath("viewer-audio-recovered.png"),
+    fullPage: true,
+  });
+});
+
 test("native participant audio survives three rounds, interruption, closure and foreground return while respecting mute", async ({
   page,
   browser,
