@@ -89,6 +89,13 @@
   margin: 4px 0;
   font-size: 0.75rem;
 }
+.replay-note summary {
+  cursor: pointer;
+  min-height: 24px;
+}
+.replay-note p {
+  margin: 4px 0;
+}
 .app-shell.replay-shell .spectator-game {
   height: auto;
   flex: 1;
@@ -140,5 +147,25 @@
   .app-shell.replay-shell .spectator-game {
     height: 420px;
     flex: none;
+  }
+}
+@media (max-width: 600px) and (min-height: 551px) {
+  .app-shell.replay-shell {
+    height: auto;
+  }
+  .app-shell.replay-shell .spectator-game {
+    height: max(500px, calc(100svh - 230px));
+    flex: none;
+  }
+  .replay-controls {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #faf7ef;
+    padding-block: 6px;
+  }
+  .replay-caption {
+    font-size: 0.85rem;
+    line-height: 1.4;
   }
 }

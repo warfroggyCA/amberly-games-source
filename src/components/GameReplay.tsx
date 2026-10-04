@@ -177,13 +177,20 @@ export function GameReplay({
             <p className="replay-caption" role="status" aria-live="polite">
               {replayStepLabel(record, event)}
             </p>
-            <p className="replay-note">
-              Read-only · playback uses a steady pace.{" "}
-              {record.events.some((event) => !event.command.timedAt)
-                ? "Some original timing was not recorded. "
-                : ""}
-              Rack draws and exchanged letters are not shown.
-            </p>
+            <details className="replay-note">
+              <summary>
+                {record.events.some((event) => !event.command.timedAt)
+                  ? "Read-only · some timing unavailable"
+                  : "About this read-only replay"}
+              </summary>
+              <p>
+                Read-only · playback uses a steady pace.{" "}
+                {record.events.some((event) => !event.command.timedAt)
+                  ? "Some original timing was not recorded. "
+                  : ""}
+                Rack draws and exchanged letters are not shown.
+              </p>
+            </details>
           </section>
           <SpectatorGame
             game={frame}

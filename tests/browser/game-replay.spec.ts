@@ -80,6 +80,14 @@ test("recorded replay preserves corrections, blanks, undo, exchange and final to
   expect(rotation.c).toBeCloseTo(0);
   expect(rotation.d).toBeCloseTo(1);
   await fitsWidth(page);
+  if (testInfo.project.name === "iphone-webkit") {
+    const box = await board.locator(".board-grid").boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(240);
+    for (const player of ["Doug", "Erin"])
+      await expect(
+        board.getByText(player, { exact: true }).first(),
+      ).toBeVisible();
+  }
   await page.screenshot({
     path: testInfo.outputPath("replay-corrected-board.png"),
     fullPage: true,
