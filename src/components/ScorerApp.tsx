@@ -140,6 +140,12 @@ export function ScorerApp({
   const allowed = (key: MemberPermission) =>
     !shared || hasPermission(state.shared?.member, key);
   const canStart = allowed("startGames") && allowed("scoreGames");
+  const archivedPlayerIds = Object.entries(state.shared?.playerAccess ?? {})
+    .filter(([, access]) => access.archived)
+    .map(([id]) => id);
+  const activePlayers = state.data.players.filter(
+    (player) => !archivedPlayerIds.includes(player.id),
+  );
   const [creationMode, setCreationMode] = useState<"confirmed" | "practice">(
     "confirmed",
   );
@@ -920,9 +926,8 @@ export function ScorerApp({
           : undefined
       }
       onSharedModeChange={setCreationMode}
-      players={state.data.players.filter(
-        (p) => !state.shared?.playerAccess[p.id]?.archived,
-      )}
+      players={activePlayers}
+      excludedPlayerIds={archivedPlayerIds}
       busy={busy || !canStart}
       canAddPlayers={allowed("addPlayers")}
       allowPractice={!shared || state.shared?.member.role === "superadmin"}
@@ -1149,9 +1154,9 @@ export function ScorerApp({
                     {shared ? "Manage players →" : "Manage preview players →"}
                   </button>
                 </section>
-                {state.data.players.length ? (
+                {activePlayers.length ? (
                   <div className="player-strip">
-                    {state.data.players.map((p, i) => (
+                    {activePlayers.map((p, i) => (
                       <div key={p.id}>
                         <span className={`avatar colour-${i % 4}`}>
                           <PlayerAvatar
