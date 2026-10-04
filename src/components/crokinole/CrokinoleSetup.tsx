@@ -103,7 +103,12 @@ export function CrokinoleSetup({
           ).rounds,
     ),
   );
-  const [starter, setStarter] = useState("random");
+  const [savedStarter, setStarter] = useState("random");
+  const starter =
+    savedStarter === "random" || ids.slice(0, count).includes(savedStarter)
+      ? savedStarter
+      : "random";
+  if (starter !== savedStarter) setStarter(starter);
   const [practice, setPractice] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);

@@ -59,6 +59,8 @@ test("Crokinole discards archived selections during refresh and preserves runnin
   await page.goto("/family/crokinole/new");
   const names = page.locator(".crokinole-roster select");
   await expect(names.nth(1)).toHaveValue("erin");
+  await page.getByText(/^Game options ·/).click();
+  await page.getByLabel("Who starts?").selectOption("erin");
   fixture.family.playerAccess.erin = {
     revision: 1,
     userId: null,
@@ -68,6 +70,7 @@ test("Crokinole discards archived selections during refresh and preserves runnin
     document.dispatchEvent(new Event("visibilitychange")),
   );
   await expect(names.nth(1)).toHaveValue("");
+  await expect(page.getByLabel("Who starts?")).toHaveValue("random");
   await expect(names.nth(1).locator('option[value="erin"]')).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Start game", exact: true }),
@@ -86,6 +89,9 @@ test("Crokinole discards archived selections during refresh and preserves runnin
     document.dispatchEvent(new Event("visibilitychange")),
   );
   await expect(page.getByText("Nate", { exact: true }).first()).toBeVisible();
+  expect(["doug", "nate"]).toContain(
+    fixture.game().definition.initialStartingPlayerId,
+  );
   expect(fixture.game().definition.players.map((player) => player.id)).toEqual([
     "doug",
     "nate",
