@@ -10,28 +10,45 @@ export function DeletePracticeGame({
   store,
   disabled,
   children,
+  quit = false,
+  onRemoved,
+  initialOpen = false,
+  onClose,
 }: {
   game: GameState;
   store: SharedScorerStore;
   disabled: boolean;
   children?: ReactNode;
+  quit?: boolean;
+  onRemoved?: () => void;
+  initialOpen?: boolean;
+  onClose?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const busy = useRef(false);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   const state = store.getSnapshot();
   if (state.shared?.member.role !== "superadmin") return children ?? null;
   const practice = state.shared?.gameAccess[game.id]?.mode === "practice";
-  const action = practice
-    ? "Delete practice game"
-    : game.status === "finalized"
-      ? "Remove game"
-      : "End and remove game";
+  if (
+    quit &&
+    (game.status === "finalized" || (!open && !store.canScore?.(game.id)))
+  )
+    return null;
+  const action = quit
+    ? "Quit game"
+    : practice
+      ? "Delete practice game"
+      : game.status === "finalized"
+        ? "Remove game"
+        : "End and remove game";
   const remove = async (retry = false) => {
-    if (busy.current || (!retry && (disabled || !reason.trim()))) return;
+    if (busy.current || (!retry && (disabled || (!quit && !reason.trim()))))
+      return;
     busy.current = true;
     setWorking(true);
     setError(null);
@@ -44,10 +61,11 @@ export function DeletePracticeGame({
           type: practice ? "delete-practice-game" : "remove-game",
           gameId: game.id,
           expectedRevision: game.revision,
-          reason: reason.trim(),
+          reason: quit ? "Quit unfinished game" : reason.trim(),
         });
       }
       setOpen(false);
+      onRemoved?.();
     } catch (e) {
       setAwaitingConfirmation(!!store.getSnapshot().unresolved);
       setError(
@@ -68,52 +86,70 @@ export function DeletePracticeGame({
         >
           {children}
         </SwipeToDelete>
-      ) : (
+      ) : !initialOpen ? (
         <div className="game-delete-action">
           <button
-            className="text-button"
+            className={quit ? "button danger-outline" : "text-button"}
             disabled={disabled || working}
             onClick={() => setOpen(true)}
           >
-            {action}…
+            {quit ? action : `${action}…`}
           </button>
         </div>
-      )}
+      ) : null}
       {open && (
         <Modal
-          title={practice ? "Delete this practice game?" : `${action}?`}
+          title={
+            quit
+              ? "Quit and discard this game?"
+              : practice
+                ? "Delete this practice game?"
+                : `${action}?`
+          }
           onClose={() => {
-            if (!busy.current) setOpen(false);
+            if (!busy.current) {
+              setOpen(false);
+              onClose?.();
+            }
           }}
           className="practice-delete-confirm"
+          initialFocusRef={quit ? cancelRef : undefined}
         >
           <p>
-            This stops further scoring and removes the game from Home, History
-            and player records. Saved scores and the removal reason are retained
-            in the internal audit archive. Unsent entries are not included.
+            {quit
+              ? "Discard this unfinished game? It will stop immediately and disappear from active games, History and the Record Book for everyone. It earns no awards or records, and you cannot resume it. Other games are kept."
+              : "This stops further scoring and removes the game from Home, History and player records."}
+          </p>
+          <p className="muted">
+            Saved scores and the removal reason stay in the internal audit
+            archive. Unsent entries may remain on their original device for
+            recovery, but cannot restore this game.
           </p>
           <strong>{game.players.map((p) => p.name).join(" · ")}</strong>
           <p>
             {game.turns.length} turns ·{" "}
             {new Date(game.definition.createdAt).toLocaleDateString()}
           </p>
+          <p className="muted">Game ID: {game.id}</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void remove();
             }}
           >
-            <label className="field">
-              {practice ? "Reason for deleting" : "Reason for removing"}
-              <input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                required
-                maxLength={240}
-                disabled={working || awaitingConfirmation}
-                placeholder="e.g. Duplicate or abandoned game"
-              />
-            </label>
+            {!quit && (
+              <label className="field">
+                {practice ? "Reason for deleting" : "Reason for removing"}
+                <input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  required
+                  maxLength={240}
+                  disabled={working || awaitingConfirmation}
+                  placeholder="e.g. Duplicate or abandoned game"
+                />
+              </label>
+            )}
             {error && (
               <p role="alert" className="error-banner">
                 {error}
@@ -136,18 +172,24 @@ export function DeletePracticeGame({
               <button
                 type="button"
                 className="button light"
+                ref={cancelRef}
                 disabled={working}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  onClose?.();
+                }}
               >
                 {awaitingConfirmation && state.unresolved
                   ? "Close for now"
-                  : "Keep game"}
+                  : quit
+                    ? "Cancel"
+                    : "Keep game"}
               </button>
               <button
                 className="button danger-outline"
-                disabled={disabled || working || !reason.trim()}
+                disabled={disabled || working || (!quit && !reason.trim())}
               >
-                {working ? "Removing…" : action}
+                {working ? "Removing…" : quit ? "Quit and discard" : action}
               </button>
             </div>
           </form>

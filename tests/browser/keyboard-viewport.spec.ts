@@ -26,6 +26,7 @@ test("software keyboard keeps the edited tiles and review above its edge through
     await page.getByRole("button", { name: "Add player", exact: true }).click();
   }
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await page.getByTestId("cell-H8").click();
   await page
     .getByRole("textbox", { name: "Type letters on the board" })

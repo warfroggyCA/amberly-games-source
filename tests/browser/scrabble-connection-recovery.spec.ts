@@ -68,7 +68,10 @@ test("lost save acknowledgement retries once and clears only obsolete connection
   });
   await page.goto("/family");
   await page.getByRole("button", { name: "Resume game", exact: true }).click();
-  await page.getByTestId("cell-H8").click();
+  // Seed the retained pre-start draft behind the start panel.
+  await page
+    .getByTestId("cell-H8")
+    .evaluate((cell: HTMLElement) => cell.click());
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
     .pressSequentially("CAT");
@@ -201,10 +204,13 @@ test("Begin play retry preserves one clock start, draft, and another game", asyn
   });
   await page.goto("/family");
   await page.getByRole("button", { name: "Resume game", exact: true }).click();
-  await page.getByTestId("cell-H8").click();
+  // Exercise a retained pre-start draft while the centre panel is visible.
+  await page
+    .getByTestId("cell-H8")
+    .evaluate((cell: HTMLElement) => cell.click());
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
-    .pressSequentially("CAT");
+    .fill("CAT");
   await page
     .getByRole("button", { name: "Begin play", exact: true })
     .evaluate((button: HTMLButtonElement) => {

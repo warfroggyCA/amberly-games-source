@@ -582,3 +582,76 @@ test("superadmin can end and remove a regular game owned by another scorer", asy
   expect(writes).toHaveLength(1);
   await expect(page.locator(".game-list-item")).toHaveCount(0);
 });
+
+test("Quit game cancels safely and retries only the chosen unfinished game", async ({
+  page,
+}, info) => {
+  const shared = fixture();
+  const game = shared.games[0];
+  const other = structuredClone(game);
+  other.id = "another-paused-game";
+  other.definition.id = other.id;
+  other.status = "paused";
+  shared.games.push(other);
+  shared.gameAccess[other.id] = { ...shared.gameAccess[game.id] };
+  const otherBefore = JSON.stringify(other);
+  const writes: SharedMutation[] = [];
+  await mock(page, shared, async (route, mutation) => {
+    writes.push(mutation);
+    expect(mutation.operation).toMatchObject({
+      type: "delete-practice-game",
+      gameId: game.id,
+      expectedRevision: game.revision,
+      reason: "Quit unfinished game",
+    });
+    if (writes.length === 1) return route.abort("internetdisconnected");
+    shared.games = shared.games.filter((g) => g.id !== game.id);
+    delete shared.gameAccess[game.id];
+    shared.removedGameIds = [game.id];
+    return route.fulfill({ json: { removedGameId: game.id } });
+  });
+  await page.getByRole("button", { name: / · active$/ }).click();
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page.getByRole("button", { name: "Quit game", exact: true }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Quit and discard this game?",
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeFocused();
+  await expect(dialog).toContainText(game.id);
+  await expect(dialog).toContainText("internal audit archive");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(writes).toHaveLength(0);
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page.getByRole("button", { name: "Quit game", exact: true }).click();
+  await page.screenshot({
+    path: info.outputPath("quit-game-confirmation.png"),
+  });
+  await dialog
+    .getByRole("button", { name: "Quit and discard", exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(
+    dialog.getByRole("button", { name: "Retry saved deletion" }),
+  ).toBeVisible();
+  expect(writes).toHaveLength(1);
+  await expect(
+    dialog.getByRole("button", { name: "Quit and discard", exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole("button", { name: "Retry saved deletion" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(writes).toHaveLength(2);
+  expect(writes[1]).toEqual(writes[0]);
+  expect(JSON.stringify(shared.games[0])).toBe(otherBefore);
+  await expect(page.getByLabel("Current turn elapsed time")).toHaveCount(0);
+  await page.goto("/family/scrabble");
+  await page.getByRole("button", { name: "Open game menu" }).click();
+  await page
+    .getByRole("button", { name: "Scrabble history", exact: true })
+    .click();
+  await expect(page.locator(".game-list-item")).toHaveCount(1);
+  await expect(page.locator(".game-list-item")).toContainText("Paused");
+});

@@ -188,6 +188,7 @@ test("scorer keeps drafts silent, retries unavailable audio, then sounds a saved
   await expect(
     page.getByRole("button", { name: "Mute game sounds", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await page.getByTestId("cell-H8").click();
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
@@ -350,13 +351,21 @@ test("Begin play unlocks real browser audio on this device", async ({
 }, info) => {
   await freshScorer(page);
   const begin = page.getByRole("button", { name: "Begin play", exact: true });
-  const board = await page.getByRole("grid").boundingBox();
+  const panel = await page
+    .getByRole("region", { name: "Let’s make some words." })
+    .boundingBox();
+  const viewport = page.viewportSize()!;
+  expect(panel).not.toBeNull();
+  expect(
+    Math.abs(panel!.x + panel!.width / 2 - viewport.width / 2),
+  ).toBeLessThan(2);
+  expect(
+    Math.abs(panel!.y + panel!.height / 2 - viewport.height / 2),
+  ).toBeLessThan(2);
+  expect(panel!.width).toBeGreaterThan(300);
   const button = await begin.boundingBox();
-  expect(button!.x).toBeGreaterThanOrEqual(board!.x);
-  expect(button!.y).toBeGreaterThanOrEqual(board!.y);
-  expect(button!.x + button!.width).toBeLessThanOrEqual(
-    board!.x + board!.width,
-  );
+  expect(button!.height).toBeGreaterThanOrEqual(50);
+  expect(button!.width).toBeGreaterThan(250);
   const bag = page.locator("button.tile-bag-button").filter({ visible: true });
   const bagBox = await bag.boundingBox();
   const toolbar = await page

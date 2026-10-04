@@ -16,6 +16,7 @@ for (const [opening, extension, start, next] of [
         .click();
     }
     await page.getByRole("button", { name: "Start game", exact: true }).click();
+    await page.getByRole("button", { name: "Begin play", exact: true }).click();
     for (const [letters, cell, wholeWord] of [
       [opening, start, opening],
       [extension, next, opening + extension],

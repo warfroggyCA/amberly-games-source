@@ -45,7 +45,10 @@ test("stale Scrabble entry stays visible and recoverable while other games work"
       request.method() === "POST" &&
       request.postDataJSON()?.placements?.length === 3,
   );
-  await page.getByTestId("cell-H8").click();
+  // Prepare an existing pre-start draft without committing a timing event.
+  await page
+    .getByTestId("cell-H8")
+    .evaluate((cell: HTMLElement) => cell.click());
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
     .pressSequentially("CAT");
@@ -112,6 +115,7 @@ test("review: complete Scrabble scoring journey through final deductions and ano
   }
   await page.getByLabel("Who plays first?").selectOption({ label: "Ada" });
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await page.getByTestId("cell-H8").click();
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
@@ -169,6 +173,7 @@ test("review: complete Scrabble scoring journey through final deductions and ano
     page.getByRole("button", { name: "Start game", exact: true }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Final results", exact: true }),
   ).toHaveCount(0);

@@ -66,6 +66,10 @@ function FamilyWorkspace({
     store.getServerSnapshot,
   );
   const [admin, setAdmin] = useState(false);
+  const [quitTarget, setQuitTarget] = useState<{
+    game: GameState;
+    onRemoved: () => void;
+  } | null>(null);
   const [usageOpen, setUsageOpen] = useState(false);
   useUsageTracking(
     state.status === "ready" && state.shared ? user.id : undefined,
@@ -254,6 +258,22 @@ function FamilyWorkspace({
     newGame = false,
   ) => (
     <ScorerApp
+      renderQuitGame={(game, onRemoved, onOpen) =>
+        state.shared?.member.role === "superadmin" &&
+        game.status !== "finalized" &&
+        store.canScore?.(game.id) ? (
+          <button
+            className="button danger-outline"
+            disabled={!!state.pending || !!state.unresolved}
+            onClick={() => {
+              onOpen();
+              setQuitTarget({ game, onRemoved });
+            }}
+          >
+            Quit game
+          </button>
+        ) : null
+      }
       key={`${view}-${newGame}`}
       initialView={view}
       initialNewGame={newGame}
@@ -352,6 +372,21 @@ function FamilyWorkspace({
   );
   return (
     <>
+      {quitTarget && (
+        <DeletePracticeGame
+          game={quitTarget.game}
+          store={store}
+          quit
+          initialOpen
+          onClose={() => setQuitTarget(null)}
+          onRemoved={() => {
+            const done = quitTarget.onRemoved;
+            setQuitTarget(null);
+            done();
+          }}
+          disabled={!!state.pending || !!state.unresolved}
+        />
+      )}
       {(error || refreshError) && (
         <p className="error-banner" role="alert">
           {error ?? refreshError}

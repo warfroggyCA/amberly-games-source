@@ -78,7 +78,10 @@ test("new scoring tab takes ownership and preserves the previous tab's letters",
   );
   await page.goto("/family/scrabble");
   await page.locator(".game-list button").first().click();
-  await page.getByTestId("cell-H8").click();
+  // Seed the retained pre-start draft behind the start panel.
+  await page
+    .getByTestId("cell-H8")
+    .evaluate((cell: HTMLElement) => cell.click());
   await page
     .getByRole("textbox", { name: "Type letters on the board" })
     .pressSequentially("CAT");

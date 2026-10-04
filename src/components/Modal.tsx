@@ -1,17 +1,25 @@
 "use client";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 export function Modal({
   title,
   children,
   onClose,
   wide = false,
   className = "",
+  initialFocusRef,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
   className?: string;
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -22,6 +30,7 @@ export function Modal({
         ? document.activeElement
         : null;
     dialog?.showModal();
+    initialFocusRef?.current?.focus({ preventScroll: true });
     return () => {
       dialog?.close();
       // React may remove the dialog before close can restore the native opener.
@@ -30,7 +39,7 @@ export function Modal({
           returnFocus.focus({ preventScroll: true });
       });
     };
-  }, []);
+  }, [initialFocusRef]);
   return (
     <dialog
       ref={ref}

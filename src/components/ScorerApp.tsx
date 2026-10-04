@@ -97,6 +97,7 @@ const errorText = (error: unknown) =>
 export function ScorerApp({
   store = localScorerStore,
   renderGameStatus,
+  renderQuitGame,
   renderGameItem,
   accountControls,
   shareControl,
@@ -119,6 +120,11 @@ export function ScorerApp({
   accountControls?: ReactNode;
   shareControl?: ReactNode;
   renderGameStatus?: (game: GameState) => ReactNode;
+  renderQuitGame?: (
+    game: GameState,
+    onRemoved: () => void,
+    onOpen: () => void,
+  ) => ReactNode;
   renderGameItem?: (game: GameState, content: ReactNode) => ReactNode;
 } = {}) {
   const {
@@ -753,6 +759,14 @@ export function ScorerApp({
           {accountControls}
           {game && (
             <div className="menu-game-details">
+              {renderQuitGame?.(
+                game,
+                () => {
+                  setModal(null);
+                  goHome();
+                },
+                () => setModal(null),
+              )}
               {renderGameStatus?.(game)}
               {game.definition.tileSet && (
                 <p>
@@ -920,11 +934,59 @@ export function ScorerApp({
       error={error}
     />
   );
+  const beginPanel = view === "Play" &&
+    freshGame &&
+    (!shared ||
+      (state.shared?.gameAccess[game!.id]?.canScore &&
+        state.shared.gameAccess[game!.id].scorerUserId ===
+          state.shared.member.userId &&
+        allowed("scoreGames") &&
+        !state.scoringElsewhere &&
+        !state.draftConflicts?.includes(game!.id))) &&
+    !modal &&
+    !officialQuery && (
+      <div className="begin-play-overlay">
+        <section
+          className="begin-play-panel"
+          aria-labelledby="begin-play-title"
+        >
+          <div className="begin-play-tiles" aria-hidden="true">
+            {[..."PLAY"].map((letter, index) => (
+              <span key={letter}>
+                {letter}
+                <small>{[3, 1, 1, 4][index]}</small>
+              </span>
+            ))}
+          </div>
+          <p className="begin-play-eyebrow">Everyone at the table?</p>
+          <h2 id="begin-play-title">Let’s make some words.</h2>
+          <p>
+            {game && nameOf(game, game.currentPlayerId)} goes first. The clock
+            starts when you’re ready.
+          </p>
+          {(state.pending > 0 || state.unresolved) && (
+            <p role="status">
+              Waiting for the saved start to be confirmed. If interrupted, use
+              Retry saved action above.
+            </p>
+          )}
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy || running || !!state.pending || !!state.unresolved}
+            onClick={startClock}
+          >
+            Begin play <span aria-hidden="true">→</span>
+          </button>
+        </section>
+      </div>
+    );
   if (shared && view === "Play" && game && readOnly)
     return (
       <div
         className={`app-shell ${draftRecovery ? "draft-recovery-shell" : "spectator-shell"}`}
       >
+        {beginPanel}
         <AmberlyHeader
           onHome={goHome}
           onMenu={() => setModal("game-menu")}
@@ -962,6 +1024,7 @@ export function ScorerApp({
     );
   return (
     <div className={`app-shell ${fitGame ? "game-screen" : ""}`}>
+      {beginPanel}
       {livePreview.connectionFailed && (
         <span className="live-preview-connection" role="status">
           Viewer preview reconnecting · your entry is retained
@@ -1411,9 +1474,6 @@ export function ScorerApp({
                       <AnimatedBoardEditor
                         key={game.id}
                         game={game}
-                        onBeginPlay={
-                          freshGame && !readOnly ? startClock : undefined
-                        }
                         fitScreen={fitGame}
                         viewerPlayerId={state.shared?.member.playerId}
                         profiles={state.data.players}
