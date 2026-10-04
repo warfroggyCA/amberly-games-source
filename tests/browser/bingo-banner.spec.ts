@@ -47,6 +47,7 @@ test("scorer celebrates a saved bingo, not a draft, and can dismiss it", async (
   }
   await page.getByLabel("Who plays first?").selectOption({ label: "Ada" });
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await page.getByTestId("cell-H8").click();
   await page
     .getByRole("textbox", { name: "Type letters on the board" })

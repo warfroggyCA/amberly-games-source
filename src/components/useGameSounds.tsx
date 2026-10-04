@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GameAudio } from "../lib/game-audio";
 import {
   soundFrame,
@@ -9,7 +9,11 @@ import {
 } from "../lib/game-sounds";
 import "./game-sounds.css";
 
-const SOUND_PREFERENCE = "amberly-game-sounds";
+import {
+  initializeGameSoundPreferences,
+  readGameSoundPreference,
+  saveGameSoundPreference,
+} from "../lib/game-sound-preference";
 
 export function useGameSounds(
   game: SoundGame | null,
@@ -17,6 +21,10 @@ export function useGameSounds(
   pending = false,
   listenerPlayerId: string | null = null,
 ) {
+  const gameId = game?.id ?? null;
+  const createdAt = game?.definition?.createdAt;
+  const decisions = useRef(new Map<string, boolean>());
+  const loading = useRef(false);
   const previous = useRef<SoundFrame | null>(null);
   const audio = useRef<GameAudio | null>(null);
   const enabled = useRef(false);
@@ -28,8 +36,19 @@ export function useGameSounds(
   >("waiting");
   useEffect(() => {
     alive.current = true;
+    ++attempt.current;
+    loading.current = false;
+    enabled.current = false;
+    previous.current = null;
+    preference.current = gameId
+      ? (decisions.current.get(gameId) ?? true)
+      : true;
     try {
-      preference.current = localStorage.getItem(SOUND_PREFERENCE) !== "off";
+      initializeGameSoundPreferences(localStorage);
+      if (gameId)
+        preference.current =
+          decisions.current.get(gameId) ??
+          readGameSoundPreference(localStorage, gameId, createdAt);
     } catch {
       /* Storage denial must not prevent scoring or in-session choices. */
     }
@@ -56,7 +75,7 @@ export function useGameSounds(
       window.removeEventListener("online", reset);
       window.removeEventListener("pageshow", reset);
     };
-  }, []);
+  }, [gameId, createdAt]);
   useEffect(() => {
     if (
       !game ||
@@ -83,24 +102,28 @@ export function useGameSounds(
   }, [game, connected, pending, listenerPlayerId]);
   function remember(on: boolean) {
     preference.current = on;
+    if (gameId) decisions.current.set(gameId, on);
     try {
-      localStorage.setItem(SOUND_PREFERENCE, on ? "on" : "off");
+      if (gameId) saveGameSoundPreference(localStorage, gameId, on);
     } catch {}
   }
   function mute() {
     ++attempt.current;
+    loading.current = false;
     remember(false);
     enabled.current = false;
     audio.current?.disable();
     setMode("off");
   }
-  function unlock() {
-    if (preference.current && !enabled.current) void enable();
-  }
-  async function enable() {
+  const enable = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     const token = ++attempt.current;
     const player = audio.current;
-    if (!player) return;
+    if (!player) {
+      loading.current = false;
+      return;
+    }
     setMode("loading");
     try {
       await player.enable();
@@ -121,8 +144,39 @@ export function useGameSounds(
         return;
       enabled.current = false;
       setMode("unavailable");
+    } finally {
+      if (token === attempt.current) loading.current = false;
     }
-  }
+  }, []);
+  const unlock = useCallback(() => {
+    if (preference.current && !enabled.current && !loading.current)
+      void enable();
+  }, [enable]);
+  useEffect(() => {
+    if (!gameId) return;
+    const gesture = (event: Event) => {
+      if (
+        !event.isTrusted ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
+      const target = event.target;
+      if (
+        !(target instanceof Element) ||
+        !target.closest(".game-screen, .spectator-shell") ||
+        target.closest(".game-sound-toggle, dialog.modal")
+      )
+        return;
+      unlock();
+    };
+    document.addEventListener("pointerup", gesture);
+    document.addEventListener("keydown", gesture);
+    return () => {
+      document.removeEventListener("pointerup", gesture);
+      document.removeEventListener("keydown", gesture);
+    };
+  }, [gameId, unlock]);
   function toggle() {
     if (mode === "on" || mode === "loading") mute();
     else {
@@ -146,7 +200,7 @@ export function useGameSounds(
         type="button"
         className="tabletop-tool game-sound-toggle"
         aria-label={label}
-        title={`${label} · this device only`}
+        title={`${label} · this game · this device`}
         aria-pressed={mode !== "off"}
         onClick={() => void toggle()}
       >
@@ -172,7 +226,7 @@ export function useGameSounds(
             : mode === "unavailable"
               ? "Sound unavailable. Tap to retry; scoring is unaffected."
               : mode === "waiting"
-                ? "Sound is on. Begin play or activate sounds on this device."
+                ? "Sound is on for this game, waiting for a tap on this device."
                 : ""}
         </span>
       </button>
@@ -182,7 +236,7 @@ export function useGameSounds(
           className="tabletop-tool game-sound-toggle game-sound-mute"
           onClick={mute}
           aria-label="Mute game sounds"
-          title="Mute game sounds · this device only"
+          title="Mute game sounds · this game · this device"
         >
           Mute
         </button>

@@ -94,7 +94,6 @@ export function BoardEditor({
   onDraft,
   onRecord,
   onUndo,
-  onBeginPlay,
   undoDisabled = false,
   locked,
   onRequestExtraTiles,
@@ -118,7 +117,6 @@ export function BoardEditor({
   onDraft: (draft: Draft) => void;
   onRecord: (placements: Placement[]) => Promise<boolean>;
   onUndo?: () => void;
-  onBeginPlay?: () => void;
   undoDisabled?: boolean;
   locked: boolean;
   onRequestExtraTiles?: (placements: Placement[]) => void;
@@ -858,18 +856,6 @@ export function BoardEditor({
             ))}
             <div className="board-scroll">
               <div className={`board-frame ${zoom ? "is-zoomed" : ""}`}>
-                {onBeginPlay && (
-                  <div className="board-begin-play">
-                    <button
-                      type="button"
-                      className="button primary"
-                      disabled={disabled}
-                      onClick={onBeginPlay}
-                    >
-                      Begin play
-                    </button>
-                  </div>
-                )}
                 <div
                   className="board-grid"
                   role="grid"

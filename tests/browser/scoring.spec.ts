@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-async function startGame(page: Page) {
+async function startGame(page: Page, begin = true) {
   await page.goto("/");
   await page.getByRole("button", { name: /New preview game/ }).click();
   for (const [name, seat] of [
@@ -24,6 +24,8 @@ async function startGame(page: Page) {
   await expect(
     page.getByRole("grid", { name: "Scrabble board, 15 by 15" }),
   ).toBeVisible();
+  if (begin)
+    await page.getByRole("button", { name: "Begin play", exact: true }).click();
 }
 async function enter(page: Page, cell: string, word: string) {
   await page.getByTestId(`cell-${cell}`).click();
@@ -329,6 +331,18 @@ test("empty assisted racks stay editable and all exit controls work", async ({
   await ben.fill("Z");
   await expect(ben).toHaveValue("Z");
   await ben.fill("");
+  await ada.fill("??");
+  await ben.fill("?");
+  await expect(ben).toHaveValue("");
+  await expect(dialog.getByRole("alert").last()).toContainText(
+    "Only 0 blank tiles",
+  );
+  await ada.fill("?A");
+  await expect(ada).toHaveValue("?A");
+  await ben.fill("?");
+  await expect(ben).toHaveValue("?");
+  await ada.fill("");
+  await ben.fill("");
   for (const [name, letters] of [
     ["Ada", "AAAAAAA"],
     ["Ben", "EEEEEEE"],
@@ -357,7 +371,7 @@ test("empty assisted racks stay editable and all exit controls work", async ({
 test("visible timer, pause, skip and audited earlier-play correction", async ({
   page,
 }) => {
-  await startGame(page);
+  await startGame(page, false);
   await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await expect(page.getByLabel("Player accrued time")).toHaveCount(2);
   await page.getByRole("button", { name: "Pause game", exact: true }).click();
@@ -413,10 +427,16 @@ test("visible timer, pause, skip and audited earlier-play correction", async ({
 test("automatic and deliberate placement choices survive draft reload and timer start", async ({
   page,
 }) => {
-  await startGame(page);
+  await startGame(page, false);
   const direction = page.getByRole("button", { name: /^Word direction:/ });
   await expect(direction).toHaveAccessibleName("Word direction: auto across");
-  await enter(page, "H8", "CAT");
+  // Restore the equivalent of a pre-start draft behind the new central panel.
+  await page
+    .getByTestId("cell-H8")
+    .evaluate((cell: HTMLElement) => cell.click());
+  await page
+    .getByRole("textbox", { name: "Type letters on the board" })
+    .fill("CAT");
   // Reload only after IndexedDB confirms the draft is durable.
   await expect(page.locator(".save-state")).toHaveText("Saved on this device");
   await page.reload();
