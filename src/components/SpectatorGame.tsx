@@ -52,6 +52,7 @@ export function SpectatorGame({
   assisted?: boolean;
   replayPlayback?: ReturnType<typeof useTurnPlayback>;
 }) {
+  // Viewer perspective rearranges seats only; the shared board stays canonical.
   const perspective = boardPerspective(game.players, viewerPlayerId);
   const livePlayback = useTurnPlayback(game);
   const playback = replayPlayback ?? livePlayback;
@@ -205,8 +206,8 @@ export function SpectatorGame({
       data-board-perspective={perspective}
       style={
         {
-          "--board-rotation": `${perspective * 90}deg`,
-          "--letter-rotation": `${-perspective * 90}deg`,
+          "--board-rotation": "0deg",
+          "--letter-rotation": "0deg",
         } as CSSProperties
       }
       aria-label={replayPlayback ? "Recorded game replay" : "Live game viewer"}
