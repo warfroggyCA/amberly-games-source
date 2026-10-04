@@ -158,9 +158,6 @@
     flex: none;
   }
   .replay-controls {
-    position: sticky;
-    top: 0;
-    z-index: 10;
     background: #faf7ef;
     padding-block: 6px;
   }
