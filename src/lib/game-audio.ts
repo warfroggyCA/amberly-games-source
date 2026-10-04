@@ -8,16 +8,34 @@ export class GameAudio {
   private sources: AudioBufferSourceNode[] = [];
   private request: AbortController | null = null;
   private generation = 0;
+  private active = false;
   constructor(private onUnavailable: () => void) {}
+  get running() {
+    return this.context?.state === "running";
+  }
+  checkState = () => {
+    if (this.active && !this.running) {
+      // Suspended sources must not replay when a later gesture resumes audio.
+      this.stop();
+      this.onUnavailable();
+    }
+  };
   async enable() {
     const generation = ++this.generation;
-    this.context ??= new AudioContext();
-    // Resume within the click gesture, before any network/decode await (Safari).
-    await this.context.resume();
+    this.active = false;
+    this.stop();
     this.request?.abort();
+    if (!this.context || this.context.state === "closed") {
+      if (this.context) this.context.onstatechange = null;
+      this.context = new AudioContext();
+      this.context.onstatechange = this.checkState;
+    }
+    const context = this.context;
+    // Resume within the click gesture, before any network/decode await (Safari).
+    await context.resume();
+    if (generation !== this.generation) throw new Error("Audio interrupted");
     const request = new AbortController();
     this.request = request;
-    const context = this.context;
     await Promise.all(
       manifest.map(async (asset) => {
         const key = asset.key as GameSound;
@@ -34,6 +52,7 @@ export class GameAudio {
     );
     if (generation !== this.generation || context.state !== "running")
       throw new Error("Audio interrupted");
+    this.active = true;
   }
   play(cues: GameSound[]) {
     this.stop();
@@ -84,12 +103,14 @@ export class GameAudio {
     this.sources = [];
   }
   disable() {
+    this.active = false;
     this.generation++;
     this.request?.abort();
     this.stop();
   }
   dispose() {
     this.disable();
+    if (this.context) this.context.onstatechange = null;
     void this.context?.close().catch(() => {});
     this.context = null;
   }
