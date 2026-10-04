@@ -50,9 +50,13 @@ function timedGame() {
   return game;
 }
 
-async function fixture(page: Page, scorer: boolean, playerId: string | null) {
+async function fixture(
+  page: Page,
+  scorer: boolean,
+  playerId: string | null,
+  game = timedGame(),
+) {
   const fixture = await installFixture(page);
-  const game = timedGame();
   fixture.family.member.playerId = playerId;
   fixture.family.games = [game];
   fixture.family.gameAccess[game.id] = {
@@ -76,7 +80,7 @@ async function fixture(page: Page, scorer: boolean, playerId: string | null) {
     }),
   );
   await page.goto("/family/scrabble?view=play");
-  return { game, saved: JSON.stringify(game) };
+  return { family: fixture.family, game, saved: JSON.stringify(game) };
 }
 
 async function upright(tile: Locator) {
@@ -126,30 +130,72 @@ async function boardLayout(page: Page, board: Locator, seat: Locator) {
   await fitsWidth(page);
 }
 
-test("signed-in spectator sees their seat below the board with upright canonical letters and separate timers", async ({
-  page,
-}) => {
-  const { game, saved } = await fixture(page, false, "erin");
-  const board = page.getByRole("region", { name: "Live game viewer" });
-  await expect(board).toHaveAttribute("data-board-perspective", "1");
-  await boardLayout(
+for (const [playerId, name, turns] of [
+  ["doug", "Doug", "2"],
+  ["erin", "Erin", "1"],
+  ["nate", "Nate", "0"],
+  ["cristine", "Cristine", "3"],
+] as const)
+  test(`viewer ${name} keeps canonical board and animated tiles with own seat below`, async ({
     page,
-    board,
-    board.locator(".spectator-seat-2").filter({ hasText: "Erin" }),
-  );
-  await expect(board.getByText("You · seat 2", { exact: true })).toBeVisible();
-  await page.screenshot({
-    path: test.info().outputPath("viewer-perspective.png"),
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const { family, game, saved } = await fixture(page, false, playerId);
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (
+        /\/api\/family(?:\/draft)?(?:\?|$)/.test(request.url()) &&
+        request.method() !== "GET"
+      )
+        writes.push(request.url());
+    });
+    const board = page.getByRole("region", { name: "Live game viewer" });
+    await expect(board).toHaveAttribute("data-board-perspective", turns);
+    await boardLayout(
+      page,
+      board,
+      board.locator(".spectator-seat-2").filter({ hasText: name }),
+    );
+    await upright(board.getByRole("grid"));
+    const cat = board.getByRole("button", { name: /^H8 C, 3 points/ });
+    await upright(cat.locator(".letter-tile"));
+    await upright(board.locator(".premium-label").first());
+    const cells = await Promise.all(
+      ["7:7", "7:8", "8:7"].map((cell) =>
+        board.locator(`[data-turn-cell="${cell}"]`).boundingBox(),
+      ),
+    );
+    expect(cells[1]!.x).toBeGreaterThan(cells[0]!.x);
+    expect(cells[1]!.y).toBeCloseTo(cells[0]!.y, 0);
+    expect(cells[2]!.y).toBeGreaterThan(cells[0]!.y);
+    const next = applyCommand(
+      game,
+      {
+        type: "play",
+        id: "viewer-animation",
+        timedAt: new Date().toISOString(),
+        expectedRevision: game.revision,
+        placements: [{ row: 7, col: 10, tile: { letter: "S", blank: false } }],
+      },
+      testLexicon,
+    );
+    if (!next.ok) throw new Error(next.error.message);
+    family.games = [next.game];
+    await page.evaluate(() =>
+      document.dispatchEvent(new Event("visibilitychange")),
+    );
+    const flying = page.locator(".turn-flying-tile").first();
+    await expect(flying).toBeVisible();
+    await upright(board.getByRole("grid"));
+    await expect(page.locator(".turn-flying-tile")).toHaveCount(0);
+    await upright(board.locator('[data-turn-cell="7:10"] .letter-tile'));
+    expect(JSON.stringify(game)).toBe(saved);
+    expect(family.games[0]).toEqual(next.game);
+    expect(writes).toEqual([]);
+    await page.screenshot({
+      path: test.info().outputPath(`viewer-${playerId}-upright.png`),
+    });
   });
-  const cat = board.getByRole("button", { name: /^H8 C, 3 points/ });
-  await expect(cat).toBeVisible();
-  await upright(cat.locator(".letter-tile"));
-  await cat.click();
-  await expect(
-    page.getByRole("complementary", { name: "CAT word details" }),
-  ).toBeVisible();
-  expect(JSON.stringify(game)).toBe(saved);
-});
 
 test("signed-in scorer has local arrow navigation and upright letters without rotating saved coordinates", async ({
   page,
@@ -200,9 +246,72 @@ test("signed-in viewer without a linked seat retains the canonical perspective",
   await expect(board).toHaveAttribute("data-board-perspective", "0");
   await expect(board.locator(".viewer-seat-label")).toHaveCount(0);
   await expect(board.locator(".spectator-seat-0")).toContainText("Doug");
+  await upright(board.getByRole("grid"));
+  await upright(board.locator(".premium-label").first());
+  const [h8, i8, h9] = await Promise.all(
+    ["7:7", "7:8", "8:7"].map((cell) =>
+      board.locator(`[data-turn-cell="${cell}"]`).boundingBox(),
+    ),
+  );
+  expect(i8!.x).toBeGreaterThan(h8!.x);
+  expect(i8!.y).toBeCloseTo(h8!.y, 0);
+  expect(h9!.y).toBeGreaterThan(h8!.y);
   await upright(
     board
       .getByRole("button", { name: /^H8 C, 3 points/ })
       .locator(".letter-tile"),
   );
+});
+
+test("viewer refresh preserves game while the scorer keeps an unsaved entry", async ({
+  page,
+  browser,
+}) => {
+  const game = timedGame();
+  const scorer = await browser.newPage();
+  let releaseSave!: () => void;
+  const savePending = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  let saves = 0;
+  try {
+    await fixture(scorer, true, "doug", game);
+    await scorer.route("**/api/family/draft*", async (route) => {
+      if (route.request().method() === "POST") {
+        saves++;
+        await savePending;
+        await route.fulfill({ json: { accepted: true } });
+      } else await route.fulfill({ json: { draft: null } });
+    });
+    await scorer.getByTestId("cell-H7").click();
+    const input = scorer.getByRole("textbox", {
+      name: "Type letters on the board",
+    });
+    await input.pressSequentially("E");
+    await expect(scorer.getByTestId("cell-H7")).toHaveAccessibleName(
+      "H7 E, 1 points",
+    );
+    await expect.poll(() => saves).toBeGreaterThan(0);
+    const viewer = await fixture(page, false, "erin", game);
+    const board = page.getByRole("region", { name: "Live game viewer" });
+    await upright(board.getByRole("grid"));
+    const before = await board.locator("[data-turn-score]").allTextContents();
+    await page.reload();
+    await upright(board.getByRole("grid"));
+    await expect(board.locator(".letter-tile")).toHaveCount(3);
+    expect(await board.locator("[data-turn-score]").allTextContents()).toEqual(
+      before,
+    );
+    await expect(
+      page.getByLabel("Current turn elapsed time", { exact: true }),
+    ).toBeVisible();
+    await expect(scorer.getByTestId("cell-H7")).toHaveAccessibleName(
+      "H7 E, 1 points",
+    );
+    expect(JSON.stringify(viewer.family.games[0])).toBe(viewer.saved);
+    releaseSave();
+  } finally {
+    releaseSave();
+    await scorer.close();
+  }
 });
