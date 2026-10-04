@@ -686,6 +686,9 @@ test("Quit game cancels safely and retries only the chosen unfinished game", asy
   expect(writes[1]).toEqual(writes[0]);
   expect(JSON.stringify(shared.games[0])).toBe(otherBefore);
   await expect(page.getByLabel("Current turn elapsed time")).toHaveCount(0);
+  // Quit closes the dialog before its asynchronous home navigation completes.
+  // Assert that destination before starting a separate history visit.
+  await expect(page).toHaveURL(/\/family$/);
   await page.goto("/family/scrabble");
   await page.getByRole("button", { name: "Open game menu" }).click();
   await page
