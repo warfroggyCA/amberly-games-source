@@ -13,7 +13,9 @@ successful metadata lookup is not evidence that this executor can transfer files
    `chatgpt.com`, `oaisdmntpreastus.blob.core.windows.net`, and
    `oaisdmntprwestus.blob.core.windows.net`, alongside the existing project hosts.
    Do not infer an active allowlist from a saved version number. Record whether
-   the active configuration was actually visible. Preserve privacy and existing
+   the active configuration was actually visible. Inspect the returned hostname
+   for every required reference, not just one sample: assets may use different
+   regions. Preserve privacy and existing
    settings; request only observed missing hosts through the supported workflow.
 3. Fetch the current bundled helpers into a private directory. For list/search
    results, pass the complete unchanged structured result, explicit selection and
@@ -48,6 +50,11 @@ authenticated Library operation or prove a configuration rollout completed.
 On October 4, 2026, one fresh session successfully prepared an authorized image
 transfer, but its supported consumer download failed. An unsigned probe of the
 returned east-region hostname reported DNS EAI_AGAIN and proxy CONNECT 403.
+All six required references resolved but their consumer downloads failed. Two
+winner screenshots returned `oaisdmntprwestus3.blob.core.windows.net`, an additional
+exact host absent from the previously named three-host approval set. Record this
+as an observed additional dependency requiring the supported settings workflow;
+it does not explain failures on the other hosts or establish the active policy.
 Separately, the supported output helper received HTTP 401 during app-tool
 discovery, before upload. The active allowlist/version was not exposed by an
 applicable tool. These are observed failure stages, not proof of a missing domain,
