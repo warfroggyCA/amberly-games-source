@@ -55,3 +55,12 @@
     max-width: 36%;
   }
 }
+
+/* Result-panel crowns sit wholly above the face; history uses its existing framing. */
+.winner-banner .winner-portrait {
+  margin-top: 52px;
+}
+.winner-banner .winner-portrait-crown {
+  top: -48% !important;
+  height: 40% !important;
+}

@@ -186,3 +186,34 @@ body .spectator-table:has(.player-elapsed) {
     padding-inline: 6px;
   }
 }
+
+/* Keep the bag in header flow. A fixed oversized bag occupied the toolbar row. */
+body .app-shell.game-screen > header.site-header button.tile-bag-button {
+  position: relative;
+  inset: auto;
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+}
+body
+  .app-shell.game-screen
+  > header.site-header
+  button.tile-bag-button
+  .tabletop-bag-count {
+  font-size: 17px;
+}
+body .game-screen .table-area > .turn-actions {
+  flex-shrink: 0;
+}
+body .game-screen .table-area > .turn-actions .save-state {
+  max-width: 32ch;
+  line-height: 1.3;
+}
+@media (max-width: 600px) {
+  body .game-screen .table-area > .turn-actions .save-state {
+    flex-basis: 100%;
+    text-align: left;
+    padding: 0;
+    max-width: none;
+  }
+}

@@ -1,0 +1,55 @@
+.unassigned-tiles {
+  border: 1px solid #c9d3bd;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f1f3e6;
+  margin: 16px 0;
+  color: #234537;
+}
+.unassigned-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.unassigned-heading h3,
+.unassigned-tiles > h3 {
+  margin: 0;
+  font:
+    600 1.2rem Georgia,
+    serif;
+}
+.unassigned-heading > span {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.unassigned-tiles p {
+  margin: 8px 0 12px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.unassigned-pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.unassigned-letter {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 8px 10px;
+  min-width: 44px;
+  background: #ead2a7;
+  color: #30271a;
+  border: 1px solid #c6aa79;
+  border-radius: 5px;
+}
+.unassigned-letter > strong {
+  font:
+    700 1.3rem Arial,
+    sans-serif;
+}
+.unassigned-letter > small {
+  font-size: 0.75rem;
+}

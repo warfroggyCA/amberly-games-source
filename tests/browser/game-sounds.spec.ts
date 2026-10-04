@@ -357,6 +357,24 @@ test("Begin play unlocks real browser audio on this device", async ({
   expect(button!.x + button!.width).toBeLessThanOrEqual(
     board!.x + board!.width,
   );
+  const bag = page.locator("button.tile-bag-button").filter({ visible: true });
+  const bagBox = await bag.boundingBox();
+  const toolbar = await page
+    .locator(".table-area > .turn-actions")
+    .boundingBox();
+  expect(bagBox).not.toBeNull();
+  expect(toolbar).not.toBeNull();
+  const overlap =
+    Math.min(bagBox!.x + bagBox!.width, toolbar!.x + toolbar!.width) >
+      Math.max(bagBox!.x, toolbar!.x) &&
+    Math.min(bagBox!.y + bagBox!.height, toolbar!.y + toolbar!.height) >
+      Math.max(bagBox!.y, toolbar!.y);
+  expect(overlap).toBe(false);
+  await bag.click();
+  await expect(bag).toHaveAttribute("aria-expanded", "true");
+  await page
+    .getByRole("button", { name: "Close tiles remaining", exact: true })
+    .click();
   await page.screenshot({ path: info.outputPath("fresh-begin-play.png") });
   await begin.click();
   await expect(

@@ -64,6 +64,7 @@ export function AmberlyNavigation({
       {(
         [
           ["/family", "Games", "home"],
+          ["/family/records", "Record Book", "history"],
           ["/family/history", "History", "history"],
           ["/family/players", "Players", "players"],
           ["/family/settings", "Settings", "settings"],

@@ -1,6 +1,7 @@
 "use client";
 import { HistoryParticipants } from "./HistoryParticipants";
 import { historyLabel } from "../lib/history-participants";
+import { RecordsPage } from "./RecordsPage";
 import { FamilyStandings } from "./FamilyStandings";
 import { GymEntryCard } from "./GymEntryCard";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
@@ -797,6 +798,49 @@ export function FamilyHub({
             )}
           </>
         )
+      ) : pathname === "/family/records" ? (
+        <main className="hub-content">
+          <RecordsPage
+            games={shared.games}
+            players={shared.players}
+            access={shared.gameAccess}
+            crokinole={state.games}
+            crokinoleAccess={state.access}
+            hasMore={!!shared.nextCursor || !!state.nextCursor}
+            loading={state.status === "loading"}
+            error={state.error}
+            onLoadMore={() => {
+              void Promise.all([
+                shared.nextCursor
+                  ? sharedStore.loadMore?.()
+                  : Promise.resolve(),
+                store.load(undefined, state.nextCursor ?? undefined),
+              ]).catch((e) =>
+                setError(
+                  e instanceof Error ? e.message : "Could not load records.",
+                ),
+              );
+            }}
+            onOpen={(id) => {
+              void sharedStore
+                .openGame(id)
+                .then(() => navigate("/family/scrabble?view=play"))
+                .catch((e) =>
+                  setError(
+                    e instanceof Error
+                      ? e.message
+                      : "Could not open this game.",
+                  ),
+                );
+            }}
+            onOpenCrokinole={(id) => {
+              void navigate(`/family/crokinole/${encodeURIComponent(id)}`);
+            }}
+            onHistory={() => {
+              void navigate("/family/history");
+            }}
+          />
+        </main>
       ) : pathname === "/family/history" ? (
         <HubHistory
           key={shared.member.role}

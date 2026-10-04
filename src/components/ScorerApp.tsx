@@ -7,6 +7,7 @@ import { EditRecordedTurn } from "./EditRecordedTurn";
 import { TurnClock, TimingSummary } from "./TurnTiming";
 import { commandTiming } from "../lib/turn-timing";
 import "./game-feedback.css";
+import { UnassignedRackTiles } from "./UnassignedRackTiles";
 import { availableRackTiles } from "../lib/rack-entry";
 import { browserId } from "../lib/browser-id";
 import { playerDisplayName } from "../lib/player-profile";
@@ -2141,7 +2142,9 @@ function Ending({
   const racks: Racks = {};
   let invalid = false;
   for (const p of game.order) {
-    const text = input[p].toUpperCase().replace(/\s/g, "");
+    const raw = input[p] ?? "";
+    if (!/^[A-Za-z? \t\r\n]*$/.test(raw)) invalid = true;
+    const text = raw.toUpperCase().replace(/\s/g, "");
     if (!/^[A-Z?]*$/.test(text)) invalid = true;
     racks[p] = text
       .split("")
@@ -2209,6 +2212,7 @@ function Ending({
               transfer.
             </p>
           )}
+          <UnassignedRackTiles game={game} input={input} />
           <div className="rack-fields">
             {game.order.map((p) => (
               <div key={p}>

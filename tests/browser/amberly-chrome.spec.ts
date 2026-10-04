@@ -305,7 +305,10 @@ test("Players retains the shared top navigation when opened from Settings", asyn
     name: "Amberly Games",
     exact: true,
   });
-  await expect(navigation.getByRole("button")).toHaveCount(4);
+  await expect(navigation.getByRole("button")).toHaveCount(5);
+  await expect(
+    navigation.getByRole("button", { name: "Record Book", exact: true }),
+  ).toBeVisible();
   await expect(
     navigation.getByRole("button", { name: "Players", exact: true }),
   ).toHaveAttribute("aria-current", "page");

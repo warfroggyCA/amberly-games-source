@@ -417,6 +417,8 @@ test("automatic and deliberate placement choices survive draft reload and timer 
   const direction = page.getByRole("button", { name: /^Word direction:/ });
   await expect(direction).toHaveAccessibleName("Word direction: auto across");
   await enter(page, "H8", "CAT");
+  // Reload only after IndexedDB confirms the draft is durable.
+  await expect(page.locator(".save-state")).toHaveText("Saved on this device");
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })
@@ -424,11 +426,16 @@ test("automatic and deliberate placement choices survive draft reload and timer 
   await expect(direction).toHaveAccessibleName("Word direction: auto across");
   await direction.click();
   await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  // Reload only after IndexedDB confirms the draft is durable.
+  await expect(page.locator(".save-state")).toHaveText("Saved on this device");
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })
     .click();
   await expect(direction).toHaveAccessibleName("Word direction: chosen across");
+  await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
+    "H8 C, 3 points",
+  );
   await page.getByRole("button", { name: "Begin play", exact: true }).click();
   await expect(direction).toHaveAccessibleName("Word direction: chosen across");
   await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(
