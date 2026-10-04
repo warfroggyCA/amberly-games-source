@@ -35,8 +35,13 @@ for (const textSize of [100, 200])
       page.getByRole("button", { name: "Back to leaderboard" }),
     ).toBeVisible();
     await page.addStyleTag({
-      content: `html { -webkit-text-size-adjust: ${textSize}%; text-size-adjust: ${textSize}%; }`,
+      content: `html { font-size: ${textSize}%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }`,
     });
+    expect(
+      await page
+        .locator("html")
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+    ).toBe((16 * textSize) / 100);
     const board = page.locator(".spectator-board .board-grid");
     await expect(board).toBeVisible();
     await expect
