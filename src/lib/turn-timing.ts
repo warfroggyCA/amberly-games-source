@@ -1,4 +1,16 @@
-import type { GameState } from "../domain/game";
+import type { GameCommand, GameState } from "../domain/game";
+
+/** Preview and save commands must use the same timed-game validation contract. */
+export function commandTiming(
+  game: Pick<GameState, "events">,
+  type: GameCommand["type"],
+  now = new Date(),
+) {
+  return type === "start-clock" ||
+    game.events.some((event) => event.command.type === "start-clock")
+    ? { timedAt: now.toISOString() }
+    : {};
+}
 
 export type TimingEvent = {
   type: string;
@@ -25,6 +37,7 @@ export function turnTiming(game: TimedGame, now: number) {
   let started = false;
   let anchor: number | null = null;
   let elapsed = 0;
+  let totalMs = 0;
   const durations: Record<string, number> = {};
   for (const command of timingEvents(game)) {
     const at = command.timedAt ? Date.parse(command.timedAt) : null;
@@ -34,7 +47,11 @@ export function turnTiming(game: TimedGame, now: number) {
       continue;
     }
     if (!started) continue;
-    if (at !== null && anchor !== null) elapsed += Math.max(0, at - anchor);
+    if (at !== null && anchor !== null) {
+      const interval = Math.max(0, at - anchor);
+      elapsed += interval;
+      totalMs += interval;
+    }
     if (command.turnId) {
       if (at !== null) durations[command.turnId] = elapsed;
       elapsed = 0;
@@ -45,7 +62,8 @@ export function turnTiming(game: TimedGame, now: number) {
     if (command.type === "resume") anchor = at;
   }
   const currentMs = elapsed + (anchor === null ? 0 : Math.max(0, now - anchor));
-  return { started, currentMs, durations };
+  totalMs += anchor === null ? 0 : Math.max(0, now - anchor);
+  return { started, currentMs, totalMs, durations };
 }
 export function formatDuration(ms: number) {
   const seconds = Math.floor(ms / 1000);

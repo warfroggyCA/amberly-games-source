@@ -27,7 +27,12 @@ export function TileRackInput({
   const slotCount =
     Number.isInteger(maxTiles) && maxTiles >= 0 && maxTiles <= 7 ? maxTiles : 7;
   const tiles = parsed.ok ? [...parsed.value] : [];
-  const message = error ?? (parsed.ok ? null : parsed.error);
+  const currentError = !parsed.ok
+    ? parsed.error
+    : availableTiles
+      ? rackAvailabilityError(parsed.value, availableTiles)
+      : null;
+  const message = currentError ?? error;
   const remove = (index: number) => {
     if (readOnly || !parsed.ok) return;
     onChange(tiles.filter((_, position) => position !== index).join(""));
@@ -82,7 +87,7 @@ export function TileRackInput({
         id={inputId}
         aria-label={label}
         aria-describedby={`${inputId}-hint${message ? ` ${inputId}-error` : ""}`}
-        aria-invalid={!!message}
+        aria-invalid={!!currentError}
         value={value}
         readOnly={readOnly}
         autoCapitalize="characters"
@@ -90,6 +95,7 @@ export function TileRackInput({
         autoCorrect="off"
         spellCheck={false}
         placeholder="Type letters · ? for blank"
+        onBlur={() => setError(null)}
         onChange={(event) => {
           if (readOnly) return;
           const next = parseRackEntry(event.target.value, maxTiles);
