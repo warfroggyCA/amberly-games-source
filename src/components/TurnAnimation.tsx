@@ -93,11 +93,13 @@ export function TurnAnimation({
   containerRef,
   onScore,
   onComplete,
+  interruptOnInput = true,
 }: {
   turn: GameTurn | null;
   containerRef: RefObject<HTMLElement | null>;
   onScore: () => void;
   onComplete: () => void;
+  interruptOnInput?: boolean;
 }) {
   const overlay = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -347,8 +349,10 @@ export function TurnAnimation({
       finish();
     }
     document.addEventListener("visibilitychange", hiddenPage);
-    document.addEventListener("pointerdown", invalidate, true);
-    document.addEventListener("keydown", invalidate, true);
+    if (interruptOnInput) {
+      document.addEventListener("pointerdown", invalidate, true);
+      document.addEventListener("keydown", invalidate, true);
+    }
     window.addEventListener("resize", invalidate);
     window.addEventListener("scroll", invalidate, true);
     motion.addEventListener("change", invalidate);
@@ -366,7 +370,7 @@ export function TurnAnimation({
       window.removeEventListener("scroll", invalidate, true);
       motion.removeEventListener("change", invalidate);
     };
-  }, [turn, containerRef, onScore, onComplete]);
+  }, [turn, containerRef, onScore, onComplete, interruptOnInput]);
 
   if (!turn) return null;
   return createPortal(

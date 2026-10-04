@@ -533,6 +533,53 @@ function project(
   game.revision = events.length;
   return game;
 }
+/** Read-only historical views of an already hydrated journal. Never executes a command.
+ * Refuse incomplete legacy snapshots instead of reconstructing invented history.
+ * Compute only the requested prefix, rather than retaining a quadratic timeline.
+ */
+export function gameReplay(game: GameState): {
+  length: number;
+  at: (sequence: number) => GameState;
+} | null {
+  try {
+    if (
+      game.events.length !== game.revision ||
+      game.events.length > MAX_GAME_EVENTS ||
+      game.events.some((event, index) => event.sequence !== index + 1)
+    )
+      return null;
+    const final = project(game.definition, game.events);
+    for (const key of [
+      "board",
+      "turns",
+      "scores",
+      "result",
+      "status",
+      "currentPlayerId",
+    ] as const)
+      if (canonical(final[key]) !== canonical(game[key])) return null;
+    // Capture immutable copies so callers cannot mutate the source or the timeline.
+    const definition = copy(game.definition);
+    const events = copy(game.events);
+    return {
+      length: events.length,
+      at(sequence) {
+        if (
+          !Number.isInteger(sequence) ||
+          sequence < 0 ||
+          sequence > events.length
+        )
+          throw new RangeError(
+            "Replay position is outside the recorded journal.",
+          );
+        return freeze(project(definition, events.slice(0, sequence)));
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 function checkRacks(
   game: GameState,
   racks: unknown,
