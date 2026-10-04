@@ -67,10 +67,69 @@ test("Record Book keeps highlights, compatible rivalries and both-game journal r
       approvals: [],
     };
   }
+  seedDisc(f, "book-discs");
+  await page.goto("/family/records");
+  await expect(
+    page.getByRole("heading", { name: "A game worth remembering" }),
+  ).toBeVisible();
+  await expect(page.locator(".book-score")).toHaveText("412");
+  await fitsWidth(page);
+  await page.screenshot({
+    path: info.outputPath("record-book-highlights.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Rivalries", exact: true }).click();
+  await expect(page.locator(".book-match")).toContainText(
+    "3 games together · 1 tie",
+  );
+  await expect(page.locator(".book-match")).toContainText("Level on wins");
+  await fitsWidth(page);
+  await page.screenshot({
+    path: info.outputPath("record-book-rivalries.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Journal", exact: true }).click();
+  await page.getByRole("button", { name: "All games", exact: true }).click();
+  await expect(page.locator(".book-journal-entry")).toHaveCount(4);
+  await fitsWidth(page);
+  await page.screenshot({
+    path: info.outputPath("record-book-journal.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Highlights", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Scrabble", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".book-score")).toHaveText("412");
+  await page.getByRole("button", { name: "Journal", exact: true }).click();
+  await page.getByRole("button", { name: "Crokinole", exact: true }).click();
+  await expect(page.locator(".book-journal-entry")).toHaveCount(1);
+  await page.getByRole("button", { name: "Highlights", exact: true }).click();
+  await expect(page.locator(".book-score")).toHaveText("100");
+});
+
+test("Record Book refuses partial records and private practice", async ({
+  page,
+}) => {
+  const f = await installFixture(page);
+  f.family.nextCursor = "older";
+  await page.goto("/family/records");
+  await expect(
+    page.getByText("Bring the whole history to the table."),
+  ).toBeVisible();
+  await expect(page.locator(".book-hero")).toHaveCount(0);
+  f.family.nextCursor = null;
+  await page.reload();
+  await expect(
+    page.getByText("Your next game can make history."),
+  ).toBeVisible();
+});
+
+function seedDisc(f: Awaited<ReturnType<typeof installFixture>>, id: string) {
   let disc = createCrokinoleGame({
     schemaVersion: 1,
     rulesVersion: 1,
-    id: "book-discs",
+    id,
     familyId: f.family.family.id,
     mode: "confirmed",
     createdAt: "2026-10-03T19:00:00Z",
@@ -127,59 +186,73 @@ test("Record Book keeps highlights, compatible rivalries and both-game journal r
     mode: "confirmed",
     concerns: [],
   };
-  await page.goto("/family/records");
-  await expect(
-    page.getByRole("heading", { name: "A game worth remembering" }),
-  ).toBeVisible();
-  await expect(page.locator(".book-score")).toHaveText("412");
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-highlights.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Rivalries", exact: true }).click();
-  await expect(page.locator(".book-match")).toContainText(
-    "3 games together · 1 tie",
-  );
-  await expect(page.locator(".book-match")).toContainText("Level on wins");
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-rivalries.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Journal", exact: true }).click();
-  await page.getByRole("button", { name: "All games", exact: true }).click();
-  await expect(page.locator(".book-journal-entry")).toHaveCount(4);
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-journal.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Highlights", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Scrabble", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".book-score")).toHaveText("412");
-  await page.getByRole("button", { name: "Journal", exact: true }).click();
-  await page.getByRole("button", { name: "Crokinole", exact: true }).click();
-  await expect(page.locator(".book-journal-entry")).toHaveCount(1);
-  await page.getByRole("button", { name: "Highlights", exact: true }).click();
-  await expect(page.locator(".book-score")).toHaveText("100");
-});
+}
 
-test("Record Book refuses partial records and private practice", async ({
+test("Record Book keeps multi-page Crokinole history through polls and independent Scrabble pagination", async ({
   page,
 }) => {
   const f = await installFixture(page);
-  f.family.nextCursor = "older";
+  seedDisc(f, "disc-one");
+  seedDisc(f, "disc-two");
+  seedDisc(f, "disc-three");
+  let firstPageReads = 0;
+  const discCursors: number[] = [];
+  await page.route("**/api/family/crokinole*", (route) => {
+    expect(route.request().method()).toBe("GET");
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    const index = cursor ? Number(cursor) : 0;
+    if (!cursor) firstPageReads++;
+    discCursors.push(index);
+    const games = f.shared.games.slice(index, index + 1);
+    return route.fulfill({
+      json: {
+        ...f.shared,
+        games,
+        access: Object.fromEntries(
+          games.map((g) => [g.definition.id, f.shared.access[g.definition.id]]),
+        ),
+        nextCursor:
+          index + 1 < f.shared.games.length ? String(index + 1) : null,
+      },
+    });
+  });
+  await page.route(/\/api\/family(?:\?.*)?$/, (route) => {
+    expect(route.request().method()).toBe("GET");
+    const cursor = new URL(route.request().url()).searchParams.get("cursor");
+    const index = cursor ? Number(cursor) : 0;
+    return route.fulfill({
+      json: { ...f.family, nextCursor: index < 3 ? String(index + 1) : null },
+    });
+  });
   await page.goto("/family/records");
+  const load = page.getByRole("button", {
+    name: "Load earlier games",
+    exact: true,
+  });
+  await load.click();
+  await expect.poll(() => discCursors.includes(1)).toBe(true);
+  await load.click();
+  await expect.poll(() => discCursors.includes(2)).toBe(true);
+  const before = firstPageReads;
+  await load.click();
   await expect(
     page.getByText("Bring the whole history to the table."),
-  ).toBeVisible();
-  await expect(page.locator(".book-hero")).toHaveCount(0);
-  f.family.nextCursor = null;
-  await page.reload();
+  ).toHaveCount(0);
+  expect(firstPageReads).toBe(before);
+  await page.getByRole("button", { name: "Journal", exact: true }).click();
+  await page.getByRole("button", { name: "All games", exact: true }).click();
+  await expect(page.locator(".book-journal-entry")).toHaveCount(3);
+  seedDisc(f, "disc-new");
+  f.shared.games.unshift(f.shared.games.pop()!);
+  await expect
+    .poll(() => firstPageReads, { timeout: 10_000 })
+    .toBeGreaterThan(before);
+  await expect(page.locator(".book-journal-entry")).toHaveCount(4);
   await expect(
-    page.getByText("Your next game can make history."),
-  ).toBeVisible();
+    page.getByText("Bring the whole history to the table."),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: /^Explore highlights/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Scrabble", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
 });

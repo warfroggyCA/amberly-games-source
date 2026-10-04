@@ -449,7 +449,11 @@ export function createCrokinoleStore(
       ...state.games.filter((g) => g.definition.id !== game.definition.id),
     ];
   }
-  async function refresh(gameId?: string, cursor?: string) {
+  async function refresh(
+    gameId?: string,
+    cursor?: string,
+    preserveLoadedHistory = false,
+  ) {
     if (
       working ||
       network ||
@@ -468,7 +472,38 @@ export function createCrokinoleStore(
       await open();
       await writes;
       await transaction();
-      const incoming = await get(gameId, cursor);
+      let incoming = await get(gameId, cursor);
+      if (preserveLoadedHistory && !gameId && !cursor) {
+        // Refresh the loaded history atomically, including updated concerns and
+        // removals. Keeping only page one would discard earlier Record Book pages.
+        const previouslyLoaded = new Set(
+          state.games.map((g) => g.definition.id),
+        );
+        const wasComplete = state.status === "ready" && !state.nextCursor;
+        const seenCursors = new Set<string>();
+        for (const g of incoming.games)
+          previouslyLoaded.delete(g.definition.id);
+        while (
+          incoming.nextCursor &&
+          (wasComplete || previouslyLoaded.size > 0)
+        ) {
+          const next = incoming.nextCursor;
+          if (seenCursors.has(next))
+            throw new Error(
+              "History pagination did not advance. Retry loading records.",
+            );
+          seenCursors.add(next);
+          const page = await get(undefined, next);
+          if (closed || state.displaced) return;
+          for (const g of page.games) previouslyLoaded.delete(g.definition.id);
+          incoming = {
+            ...incoming,
+            games: [...incoming.games, ...page.games],
+            access: { ...incoming.access, ...page.access },
+            nextCursor: page.nextCursor,
+          };
+        }
+      }
       if (closed || state.displaced) return;
       const games = new Map(
         (gameId || cursor ? state.games : []).map((g) => [g.definition.id, g]),

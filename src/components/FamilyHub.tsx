@@ -122,7 +122,7 @@ export function FamilyHub({
   useEffect(() => {
     const refresh = () => {
       if (crokinoleOpened.current && document.visibilityState === "visible")
-        void store.refresh(gameId);
+        void store.refresh(gameId, undefined, pathname === "/family/records");
     };
     const timer = setInterval(refresh, 5000);
     document.addEventListener("visibilitychange", refresh);
@@ -130,7 +130,7 @@ export function FamilyHub({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [store, gameId]);
+  }, [store, gameId, pathname]);
   useEffect(() => {
     const guard = async () => {
       await store.flush();
@@ -814,7 +814,11 @@ export function FamilyHub({
                 shared.nextCursor
                   ? sharedStore.loadMore?.()
                   : Promise.resolve(),
-                store.load(undefined, state.nextCursor ?? undefined),
+                state.error
+                  ? store.refresh(undefined, undefined, true)
+                  : state.nextCursor
+                    ? store.load(undefined, state.nextCursor)
+                    : Promise.resolve(),
               ]).catch((e) =>
                 setError(
                   e instanceof Error ? e.message : "Could not load records.",

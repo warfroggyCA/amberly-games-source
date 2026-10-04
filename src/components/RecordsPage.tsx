@@ -94,6 +94,13 @@ export function RecordsPage({
   const [kind, setKind] = useState<"scrabble" | "crokinole" | "all">(
     "scrabble",
   );
+  const selectTab = (next: typeof tab) => {
+    setTab(next);
+    if (next !== "Journal" && kind === "all") {
+      setKind("scrabble");
+      setGroup("");
+    }
+  };
   const [group, setGroup] = useState("");
   const [pair, setPair] = useState<[string, string]>(["", ""]);
   const all = recordBookGames(games, access, crokinole, crokinoleAccess);
@@ -159,13 +166,7 @@ export function RecordsPage({
             <button
               key={label}
               aria-pressed={tab === label}
-              onClick={() => {
-                setTab(label);
-                if (label !== "Journal" && kind === "all") {
-                  setKind("scrabble");
-                  setGroup("");
-                }
-              }}
+              onClick={() => selectTab(label)}
             >
               {label}
             </button>
@@ -348,7 +349,7 @@ export function RecordsPage({
                       </p>
                       <button
                         className="text-button"
-                        onClick={() => setTab("Rivalries")}
+                        onClick={() => selectTab("Rivalries")}
                       >
                         Explore the rivalry →
                       </button>
@@ -405,7 +406,7 @@ export function RecordsPage({
                   ))}
                   <button
                     className="text-button"
-                    onClick={() => setTab("Journal")}
+                    onClick={() => selectTab("Journal")}
                   >
                     Open the game journal →
                   </button>
@@ -414,7 +415,10 @@ export function RecordsPage({
                   <h2>Little victories</h2>
                   {personal ? (
                     <>
-                      <p>{personal.uniqueWords.length} unique words played</p>
+                      <p>
+                        {name(personal.id)} · {personal.uniqueWords.length}{" "}
+                        unique words played
+                      </p>
                       <p>{personal.bingoCount} seven-tile bonuses</p>
                       {personal.biggestComebacks.map((a) => (
                         <button
@@ -654,7 +658,7 @@ export function RecordsPage({
                   </p>
                   <button
                     className="text-button"
-                    onClick={() => setTab("Highlights")}
+                    onClick={() => selectTab("Highlights")}
                   >
                     Explore highlights →
                   </button>
