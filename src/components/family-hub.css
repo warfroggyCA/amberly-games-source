@@ -399,3 +399,19 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.hub-history-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  gap: 8px;
+}
+.hub-history-row > .hub-recent-game {
+  min-width: 0;
+  border-bottom: 0;
+}
+.hub-history-replay {
+  flex: 0 0 auto;
+  min-height: 44px;
+  margin-right: 8px;
+}

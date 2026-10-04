@@ -475,6 +475,38 @@ function validateShared(
   }
   return value as SharedState;
 }
+/** Fetch an authorized replay snapshot without opening a scorer or saving workspace state. */
+export async function readGameForReplay(
+  gameId: string,
+  userId: string,
+  familyId: string,
+  signal: AbortSignal,
+) {
+  const shared = validateShared(
+    await familyRequest<unknown>(
+      `/api/family?gameId=${encodeURIComponent(gameId)}`,
+      undefined,
+      { expectedUserId: userId, signal },
+    ),
+    userId,
+    familyId,
+  );
+  const game = shared.games.find((value) => value.id === gameId);
+  const access = shared.gameAccess[gameId];
+  if (
+    !game ||
+    !access ||
+    shared.removedGameIds?.includes(gameId) ||
+    (access.mode === "practice" && shared.member.role !== "superadmin")
+  )
+    throw new Error("This game is no longer available for replay.");
+  return {
+    game,
+    profiles: shared.players,
+    viewerPlayerId: shared.member.playerId,
+  };
+}
+
 function validateResult(
   value: unknown,
   operation: SharedOperation,

@@ -153,6 +153,18 @@ export function ScorerApp({
   const [view, setView] = useState<View>(initialView);
   const [returnView, setReturnView] = useState<View | null>(null);
   const [replayGameId, setReplayGameId] = useState<string | null>(null);
+  const resultReplayButton = useRef<HTMLButtonElement>(null);
+  const resultReplayScroll = useRef<number | null>(null);
+  useEffect(() => {
+    if (replayGameId || resultReplayScroll.current === null) return;
+    const y = resultReplayScroll.current;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: y, behavior: "instant" });
+      resultReplayButton.current?.focus({ preventScroll: true });
+      resultReplayScroll.current = null;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [replayGameId]);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -891,6 +903,19 @@ export function ScorerApp({
               ? "Back to leaderboard"
               : "Back to history"}
         </button>
+        {game.status === "finalized" && (
+          <button
+            className="button light"
+            ref={resultReplayButton}
+            onClick={() => {
+              resultReplayScroll.current = window.scrollY;
+              setReplayGameId(game.id);
+              window.scrollTo({ top: 0, behavior: "instant" });
+            }}
+          >
+            Replay
+          </button>
+        )}
         {returnView && returnView !== "History" && (
           <button
             className="text-button"

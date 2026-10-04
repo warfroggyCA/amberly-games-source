@@ -1,4 +1,5 @@
 "use client";
+import { HistoryGameReplay } from "./HistoryGameReplay";
 import { HistoryParticipants } from "./HistoryParticipants";
 import { historyLabel } from "../lib/history-participants";
 import { RecordsPage } from "./RecordsPage";
@@ -850,6 +851,7 @@ export function FamilyHub({
           key={shared.member.role}
           canPractice={shared.member.role === "superadmin"}
           userId={userId}
+          familyId={shared.family.id}
           players={shared.players}
           onOpen={openSummary}
         />
@@ -1224,15 +1226,37 @@ function safeGameId(value: string): string {
 }
 function HubHistory({
   userId,
+  familyId,
   players,
   onOpen,
   canPractice,
 }: {
   userId: string;
+  familyId: string;
   canPractice: boolean;
   players: SharedState["players"];
   onOpen: (summary: GameSummary) => Promise<void>;
 }) {
+  const router = useRouter();
+  const search = useSearchParams();
+  const replayId = search.get("replay");
+  const returnPosition = useRef<{
+    y: number;
+    button: HTMLButtonElement;
+  } | null>(null);
+  useEffect(() => {
+    if (replayId || !returnPosition.current) return;
+    const { y, button } = returnPosition.current;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top: y, behavior: "instant" });
+      button.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [replayId]);
+  function closeReplay() {
+    if (returnPosition.current) router.back();
+    else router.replace("/family/history", { scroll: false });
+  }
   const [filter, setFilter] = useState("");
   const [player, setPlayer] = useState("");
   const [data, setData] = useState<GameSummaryPage>({
@@ -1292,85 +1316,126 @@ function HubHistory({
     };
   }, [load]);
   return (
-    <main className="hub-content">
-      <h1>Game history</h1>
-      {data.standings && !error && (
-        <details className="standings-disclosure">
-          <summary>Family standings · wins & ranks</summary>
-          <FamilyStandings
-            rows={data.standings}
-            players={players}
-            gameFilter={filter}
-          />
-        </details>
+    <>
+      {replayId && (
+        <HistoryGameReplay
+          key={`${userId}:${familyId}:${replayId}`}
+          gameId={replayId}
+          userId={userId}
+          familyId={familyId}
+          onClose={closeReplay}
+        />
       )}
-      <div className="crokinole-fields">
-        <label className="crokinole-field">
-          Game
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="">All games</option>
-            <option value="scrabble">Scrabble</option>
-            <option value="crokinole">Crokinole</option>
-          </select>
-        </label>
-        <label className="crokinole-field">
-          Player
-          <select value={player} onChange={(e) => setPlayer(e.target.value)}>
-            <option value="">Everyone</option>
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {playerDisplayName(p)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {error && (
-        <p role="alert" className="crokinole-error">
-          {error}
-          <button className="text-button" onClick={() => void load()}>
-            Retry
-          </button>
-        </p>
-      )}
-      {loading && <p role="status">Loading history…</p>}
-      <div className="hub-recent">
-        {data.games
-          .filter((g) => canPractice || g.mode !== "practice")
-          .map((g) => (
-            <button
-              key={`${g.gameType}:${g.id}`}
-              aria-label={`${g.gameType} · ${g.mode === "practice" ? "Private test" : g.status.replaceAll("_", " ")} · ${historyLabel(g.participants, g.winnerIds, players, g.totals)}`}
-              className="hub-recent-game"
-              onClick={() => void onOpen(g).catch((e) => setError(e.message))}
-            >
-              <span className="eyebrow">
-                {g.gameType} ·{" "}
-                {g.mode === "practice"
-                  ? "Private test"
-                  : g.status.replaceAll("_", " ")}
-              </span>
-              <HistoryParticipants
-                participants={g.participants}
-                winnerIds={g.winnerIds}
-                profiles={players}
-                totals={g.totals}
+      <div hidden={!!replayId}>
+        <main className="hub-content">
+          <h1>Game history</h1>
+          {data.standings && !error && (
+            <details className="standings-disclosure">
+              <summary>Family standings · wins & ranks</summary>
+              <FamilyStandings
+                rows={data.standings}
+                players={players}
+                gameFilter={filter}
               />
+            </details>
+          )}
+          <div className="crokinole-fields">
+            <label className="crokinole-field">
+              Game
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              >
+                <option value="">All games</option>
+                <option value="scrabble">Scrabble</option>
+                <option value="crokinole">Crokinole</option>
+              </select>
+            </label>
+            <label className="crokinole-field">
+              Player
+              <select
+                value={player}
+                onChange={(e) => setPlayer(e.target.value)}
+              >
+                <option value="">Everyone</option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {playerDisplayName(p)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {error && (
+            <p role="alert" className="crokinole-error">
+              {error}
+              <button className="text-button" onClick={() => void load()}>
+                Retry
+              </button>
+            </p>
+          )}
+          {loading && <p role="status">Loading history…</p>}
+          <div className="hub-recent">
+            {data.games
+              .filter((g) => canPractice || g.mode !== "practice")
+              .map((g) => (
+                <div className="hub-history-row" key={`${g.gameType}:${g.id}`}>
+                  <button
+                    aria-label={`${g.gameType} · ${g.mode === "practice" ? "Private test" : g.status.replaceAll("_", " ")} · ${historyLabel(g.participants, g.winnerIds, players, g.totals)}`}
+                    className="hub-recent-game"
+                    onClick={() =>
+                      void onOpen(g).catch((e) => setError(e.message))
+                    }
+                  >
+                    <span className="eyebrow">
+                      {g.gameType} ·{" "}
+                      {g.mode === "practice"
+                        ? "Private test"
+                        : g.status.replaceAll("_", " ")}
+                    </span>
+                    <HistoryParticipants
+                      participants={g.participants}
+                      winnerIds={g.winnerIds}
+                      profiles={players}
+                      totals={g.totals}
+                    />
+                  </button>
+                  {g.gameType === "scrabble" && (
+                    <button
+                      className="button light hub-history-replay"
+                      aria-label={`Replay ${historyLabel(g.participants, [], players, undefined, " and ")}`}
+                      onClick={(event) => {
+                        returnPosition.current = {
+                          y: window.scrollY,
+                          button: event.currentTarget,
+                        };
+                        router.push(
+                          `/family/history?replay=${encodeURIComponent(g.id)}`,
+                          { scroll: false },
+                        );
+                        window.scrollTo({ top: 0, behavior: "instant" });
+                      }}
+                    >
+                      Replay
+                    </button>
+                  )}
+                </div>
+              ))}
+          </div>
+          {!loading && !error && !data.games.length && (
+            <p>No games match these filters.</p>
+          )}
+          {data.nextCursor && (
+            <button
+              className="button light"
+              disabled={loading}
+              onClick={() => void load(data.nextCursor!)}
+            >
+              More games
             </button>
-          ))}
+          )}
+        </main>
       </div>
-      {!loading && !error && !data.games.length && (
-        <p>No games match these filters.</p>
-      )}
-      {data.nextCursor && (
-        <button
-          className="button light"
-          disabled={loading}
-          onClick={() => void load(data.nextCursor!)}
-        >
-          More games
-        </button>
-      )}
-    </main>
+    </>
   );
 }
