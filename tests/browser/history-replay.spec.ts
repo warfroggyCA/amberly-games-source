@@ -103,6 +103,13 @@ test("main History replays an unhydrated Scrabble result and restores filters, f
   expect(fixture.reads).toContain(fixture.game.id);
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await expect(page.getByRole("slider")).toHaveValue("1");
+  const board = await page.locator(".game-replay .board-grid").boundingBox();
+  expect(board!.width).toBeGreaterThanOrEqual(200);
+  expect(board!.height).toBeGreaterThanOrEqual(200);
+  await page.screenshot({
+    path: info.outputPath("main-history-replay-viewer.png"),
+    fullPage: true,
+  });
   await fitsWidth(page);
   await page.getByRole("button", { name: "Close replay", exact: true }).click();
   await expect(page).toHaveURL(/\/family\/history$/);

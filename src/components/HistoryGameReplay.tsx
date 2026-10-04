@@ -57,11 +57,13 @@ export function HistoryGameReplay({
     };
   }, [gameId, userId, familyId]);
   return record ? (
-    <GameReplay
-      key={`${gameId}:${record.game.revision}`}
-      {...record}
-      onClose={onClose}
-    />
+    <div className="app-shell replay-shell">
+      <GameReplay
+        key={`${gameId}:${record.game.revision}`}
+        {...record}
+        onClose={onClose}
+      />
+    </div>
   ) : (
     <main className="hub-content">
       <h1>Game replay</h1>
