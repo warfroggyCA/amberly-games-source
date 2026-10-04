@@ -1040,12 +1040,6 @@ export function ScorerApp({
           )}
           {returnNavigation}
           {playAgain}
-          <button
-            className="button light"
-            onClick={() => setReplayGameId(game.id)}
-          >
-            Replay game
-          </button>
           {draftRecovery}
           <SpectatorGame
             soundControl={soundControl}
@@ -1379,14 +1373,6 @@ export function ScorerApp({
               />
             )}
             {playAgain}
-            {view === "Play" && game && (
-              <button
-                className="button light"
-                onClick={() => setReplayGameId(game.id)}
-              >
-                Replay game
-              </button>
-            )}
             {draftRecovery}
             {view === "Play" &&
               (!game ? (

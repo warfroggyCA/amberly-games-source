@@ -1,6 +1,6 @@
 # Recorded Scrabble replay
 
-Open **Replay** on a Scrabble history row, or **Replay game** after opening a recorded game. The viewer offers Play/Pause, Previous/Next and a keyboard-accessible position slider. It uses the existing spectator board, player perspective, physical blank rendering, tile arrivals, score overlay and bingo celebration.
+Open **Replay** on a Scrabble history row. The viewer offers Play/Pause, Previous/Next and a keyboard-accessible position slider. It uses the existing spectator board, player perspective, physical blank rendering, tile arrivals, score overlay and bingo celebration.
 
 Replay projects prefixes of the already hydrated game journal using the domain's existing projector. Undo removes the effective turn; a correction recalculates earlier placements and dependent scores at its recorded event; finalization applies the recorded ending adjustments. A seek is local display state and never executes a game command. Access continues to come from the existing authorized game store. Removed games lose their replay board on refresh. Archiving a player does not rewrite their participation.
 
