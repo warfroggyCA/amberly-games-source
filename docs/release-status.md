@@ -2,6 +2,14 @@
 
 The public app is **Amberly Games** at https://amberly-games.vercel.app/family.
 
+## Record Book and gameplay follow-ups — October 4
+
+PR32/PR33 delivered the full approved Record Book and Scrabble presentation update. PR34 added the central Begin play panel, two-stage owner Quit and per-game/device sound preference. PR34 is published at the canonical address: source `9041d0adf558b61ed0d1380637c04ccb55a57f7f`, READY deployment `dpl_ECnM3EVdFk9JxSdfYTrDh6E4qQDf`, normal merge `32d133f740ba1c5c3e164fe9033bd726964f9a6b` (identical tree). [All 18 exact-head CI jobs passed](https://github.com/warfroggyCA/amberly-games-source/actions/runs/37212529119), independent review and the clean release gate passed, and the user approved deployment once ready. Local verification: 1,028 unit, 125 isolated database, one integrated and 565 browser passes, with 127 unit and 47 existing browser skips. Lint retains the existing gridcell warning.
+
+Signed-in read-only postflight confirmed the owner Quit menu entry, resumed-game Begin suppression, the running turn display and normal-tap audio activation. No production game commands, migrations or resets were performed. Physical family-device and alternate-member acceptance remain separate. Prior READY deployment `dpl_CQi6ofBqitR2fzDQrEAU9Ch6VBCf` is retained for rollback.
+
+The completed-game wording follow-up is published only when its final private release receipt confirms deployment and canonical alias; its presence in source alone is not proof of publication. Future work follows [cloud continuation](cloud-continuation.md). Existing cloud tasks do not synchronize automatically, and Library cloud input/output readiness remains unverified until a fresh consuming executor passes preflight.
+
 ## Lobby music controls follow-up — September 26
 
 The music controls follow-up defaults lobby music on, replaces the popup with a mute/unmute toggle, and moves persistent volume and the credits link into Settings. Publication is recorded by annotated tag `amberly-games-2026-09-26-music-controls`; until that tag exists, the family-experience release below remains live. This follow-up requires no database migration or authentication change.

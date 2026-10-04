@@ -12,3 +12,8 @@ For cloud work involving Library image references or review-artifact delivery,
 run [the fresh-session Library preflight](docs/cloud-library-preflight.md) before
 image-dependent implementation. Keep private references and transfer credentials
 out of public source and logs.
+
+Future implementation defaults to the saved Codex Cloud environment. The October 4
+Mac completion was an explicit exception; obtain a new user exception before
+further Mac feature work. Follow [cloud continuation](docs/cloud-continuation.md)
+and preserve existing checkouts and private inputs.

@@ -175,6 +175,7 @@ export function SpectatorGame({
         remaining={game.expectedBagCount}
         board={game.board}
         tileSupply={game.tileSupply}
+        finalized={game.status === "finalized"}
         assisted={assisted}
         onOpen={playback.finish}
       />
