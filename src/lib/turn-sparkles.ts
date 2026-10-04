@@ -3,6 +3,7 @@ export function startTurnSparkles(
   canvas: HTMLCanvasElement,
   tiles: readonly HTMLElement[],
   scoreBadge?: HTMLElement,
+  now = () => performance.now(),
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return { land: () => {}, stop: () => {} };
@@ -36,7 +37,8 @@ export function startTurnSparkles(
     });
     if (sparks.length > 220) sparks.shift();
   }
-  function draw(now: number) {
+  function draw() {
+    const time = now();
     if (stopped) return;
     ctx!.clearRect(0, 0, width, height);
     // Read only the composited tile positions, with no layout writes per frame.
@@ -51,15 +53,15 @@ export function startTurnSparkles(
         const last = path.at(-1);
         if (
           !last ||
-          (now - last.time >= 28 &&
+          (time - last.time >= 28 &&
             Math.hypot(point.x - last.x, point.y - last.y) > 1)
         ) {
-          path.push({ ...point, time: now });
-          emit(point.x, point.y, now);
-          emit(point.x, point.y, now);
+          path.push({ ...point, time });
+          emit(point.x, point.y, time);
+          emit(point.x, point.y, time);
         }
       }
-      while (path.length && now - path[0].time > trailLife) path.shift();
+      while (path.length && time - path[0].time > trailLife) path.shift();
       if (path.length < 2) return;
       ctx!.lineCap = "round";
       ctx!.lineJoin = "round";
@@ -76,7 +78,7 @@ export function startTurnSparkles(
       ctx!.stroke();
       ctx!.shadowBlur = 0;
       for (let p = 1; p < path.length; p++) {
-        const age = (now - path[p - 1].time) / trailLife;
+        const age = (time - path[p - 1].time) / trailLife;
         ctx!.globalAlpha = (1 - age) * 0.95;
         ctx!.strokeStyle = "#fff9d6";
         ctx!.lineWidth = 1.35;
@@ -86,10 +88,10 @@ export function startTurnSparkles(
         ctx!.stroke();
       }
     });
-    sparks = sparks.filter((spark) => now - spark.time < spark.life);
+    sparks = sparks.filter((spark) => time - spark.time < spark.life);
     for (const spark of sparks) {
-      const age = (now - spark.time) / spark.life;
-      const seconds = (now - spark.time) / 1000;
+      const age = (time - spark.time) / spark.life;
+      const seconds = (time - spark.time) / 1000;
       const x = spark.x + spark.vx * seconds;
       const y = spark.y + spark.vy * seconds + 10 * seconds * seconds;
       const radius = spark.size * (1 - age * 0.55);
@@ -120,9 +122,14 @@ export function startTurnSparkles(
   return {
     land(rect: { left: number; top: number; width: number; height: number }) {
       if (stopped) return;
-      const now = performance.now();
+      const time = now();
       for (let i = 0; i < 16; i++)
-        emit(rect.left + rect.width / 2, rect.top + rect.height / 2, now, true);
+        emit(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+          time,
+          true,
+        );
     },
     stop() {
       stopped = true;

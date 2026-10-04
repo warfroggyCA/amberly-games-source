@@ -1,10 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
-import { replayFixture } from "../fixtures/replay";
+import { replayAction, replayCat, replayFixture } from "../fixtures/replay";
 
-async function setup(page: Page) {
+async function setup(page: Page, recorded = replayFixture()) {
   const fixture = await installFixture(page);
-  const recorded = replayFixture();
   fixture.family.games = [recorded.game];
   fixture.family.playerAccess.erin = {
     revision: 1,
@@ -210,5 +209,175 @@ test("autoplay reveals the score overlay and reaches the recorded result without
         (window as Window & { replayAudioStarts?: number }).replayAudioStarts,
     ),
   ).toBe(0);
+  expect(fixture.writes).toEqual([]);
+});
+
+for (const speed of [1, 2, 4, 8]) {
+  test(`replay at ${speed}x visits every recorded action and keeps manual stepping paused`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const fixture = await setup(page);
+    const control = page.getByRole("combobox", { name: "Playback speed" });
+    await expect(control).toHaveValue("1");
+    await control.selectOption(String(speed));
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("slider")).toHaveValue("1");
+    await page.getByRole("button", { name: "Previous", exact: true }).click();
+    await page.evaluate(() => {
+      const steps: string[] = [];
+      Object.assign(window, { replaySteps: steps });
+      const slider = document.querySelector<HTMLInputElement>(
+        '[aria-label="Replay position"]',
+      )!;
+      new MutationObserver(() => {
+        if (steps.at(-1) !== slider.value) steps.push(slider.value);
+      }).observe(slider, { attributes: true, attributeFilter: ["value"] });
+    });
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Replay again", exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    expect(
+      await page.evaluate(
+        () => (window as Window & { replaySteps?: string[] }).replaySteps,
+      ),
+    ).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    for (const id of ["doug", "erin"])
+      await expect(page.locator(`[data-turn-score="${id}"]`)).toHaveText(
+        String(fixture.game.result!.scores[id]),
+      );
+    await expect(control).toHaveValue(String(speed));
+    await fitsWidth(page);
+    expect(fixture.writes).toEqual([]);
+    expect(fixture.family.games[0]).toEqual(fixture.game);
+  });
+}
+
+test("empty and incomplete journals stay explicit; short and long records finish at 8x", async ({
+  page,
+}) => {
+  const recorded = replayFixture();
+  const empty = await setup(page, { ...recorded, game: recorded.snapshots[0] });
+  await expect(page.getByRole("slider")).toHaveValue("0");
+  await expect(
+    page.getByRole("button", { name: "Replay again", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("combobox", { name: "Playback speed" })
+    .selectOption("8");
+  expect(empty.writes).toEqual([]);
+  const legacy = await setup(page, {
+    ...recorded,
+    game: { ...recorded.game, events: [] },
+  });
+  await expect(
+    page.getByRole("status").filter({ hasText: "Replay unavailable" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Playback speed" }),
+  ).toHaveCount(0);
+  expect(legacy.writes).toEqual([]);
+  const short = await setup(page, { ...recorded, game: recorded.snapshots[1] });
+  await page
+    .getByRole("combobox", { name: "Playback speed" })
+    .selectOption("8");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Replay again", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  expect(short.writes).toEqual([]);
+  let longGame = recorded.snapshots[1];
+  for (let index = 0; index < 40; index++)
+    longGame = replayAction(longGame, {
+      type: "edit-turn",
+      turnId: "replay-0",
+      placements: replayCat.map((placement, i) =>
+        i === 0
+          ? {
+              ...placement,
+              tile: { ...placement.tile, blank: index % 2 === 0 },
+            }
+          : placement,
+      ),
+      reason: "Synthetic correction",
+    });
+  const long = await setup(page, { ...recorded, game: longGame });
+  await page
+    .getByRole("combobox", { name: "Playback speed" })
+    .selectOption("8");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Replay again", exact: true }),
+  ).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("slider")).toHaveValue("41");
+  await expect(page.locator('[data-turn-score="doug"]')).toHaveText(
+    String(longGame.scores.doug),
+  );
+  expect(long.writes).toEqual([]);
+  expect(long.family.games[0]).toEqual(longGame);
+});
+
+test("speed changes preserve the active animation and cancel cleanly on pause and seek", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  const fixture = await setup(page);
+  const speed = page.getByRole("combobox", { name: "Playback speed" });
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(page.locator(".turn-flying-tile").first()).toBeVisible();
+  // Dispatch the selection without scrolling the viewport: scrolling deliberately
+  // settles measured animation paths, a separate existing behavior.
+  await speed.evaluate((select: HTMLSelectElement) => {
+    const active = document
+      .getAnimations()
+      .filter(
+        (a) =>
+          (a.effect as KeyframeEffect)?.target instanceof Element &&
+          ((a.effect as KeyframeEffect).target as Element).closest(
+            ".turn-animation-layer",
+          ),
+      );
+    Object.assign(window, { replayActiveAnimations: active });
+    select.value = "2";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const active = (
+          window as Window & { replayActiveAnimations?: Animation[] }
+        ).replayActiveAnimations!;
+        return active.length > 0 && active.every((a) => a.playbackRate === 2);
+      }),
+    )
+    .toBe(true);
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await speed.selectOption("4");
+  await expect(page.locator(".turn-animation-layer")).toHaveCount(0);
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  await speed.selectOption("8");
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Replay again", exact: true }),
+  ).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".turn-animation-layer")).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("replay-speed-8x.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Replay again", exact: true }).click();
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
+  await expect(page.getByRole("slider")).toHaveValue("0");
+  await expect(
+    page.getByRole("button", { name: "Play", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".turn-animation-layer")).toHaveCount(0);
   expect(fixture.writes).toEqual([]);
 });
