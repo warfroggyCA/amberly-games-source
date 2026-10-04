@@ -14,99 +14,128 @@ import {
   DEFAULT_PIECE_COLOURS,
 } from "../../src/domain/crokinole";
 
-test("Record Book keeps highlights, compatible rivalries and both-game journal readable", async ({
-  page,
-}, info) => {
-  const f = await installFixture(page);
-  for (const [index, a, b] of [
-    [0, 412, 368],
-    [1, 380, 398],
-    [2, 390, 390],
-  ]) {
-    const made = createGame({
-      id: `book-${index}`,
-      players: [
-        { id: "doug", name: "Doug", seat: 0 },
-        { id: "erin", name: "Erin", seat: 2 },
-      ],
-      firstPlayerId: "doug",
-      direction: "clockwise",
-      lexicon: releasedFamilyLexicon,
-      createdAt: `2026-10-0${index + 1}T18:00:00Z`,
+for (const withPhoto of [false, true])
+  test(`Record Book keeps highlights, compatible rivalries and both-game journal readable (photo=${withPhoto})`, async ({
+    page,
+  }, info) => {
+    const f = await installFixture(page);
+    if (withPhoto)
+      f.family.players[0].photoDataUrl = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 256;
+        const ctx = canvas.getContext("2d")!;
+        ctx.fillStyle = "#ba2b85";
+        ctx.fillRect(0, 0, 256, 256);
+        return canvas.toDataURL("image/jpeg");
+      });
+    for (const [index, a, b] of [
+      [0, 412, 368],
+      [1, 380, 398],
+      [2, 390, 390],
+    ]) {
+      const made = createGame({
+        id: `book-${index}`,
+        players: [
+          { id: "doug", name: "Doug", seat: 0 },
+          { id: "erin", name: "Erin", seat: 2 },
+        ],
+        firstPlayerId: "doug",
+        direction: "clockwise",
+        lexicon: releasedFamilyLexicon,
+        createdAt: `2026-10-0${index + 1}T18:00:00Z`,
+      });
+      if (!made.ok) throw Error(made.error.message);
+      const g = structuredClone(made.game);
+      g.status = "finalized";
+      g.scores = { doug: a, erin: b };
+      g.result = {
+        scores: g.scores,
+        scoresBeforeAdjustments: g.scores,
+        adjustments: {
+          doug: { deduction: 0, transfer: 0, finalScore: a },
+          erin: { deduction: 0, transfer: 0, finalScore: b },
+        },
+        winnerIds: a === b ? ["doug", "erin"] : [a > b ? "doug" : "erin"],
+        reason: "blocked",
+        assisted: false,
+        racks: { doug: [], erin: [] },
+        actualBagCount: 86,
+        competitiveEligible: true,
+        eligibilityPolicy: 2,
+        revision: 0,
+        unequalTurns: false,
+      };
+      f.family.games.push(g);
+      f.family.gameAccess[g.id] = {
+        scorerUserId: f.family.member.userId,
+        deviceId: "fixture",
+        generation: 1,
+        mode: "confirmed",
+        recordsEligible: true,
+        protests: [],
+        canScore: true,
+        approvals: [],
+      };
+    }
+    seedDisc(f, "book-discs");
+    await page.goto("/family/records");
+    await expect(
+      page.getByRole("heading", { name: "A game worth remembering" }),
+    ).toBeVisible();
+    await expect(page.locator(".book-score")).toHaveText("412");
+    if (withPhoto) {
+      const portrait = page.locator(".book-hero .winner-portrait-photo");
+      await expect(portrait).toBeVisible();
+      const p = await portrait.boundingBox();
+      const copy = await page.locator(".book-hero-copy").boundingBox();
+      const crown = await page
+        .locator(".book-hero .winner-portrait-crown")
+        .boundingBox();
+      expect(p).not.toBeNull();
+      expect(copy).not.toBeNull();
+      expect(crown).not.toBeNull();
+      expect(crown!.y + crown!.height).toBeLessThan(p!.y - 5);
+      const touchesCopy =
+        p!.x - 5 < copy!.x + copy!.width &&
+        p!.x + p!.width + 5 > copy!.x &&
+        p!.y - 5 < copy!.y + copy!.height &&
+        p!.y + p!.height + 5 > copy!.y;
+      expect(touchesCopy).toBe(false);
+    }
+    await fitsWidth(page);
+    await page.screenshot({
+      path: info.outputPath("record-book-highlights.png"),
+      fullPage: true,
     });
-    if (!made.ok) throw Error(made.error.message);
-    const g = structuredClone(made.game);
-    g.status = "finalized";
-    g.scores = { doug: a, erin: b };
-    g.result = {
-      scores: g.scores,
-      scoresBeforeAdjustments: g.scores,
-      adjustments: {
-        doug: { deduction: 0, transfer: 0, finalScore: a },
-        erin: { deduction: 0, transfer: 0, finalScore: b },
-      },
-      winnerIds: a === b ? ["doug", "erin"] : [a > b ? "doug" : "erin"],
-      reason: "blocked",
-      assisted: false,
-      racks: { doug: [], erin: [] },
-      actualBagCount: 86,
-      competitiveEligible: true,
-      eligibilityPolicy: 2,
-      revision: 0,
-      unequalTurns: false,
-    };
-    f.family.games.push(g);
-    f.family.gameAccess[g.id] = {
-      scorerUserId: f.family.member.userId,
-      deviceId: "fixture",
-      generation: 1,
-      mode: "confirmed",
-      recordsEligible: true,
-      protests: [],
-      canScore: true,
-      approvals: [],
-    };
-  }
-  seedDisc(f, "book-discs");
-  await page.goto("/family/records");
-  await expect(
-    page.getByRole("heading", { name: "A game worth remembering" }),
-  ).toBeVisible();
-  await expect(page.locator(".book-score")).toHaveText("412");
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-highlights.png"),
-    fullPage: true,
+    await page.getByRole("button", { name: "Rivalries", exact: true }).click();
+    await expect(page.locator(".book-match")).toContainText(
+      "3 games together · 1 tie",
+    );
+    await expect(page.locator(".book-match")).toContainText("Level on wins");
+    await fitsWidth(page);
+    await page.screenshot({
+      path: info.outputPath("record-book-rivalries.png"),
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Journal", exact: true }).click();
+    await page.getByRole("button", { name: "All games", exact: true }).click();
+    await expect(page.locator(".book-journal-entry")).toHaveCount(4);
+    await fitsWidth(page);
+    await page.screenshot({
+      path: info.outputPath("record-book-journal.png"),
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Highlights", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Scrabble", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".book-score")).toHaveText("412");
+    await page.getByRole("button", { name: "Journal", exact: true }).click();
+    await page.getByRole("button", { name: "Crokinole", exact: true }).click();
+    await expect(page.locator(".book-journal-entry")).toHaveCount(1);
+    await page.getByRole("button", { name: "Highlights", exact: true }).click();
+    await expect(page.locator(".book-score")).toHaveText("100");
   });
-  await page.getByRole("button", { name: "Rivalries", exact: true }).click();
-  await expect(page.locator(".book-match")).toContainText(
-    "3 games together · 1 tie",
-  );
-  await expect(page.locator(".book-match")).toContainText("Level on wins");
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-rivalries.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Journal", exact: true }).click();
-  await page.getByRole("button", { name: "All games", exact: true }).click();
-  await expect(page.locator(".book-journal-entry")).toHaveCount(4);
-  await fitsWidth(page);
-  await page.screenshot({
-    path: info.outputPath("record-book-journal.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Highlights", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Scrabble", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".book-score")).toHaveText("412");
-  await page.getByRole("button", { name: "Journal", exact: true }).click();
-  await page.getByRole("button", { name: "Crokinole", exact: true }).click();
-  await expect(page.locator(".book-journal-entry")).toHaveCount(1);
-  await page.getByRole("button", { name: "Highlights", exact: true }).click();
-  await expect(page.locator(".book-score")).toHaveText("100");
-});
 
 test("Record Book refuses partial records and private practice", async ({
   page,
