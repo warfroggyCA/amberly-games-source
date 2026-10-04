@@ -55,11 +55,12 @@ export function useGameSounds(
     setMode(preference.current ? "waiting" : "off");
     audio.current = new GameAudio(() => {
       enabled.current = false;
-      if (alive.current) setMode("unavailable");
+      if (alive.current && preference.current) setMode("unavailable");
     });
     const reset = () => {
       previous.current = null;
       audio.current?.stop();
+      audio.current?.checkState();
     };
     document.addEventListener("visibilitychange", reset);
     window.addEventListener("offline", reset);
@@ -118,6 +119,7 @@ export function useGameSounds(
   const enable = useCallback(async () => {
     if (loading.current) return;
     loading.current = true;
+    enabled.current = false;
     const token = ++attempt.current;
     const player = audio.current;
     if (!player) {
@@ -149,7 +151,11 @@ export function useGameSounds(
     }
   }, []);
   const unlock = useCallback(() => {
-    if (preference.current && !enabled.current && !loading.current)
+    if (
+      preference.current &&
+      !loading.current &&
+      (!enabled.current || !audio.current?.running)
+    )
       void enable();
   }, [enable]);
   useEffect(() => {
