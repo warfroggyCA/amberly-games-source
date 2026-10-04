@@ -384,7 +384,7 @@ test("swiping a practice row reveals Delete without opening it, supports cancell
   await expect(
     row.getByRole("button", { name: "Show delete action" }),
   ).toHaveAttribute("aria-expanded", "false");
-  await row.locator(".game-list-item > button").click();
+  await row.locator(".game-list-item > button").first().click();
   await expect(row).not.toBeVisible();
 });
 

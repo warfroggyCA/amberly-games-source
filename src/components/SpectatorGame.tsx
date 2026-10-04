@@ -40,6 +40,7 @@ export function SpectatorGame({
   soundControl,
   toolsTarget,
   assisted = game.assisted ?? false,
+  replayPlayback,
 }: {
   game: SpectatorState;
   profiles?: SavedPlayer[];
@@ -49,9 +50,11 @@ export function SpectatorGame({
   soundControl?: ReactNode;
   toolsTarget?: HTMLElement | null;
   assisted?: boolean;
+  replayPlayback?: ReturnType<typeof useTurnPlayback>;
 }) {
   const perspective = boardPerspective(game.players, viewerPlayerId);
-  const playback = useTurnPlayback(game);
+  const livePlayback = useTurnPlayback(game);
+  const playback = replayPlayback ?? livePlayback;
   const provisional = currentLiveDraft(liveDraft, game);
   const provisionalTiles = new Map(
     provisional?.placements.map((p) => [`${p.row}:${p.col}`, p.tile]) ?? [],
@@ -206,16 +209,20 @@ export function SpectatorGame({
           "--letter-rotation": `${-perspective * 90}deg`,
         } as CSSProperties
       }
-      aria-label="Live game viewer"
+      aria-label={replayPlayback ? "Recorded game replay" : "Live game viewer"}
     >
-      <BingoBanner game={game} containerRef={stageRef} />
+      <BingoBanner
+        game={game}
+        containerRef={stageRef}
+        playbackTurn={replayPlayback?.turn}
+      />
       {toolsTarget ? (
         createPortal(tools, toolsTarget)
       ) : (
         <div className="spectator-inline-tools">{tools}</div>
       )}
       <ResultBadge
-        key={game.id}
+        key={replayPlayback ? `${game.id}:${!!game.result}` : game.id}
         result={
           game.result?.winnerIds.length
             ? {
@@ -242,9 +249,11 @@ export function SpectatorGame({
             : null
         }
       />
-      <div className="spectator-game-clock">
-        <TurnClock game={game} />
-      </div>
+      {!replayPlayback && (
+        <div className="spectator-game-clock">
+          <TurnClock game={game} />
+        </div>
+      )}
       <div className="spectator-stage">
         <div className="spectator-table">
           {game.players.map((player) => {
@@ -305,7 +314,9 @@ export function SpectatorGame({
                   >
                     {displayScores[player.id]}
                   </b>
-                  <PlayerElapsedTime game={game} playerId={player.id} />
+                  {!replayPlayback && (
+                    <PlayerElapsedTime game={game} playerId={player.id} />
+                  )}
                   {player.id === viewerPlayerId && (
                     <small className="viewer-seat-label">
                       You · seat {player.seat + 1}
@@ -417,6 +428,7 @@ export function SpectatorGame({
         containerRef={stageRef}
         onScore={playback.revealScore}
         onComplete={playback.finish}
+        interruptOnInput={!replayPlayback}
       />
       {chosenWord && (
         <aside

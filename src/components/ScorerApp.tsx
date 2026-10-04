@@ -1,4 +1,5 @@
 "use client";
+import { GameReplay } from "./GameReplay";
 import { HistoryParticipants } from "./HistoryParticipants";
 import { historyLabel, type HistoryProfile } from "../lib/history-participants";
 import { PlayerDirectory } from "./PlayerDirectory";
@@ -145,6 +146,7 @@ export function ScorerApp({
   );
   const [view, setView] = useState<View>(initialView);
   const [returnView, setReturnView] = useState<View | null>(null);
+  const [replayGameId, setReplayGameId] = useState<string | null>(null);
   const [modal, setModal] = useState<
     | "settings"
     | "game-menu"
@@ -193,7 +195,7 @@ export function ScorerApp({
   const game =
     state.data.games.find((g) => g.id === state.data.activeGameId) ?? null;
   const { control: soundControl, unlock: unlockSounds } = useGameSounds(
-    view === "Play" ? game : null,
+    view === "Play" && !replayGameId ? game : null,
     state.status === "ready" && !state.error && !state.unresolved,
     state.pending > 0,
     state.shared?.member.playerId ?? null,
@@ -502,7 +504,7 @@ export function ScorerApp({
     : false;
   const readOnly = !!game && shared && !store.canScore?.(game.id);
   const livePreview = useLiveDraft(
-    view === "Play" && shared ? game : null,
+    view === "Play" && shared && !replayGameId ? game : null,
     game ? state.data.drafts[game.id] : undefined,
     !readOnly,
     liveContext,
@@ -982,6 +984,37 @@ export function ScorerApp({
         </section>
       </div>
     );
+  if (replayGameId) {
+    const recorded = state.data.games.find((item) => item.id === replayGameId);
+    return (
+      <div className="app-shell replay-shell">
+        <AmberlyHeader
+          onHome={() => setReplayGameId(null)}
+          onMenu={() => setReplayGameId(null)}
+          menuLabel="Close replay"
+        />
+        {recorded ? (
+          <GameReplay
+            key={`${recorded.id}:${recorded.revision}`}
+            game={recorded}
+            profiles={state.data.players}
+            viewerPlayerId={state.shared?.member.playerId}
+            onClose={() => setReplayGameId(null)}
+          />
+        ) : (
+          <main className="game-replay">
+            <p role="status">This game is no longer available for replay.</p>
+            <button
+              className="button light"
+              onClick={() => setReplayGameId(null)}
+            >
+              Close replay
+            </button>
+          </main>
+        )}
+      </div>
+    );
+  }
   if (shared && view === "Play" && game && readOnly)
     return (
       <div
@@ -1007,6 +1040,12 @@ export function ScorerApp({
           )}
           {returnNavigation}
           {playAgain}
+          <button
+            className="button light"
+            onClick={() => setReplayGameId(game.id)}
+          >
+            Replay game
+          </button>
           {draftRecovery}
           <SpectatorGame
             soundControl={soundControl}
@@ -1204,6 +1243,7 @@ export function ScorerApp({
                   gameAccess={state.shared?.gameAccess}
                   games={state.data.games.slice(-3).reverse()}
                   onOpen={openGame}
+                  onReplay={setReplayGameId}
                   renderItem={renderGameItem}
                 />
               </>
@@ -1295,6 +1335,7 @@ export function ScorerApp({
                   gameAccess={state.shared?.gameAccess}
                   games={[...state.data.games].reverse()}
                   onOpen={openGame}
+                  onReplay={setReplayGameId}
                 />
                 {state.shared?.nextCursor && (
                   <button
@@ -1338,6 +1379,14 @@ export function ScorerApp({
               />
             )}
             {playAgain}
+            {view === "Play" && game && (
+              <button
+                className="button light"
+                onClick={() => setReplayGameId(game.id)}
+              >
+                Replay game
+              </button>
+            )}
             {draftRecovery}
             {view === "Play" &&
               (!game ? (
@@ -2097,6 +2146,7 @@ function GameList({
   profiles,
   gameAccess,
   onOpen,
+  onReplay,
   renderItem,
 }: {
   renderItem?: (game: GameState, content: ReactNode) => ReactNode;
@@ -2104,6 +2154,7 @@ function GameList({
   profiles: readonly HistoryProfile[];
   gameAccess?: Record<string, GameAccess>;
   onOpen: (id: string) => Promise<void>;
+  onReplay: (id: string) => void;
 }) {
   return games.length ? (
     <div className="game-list">
@@ -2158,6 +2209,13 @@ function GameList({
               </span>
 
               <span aria-hidden="true">→</span>
+            </button>
+            <button
+              className="button light replay-entry"
+              onClick={() => onReplay(g.id)}
+              aria-label={`Replay ${historyLabel(g.players, [], profiles, undefined, " and ")}`}
+            >
+              Replay
             </button>
           </div>
         );

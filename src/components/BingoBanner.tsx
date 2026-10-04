@@ -18,9 +18,11 @@ type BingoGame = Pick<GameState, "id" | "turns" | "players" | "status">;
 export function BingoBanner({
   game,
   containerRef,
+  playbackTurn,
 }: {
   game: BingoGame;
   containerRef: RefObject<HTMLElement | null>;
+  playbackTurn?: GameTurn | null;
 }) {
   const bannerRef = useRef<HTMLElement>(null);
   const [state, setState] = useState(() => ({
@@ -47,13 +49,19 @@ export function BingoBanner({
       turn: bingo ?? retained,
     });
   }
-  const turn = state.turn;
+  const [dismissed, setDismissed] = useState<GameTurn | null>(null);
+  const turn =
+    playbackTurn === undefined
+      ? state.turn
+      : playbackTurn?.bingo && playbackTurn !== dismissed
+        ? playbackTurn
+        : null;
   useEffect(() => {
     if (!turn) return;
-    const timer = window.setTimeout(
-      () => setState((current) => ({ ...current, turn: null })),
-      8000,
-    );
+    const timer = window.setTimeout(() => {
+      setDismissed(turn);
+      setState((current) => ({ ...current, turn: null }));
+    }, 8000);
     return () => window.clearTimeout(timer);
   }, [turn]);
   useLayoutEffect(() => {
@@ -151,7 +159,10 @@ export function BingoBanner({
         type="button"
         className="bingo-banner-close"
         aria-label="Dismiss bingo celebration"
-        onClick={() => setState((current) => ({ ...current, turn: null }))}
+        onClick={() => {
+          setDismissed(turn);
+          setState((current) => ({ ...current, turn: null }));
+        }}
       >
         <span aria-hidden="true">×</span>
       </button>
