@@ -98,6 +98,32 @@ async function setup(page: Parameters<typeof installFixture>[0]) {
     },
   };
 }
+async function observeLeadCancellation(
+  page: Parameters<typeof installFixture>[0],
+) {
+  await page.evaluate(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const lead = String(input).includes("leadCounts=1");
+      if (lead)
+        init?.signal?.addEventListener(
+          "abort",
+          () => {
+            const data = document.documentElement.dataset;
+            data.leadAborts = String(Number(data.leadAborts ?? 0) + 1);
+          },
+          { once: true },
+        );
+      return fetch(input, init).catch((error) => {
+        if (lead && init?.signal?.aborted) {
+          const data = document.documentElement.dataset;
+          data.leadRejections = String(Number(data.leadRejections ?? 0) + 1);
+        }
+        throw error;
+      });
+    };
+  });
+}
 test("lead rankings are sortable, coverage-aware and on-demand without extra polling", async ({
   page,
 }, info) => {
@@ -207,20 +233,7 @@ test("an in-flight response cannot restore counts after focus invalidation", asy
   let release!: () => void;
   let requested = false;
   let released = false;
-  await page.evaluate(() => {
-    const fetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
-      if (String(input).includes("leadCounts=1"))
-        init?.signal?.addEventListener(
-          "abort",
-          () => {
-            document.documentElement.dataset.leadRequestAborted = "true";
-          },
-          { once: true },
-        );
-      return fetch(input, init);
-    };
-  });
+  await observeLeadCancellation(page);
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -241,12 +254,13 @@ test("an in-flight response cannot restore counts after focus invalidation", asy
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   // WebKit may delay requestfailed for an intercepted request until fulfillment.
   // Observe the actual fetch AbortSignal, independently of protocol event timing.
-  await expect(page.locator("html")).toHaveAttribute(
-    "data-lead-request-aborted",
-    "true",
-  );
+  await expect(page.locator("html")).toHaveAttribute("data-lead-aborts", "1");
   release();
   await expect.poll(() => released).toBe(true);
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-lead-rejections",
+    "1",
+  );
   await expect(
     page.getByRole("button", {
       name: "Load Scrabble lead rankings",
@@ -265,6 +279,7 @@ test("a slow read keeps rendering, rules, cancellation and navigation responsive
   page,
 }) => {
   await setup(page);
+  await observeLeadCancellation(page);
   let requests = 0;
   let release!: () => void;
   const held = new Promise<void>((resolve) => {
@@ -307,13 +322,10 @@ test("a slow read keeps rendering, rules, cancellation and navigation responsive
   await expect(
     page.getByText(/Average streak is total sole-leading/),
   ).toBeVisible();
-  const aborted = page.waitForEvent("requestfailed", (r) =>
-    r.url().includes("leadCounts=1"),
-  );
   await page
     .getByRole("button", { name: "Cancel loading", exact: true })
     .click();
-  await aborted;
+  await expect(page.locator("html")).toHaveAttribute("data-lead-aborts", "1");
   await expect(load).toBeEnabled();
   await expect(
     page.getByRole("region", {
@@ -324,16 +336,17 @@ test("a slow read keeps rendering, rules, cancellation and navigation responsive
   expect(requests).toBe(1);
   await load.click();
   await expect.poll(() => requests).toBe(2);
-  const navigationAbort = page.waitForEvent("requestfailed", (r) =>
-    r.url().includes("leadCounts=1"),
-  );
   await page
     .getByRole("navigation", { name: "Amberly Games" })
     .getByRole("button", { name: "Games", exact: true })
     .click();
-  await navigationAbort;
+  await expect(page.locator("html")).toHaveAttribute("data-lead-aborts", "2");
   await expect(page).toHaveURL(/\/family$/);
   release();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-lead-rejections",
+    "2",
+  );
   expect(requests).toBe(2);
 });
 
