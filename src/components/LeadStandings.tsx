@@ -108,9 +108,11 @@ export function LeadStandings({
       >
         {loading
           ? "Loading lead rankings…"
-          : data
-            ? "Refresh lead rankings"
-            : "Load Scrabble lead rankings"}
+          : data?.pendingGames
+            ? "Verify more histories"
+            : data
+              ? "Refresh lead rankings"
+              : "Load Scrabble lead rankings"}
       </button>
       {error && <p role="alert">{error}</p>}
       {data && (
@@ -118,8 +120,16 @@ export function LeadStandings({
           <p role="status">
             Coverage: {data.eligibleGames} qualifying of {data.completedGames}{" "}
             completed games · {data.unavailableGames} unavailable histories ·{" "}
-            {data.excludedGames} excluded by ranking rules.
+            {data.excludedGames} excluded by ranking rules · {data.pendingGames}{" "}
+            pending verification.
           </p>
+          {data.pendingGames > 0 && (
+            <p>
+              Partial coverage: some histories still need verification. Select
+              Verify more histories to continue; missing coverage is not counted
+              as zero.
+            </p>
+          )}
           <div
             className="standings-scroll"
             role="region"

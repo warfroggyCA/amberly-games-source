@@ -6,6 +6,7 @@ const totals = (): LeadStandings => ({
   eligibleGames: 2,
   unavailableGames: 1,
   excludedGames: 1,
+  pendingGames: 0,
   rows: [
     {
       playerId: "doug",
@@ -148,4 +149,74 @@ test("observed removal and access changes discard totals; errors cannot retain s
       .getByRole("region", { name: "Scrabble lead rankings", exact: true })
       .getByRole("alert"),
   ).toBeVisible();
+});
+
+test("pending verification stays explicit and continues only when requested", async ({
+  page,
+}) => {
+  await setup(page);
+  let reads = 0;
+  await page.route("**/api/family/games?leadCounts=1", (route) => {
+    reads++;
+    const result = totals();
+    if (reads === 1) {
+      result.pendingGames = 1;
+      result.unavailableGames = 0;
+    }
+    return route.fulfill({
+      json: { games: [], nextCursor: null, leadCounts: result },
+    });
+  });
+  await page
+    .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
+    .click();
+  await expect(page.getByText(/Partial coverage:/)).toBeVisible();
+  expect(reads).toBe(1);
+  await page
+    .getByRole("button", { name: "Verify more histories", exact: true })
+    .click();
+  await expect(page.getByText(/Partial coverage:/)).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Refresh lead rankings", exact: true }),
+  ).toBeVisible();
+  expect(reads).toBe(2);
+});
+test("an in-flight response cannot restore counts after focus invalidation", async ({
+  page,
+}) => {
+  await setup(page);
+  let release!: () => void;
+  let requested = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/family/games?leadCounts=1", async (route) => {
+    requested = true;
+    await held;
+    await route.fulfill({
+      json: { games: [], nextCursor: null, leadCounts: totals() },
+    });
+  });
+  await page
+    .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
+    .click();
+  await expect.poll(() => requested).toBe(true);
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  const response = page.waitForResponse((r) =>
+    r.url().includes("leadCounts=1"),
+  );
+  release();
+  await response;
+  await expect(
+    page.getByRole("button", {
+      name: "Load Scrabble lead rankings",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", {
+      name: "Scrabble lead rankings table",
+      exact: true,
+    }),
+  ).toHaveCount(0);
 });

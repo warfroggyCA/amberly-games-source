@@ -1,3 +1,4 @@
+import { SharedRepositoryError } from "./shared-repository";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type postgres from "postgres";
@@ -10,6 +11,14 @@ import {
 } from "../lib/lead-standings";
 import { resolveLexicon } from "../lib/lexicons";
 
+export const MAX_LEAD_GAMES = 5000;
+function capacityError() {
+  return new SharedRepositoryError(
+    "LEAD_CAPACITY",
+    "Lead rankings currently support up to 5,000 completed games. No totals were loaded.",
+    422,
+  );
+}
 type LeadHead = {
   game_id: string;
   revision: number;
@@ -19,12 +28,36 @@ type LeadHead = {
 };
 /** Cache only small verified summaries. Authorization and exact canonical bytes are checked on every read. */
 export function createLeadAssessor() {
-  const cache = new Map<string, LeadAssessment>();
-  return (
+  const families = new Map<
+    string,
+    Map<string, { key: string; value: LeadAssessment }>
+  >();
+  function assess(
     familyId: string,
     head: LeadHead,
     events: unknown[],
-  ): LeadAssessment => {
+    cachedOnly?: false,
+  ): LeadAssessment;
+  function assess(
+    familyId: string,
+    head: LeadHead,
+    events: unknown[],
+    cachedOnly: true,
+  ): LeadAssessment | null;
+  function assess(
+    familyId: string,
+    head: LeadHead,
+    events: unknown[],
+    cachedOnly = false,
+  ): LeadAssessment | null {
+    const cache =
+      families.get(familyId) ??
+      new Map<string, { key: string; value: LeadAssessment }>();
+    families.delete(familyId);
+    families.set(familyId, cache);
+    if (families.size > 4) families.delete(families.keys().next().value!);
+    if (!cache.has(head.game_id) && cache.size >= MAX_LEAD_GAMES)
+      throw capacityError();
     const assessment: LeadAssessment = {
       gameId: head.game_id,
       revision: head.revision,
@@ -58,12 +91,10 @@ export function createLeadAssessor() {
           ]),
         )
         .digest("hex");
-      const cached = cache.get(key);
-      if (cached) {
-        cache.delete(key);
-        cache.set(key, cached);
-        return structuredClone(cached);
-      }
+      const cached = cache.get(head.game_id);
+      if (cached?.key === key) return structuredClone(cached.value);
+      cache.delete(head.game_id);
+      if (cachedOnly) return null;
       const restored = hydrateGame(raw, resolveLexicon(raw.lexicon));
       if (restored.ok) {
         const counts = deriveLeadCounts(restored.game);
@@ -75,17 +106,58 @@ export function createLeadAssessor() {
             players: counts.players.map((p) => ({ ...p, spells: [] })),
           };
           assessment.playerIds = restored.game.order;
-          cache.set(key, structuredClone(assessment));
-          if (cache.size > 64) cache.delete(cache.keys().next().value!);
+          cache.set(head.game_id, { key, value: structuredClone(assessment) });
         }
       }
     } catch {
       /* Unavailable exact word versions/malformed journals are coverage gaps. */
     }
     return assessment;
-  };
+  }
+  return Object.assign(assess, {
+    retain(familyId: string, ids: ReadonlySet<string>) {
+      const cache = families.get(familyId);
+      if (cache)
+        for (const id of cache.keys()) if (!ids.has(id)) cache.delete(id);
+    },
+  });
 }
 const assess = createLeadAssessor();
+
+/** Keep progress within a family snapshot; only whole inactive family caches are evicted. */
+export function createLeadCollection(
+  familyId: string,
+  assessor = assess,
+  now = () => performance.now(),
+) {
+  const assessments: LeadAssessment[] = [];
+  const pending: LeadHead[] = [];
+  const seen = new Set<string>();
+  return {
+    add(head: LeadHead, events: unknown[]) {
+      seen.add(head.game_id);
+      if (seen.size > MAX_LEAD_GAMES) throw capacityError();
+      const result = assessor(familyId, head, events, true);
+      if (result) assessments.push(result);
+      else pending.push(head); // Exact permanent events already matched this immutable snapshot.
+    },
+    finish() {
+      assessor.retain(familyId, seen);
+      const deadline = now() + 1000;
+      for (const head of pending) {
+        if (now() >= deadline)
+          assessments.push({
+            gameId: head.game_id,
+            revision: head.revision,
+            playerIds: head.definition.players.map((p) => p.id),
+            outcome: "pending",
+          });
+        else assessments.push(assessor(familyId, head, head.state.events));
+      }
+      return aggregateLeadStandings(assessments);
+    },
+  };
+}
 
 /** Caller owns an authorized, RLS-restricted repeatable-read transaction. */
 export async function readLeadStandings(
@@ -101,8 +173,10 @@ export async function readLeadStandings(
     where d.family_id=${familyId}::uuid and d.mode='confirmed'
       and h.state->>'status'='finalized' and h.state->>'mode'='multiplayer'
       and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
-    order by d.game_id`;
-  const assessments: LeadAssessment[] = [];
+    order by d.game_id limit 5001`;
+  if (heads.length > MAX_LEAD_GAMES) throw capacityError();
+  assess.retain(familyId, new Set(heads.map((h) => h.game_id)));
+  const collection = createLeadCollection(familyId);
   // Bounded batches avoid a query per game and never retain a second full-family journal.
   for (let start = 0; start < heads.length; start += 25) {
     const batch = heads.slice(start, start + 25);
@@ -116,9 +190,7 @@ export async function readLeadStandings(
       journals.set(event.game_id, journal);
     }
     for (const head of batch)
-      assessments.push(
-        assess(familyId, head as LeadHead, journals.get(head.game_id) ?? []),
-      );
+      collection.add(head as LeadHead, journals.get(head.game_id) ?? []);
   }
-  return aggregateLeadStandings(assessments);
+  return collection.finish();
 }

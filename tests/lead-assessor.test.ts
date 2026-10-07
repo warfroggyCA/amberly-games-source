@@ -1,10 +1,14 @@
 import { expect, it } from "vitest";
-import { createLeadAssessor } from "../src/server/lead-standings";
+import {
+  createLeadAssessor,
+  createLeadCollection,
+  MAX_LEAD_GAMES,
+} from "../src/server/lead-standings";
 import { createGame, applyCommand, type GameCommand } from "../src/domain/game";
 import { releasedFamilyLexicon } from "../src/lib/lexicons";
-function fixture() {
+function fixture(id = "cache-test") {
   const start = createGame({
-    id: "cache-test",
+    id,
     players: [
       { id: "a", name: "Same name", seat: 0 },
       { id: "b", name: "Same name", seat: 2 },
@@ -64,4 +68,64 @@ it("returns independent stable player IDs despite equal display names", () => {
   const result = createLeadAssessor()("family", head, head.state.events);
   expect(result.playerIds).toEqual(["a", "b"]);
   expect(result.counts!.players.map((p) => p.playerId)).toEqual(["a", "b"]);
+});
+
+it("retains progress across 65-game snapshots instead of evicting individual summaries", () => {
+  const heads = Array.from({ length: 65 }, (_, i) => fixture(`game-${i}`));
+  const actual = createLeadAssessor();
+  let coldCalls = 0;
+  const assess = new Proxy(actual, {
+    apply(target, that, args) {
+      if (!args[3]) coldCalls++;
+      return Reflect.apply(target, that, args);
+    },
+  });
+  const run = () => {
+    const collection = createLeadCollection("family", assess, () => 0);
+    heads.forEach((h) => collection.add(h, h.state.events));
+    return collection.finish();
+  };
+  expect(run().eligibleGames).toBe(65);
+  expect(coldCalls).toBe(65);
+  coldCalls = 0;
+  expect(run().eligibleGames).toBe(65);
+  expect(coldCalls).toBe(0);
+});
+it("reports deferred verification separately and continues from verified summaries on explicit reload", () => {
+  const assess = createLeadAssessor();
+  const heads = [fixture("one"), fixture("two"), fixture("three")];
+  let calls = 0;
+  const first = createLeadCollection("family", assess, () =>
+    calls++ < 2 ? 0 : 1001,
+  );
+  heads.forEach((h) => first.add(h, h.state.events));
+  expect(first.finish()).toMatchObject({
+    completedGames: 3,
+    eligibleGames: 1,
+    pendingGames: 2,
+    unavailableGames: 0,
+  });
+  const second = createLeadCollection("family", assess, () => 0);
+  heads.forEach((h) => second.add(h, h.state.events));
+  const all = second.finish();
+  expect(all).toMatchObject({
+    completedGames: 3,
+    eligibleGames: 3,
+    pendingGames: 0,
+  });
+  expect(all.rows[0]).toMatchObject({ eligibleGames: 3, eligibleTurns: 12 });
+});
+
+it("reports a hard capacity boundary instead of promising endless partial verification", () => {
+  const head = fixture();
+  const collection = createLeadCollection(
+    "capacity",
+    createLeadAssessor(),
+    () => 0,
+  );
+  for (let i = 0; i < MAX_LEAD_GAMES; i++)
+    collection.add({ ...head, game_id: `capacity-${i}` }, head.state.events);
+  expect(() =>
+    collection.add({ ...head, game_id: "overflow" }, head.state.events),
+  ).toThrow(/5,000/);
 });

@@ -18,7 +18,7 @@ The per-game Replay panel remains descriptive and can therefore cover a broader
 set of games than these competitive rankings.
 
 The table shows global qualifying/completed-game coverage, unavailable histories
-and policy exclusions, plus each player's qualifying/completed games and eligible
+policy exclusions and pending verification, plus each player's qualifying/completed games and eligible
 turns. Only stable player IDs are combined; equal names and archived names never
 merge identities. The database supplies one current head per game, and the pure
 aggregator also deduplicates by game ID/latest revision, refusing conflicting
@@ -48,9 +48,14 @@ header, active membership, restricted SQL role, RLS and repeatable-read snapshot
 It returns aggregate numbers only, not full journals or rack details. There are
 no migrations, writes, persistent summaries, extra polling requests or history
 scans in the normal refresh path. Canonical event reads are batched in groups of
-25 games. A process-local LRU retains at most 64 compact verified summaries;
+25 games. A process-local LRU retains compact verified summaries for at most four families,
+evicting a whole inactive family rather than individual games mid-verification.
+Up to 5,000 completed games per family are supported; larger candidate sets return
+an explicit capacity error without totals or a promise that retrying will finish.
 authorization, removal/protest status and exact canonical content are checked
-before reuse. Hashes include family/game identity, revision, definition, state
+before reuse. All available cache hits are collected before new validations, avoiding
+sequential scan thrashing. Removed games are pruned and changed revisions replace
+old summaries; no full journals or spell lists are retained in this cache. Hashes include family/game identity, revision, definition, state
 and permanent events, so same-revision corruption cannot hit a cached summary.
 
 The UI clears its snapshot on observed membership/access/game/removal changes,
@@ -64,7 +69,12 @@ The opt-in `AMBERLY_BENCHMARK=1` performance test builds a legal 5,000-event gam
 and measures first validation, derivation and verified reuse. The cloud review
 run measured approximately 17.3 seconds cold, 21 ms for counting, and 8 ms warm.
 Cold hydration uses the existing command replay and can be slow for maximum-size
-journals; this is an on-demand cost, not polling overhead. The benchmark is one
+journals. A one-second work budget, checked between cold validations, defers
+remaining games as **pending verification**. The UI labels partial coverage and
+offers **Verify more histories**; it never automatically retries. Already verified
+results still require current authorization and matching canonical bytes. This is
+a soft budget: it cannot interrupt a single synchronous validation, so one very
+large journal may exceed it. It is an on-demand cost, not polling overhead. The benchmark is one
 synthetic large game, not a hosted latency or whole-family scalability guarantee.
 
 Tests cover weighted aggregation, unequal participation, empty coverage, ties,

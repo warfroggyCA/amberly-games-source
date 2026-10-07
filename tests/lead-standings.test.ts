@@ -122,6 +122,7 @@ describe("lead standings from an authorized complete snapshot", () => {
       eligibleGames: 0,
       unavailableGames: 0,
       excludedGames: 0,
+      pendingGames: 0,
       rows: [],
     });
   });
@@ -142,6 +143,7 @@ describe("lead standings from an authorized complete snapshot", () => {
       eligibleGames: 0,
       unavailableGames: 1,
       excludedGames: 1,
+      pendingGames: 0,
     });
     expect(
       result.rows.every(

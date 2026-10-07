@@ -18,13 +18,14 @@ export type LeadStandings = {
   eligibleGames: number;
   unavailableGames: number;
   excludedGames: number;
+  pendingGames: number;
   rows: LeadStanding[];
 };
 export type LeadAssessment = {
   gameId: string;
   revision: number;
   playerIds: string[];
-  outcome: "eligible" | "unavailable" | "excluded";
+  outcome: "eligible" | "unavailable" | "excluded" | "pending";
   counts?: Extract<LeadCounts, { available: true }>;
 };
 
@@ -49,12 +50,14 @@ export function aggregateLeadStandings(input: LeadAssessment[]): LeadStandings {
     eligibleGames: 0,
     unavailableGames: 0,
     excludedGames: 0,
+    pendingGames: 0,
     rows: [],
   };
   const players = new Map<string, LeadStanding>();
   for (const item of games.values()) {
     const counts = item.outcome === "eligible" ? item.counts : undefined;
     if (counts) result.eligibleGames++;
+    else if (item.outcome === "pending") result.pendingGames++;
     else if (item.outcome === "excluded") result.excludedGames++;
     else result.unavailableGames++;
     for (const playerId of new Set(item.playerIds)) {
@@ -107,9 +110,10 @@ export function isLeadStandings(value: unknown): value is LeadStandings {
       v.eligibleGames,
       v.unavailableGames,
       v.excludedGames,
+      v.pendingGames,
     ].every(count) &&
     v.completedGames ===
-      v.eligibleGames + v.unavailableGames + v.excludedGames &&
+      v.eligibleGames + v.unavailableGames + v.excludedGames + v.pendingGames &&
     Array.isArray(v.rows) &&
     new Set(v.rows.map((r) => r?.playerId)).size === v.rows.length &&
     v.rows.every(
