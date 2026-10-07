@@ -206,26 +206,47 @@ test("an in-flight response cannot restore counts after focus invalidation", asy
   await setup(page);
   let release!: () => void;
   let requested = false;
+  let released = false;
+  await page.evaluate(() => {
+    const fetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (String(input).includes("leadCounts=1"))
+        init?.signal?.addEventListener(
+          "abort",
+          () => {
+            document.documentElement.dataset.leadRequestAborted = "true";
+          },
+          { once: true },
+        );
+      return fetch(input, init);
+    };
+  });
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
   await page.route("**/api/family/games?leadCounts=1", async (route) => {
     requested = true;
     await held;
-    await route.fulfill({
-      json: { games: [], nextCursor: null, leadCounts: totals() },
-    });
+    await route
+      .fulfill({
+        json: { games: [], nextCursor: null, leadCounts: totals() },
+      })
+      .catch(() => {});
+    released = true;
   });
   await page
     .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
     .click();
   await expect.poll(() => requested).toBe(true);
-  const aborted = page.waitForEvent("requestfailed", (r) =>
-    r.url().includes("leadCounts=1"),
-  );
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await aborted;
+  // WebKit may delay requestfailed for an intercepted request until fulfillment.
+  // Observe the actual fetch AbortSignal, independently of protocol event timing.
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-lead-request-aborted",
+    "true",
+  );
   release();
+  await expect.poll(() => released).toBe(true);
   await expect(
     page.getByRole("button", {
       name: "Load Scrabble lead rankings",
