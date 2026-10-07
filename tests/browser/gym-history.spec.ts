@@ -84,7 +84,25 @@ test("Gym queues offline help, recovers after reload, and retrieves profile hist
     });
   };
   await install(context);
-  await page.goto("/gym-lab?from=family");
+  // WebKit can leave the load event pending after this page is interactive.
+  // Wait for the profile, controls and actual artwork instead of that event.
+  await page.goto("/gym-lab?from=family", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(
+    page.getByText("Profile connected", { exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .getByRole("img", {
+          name: "A cheerful dog lifting weights made from Scrabble letter tiles",
+        })
+        .evaluate(
+          (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
+        ),
+    )
+    .toBe(true);
   await expect(
     page.getByRole("button", { name: "Start practice", exact: true }),
   ).toBeEnabled();
@@ -96,7 +114,7 @@ test("Gym queues offline help, recovers after reload, and retrieves profile hist
   await expect(
     page.getByText("Offline test: pending saves kept", { exact: true }),
   ).toBeVisible();
-  await page.reload();
+  await page.reload({ waitUntil: "domcontentloaded" });
   offline = false;
   await page.getByRole("button", { name: "Retry sync", exact: true }).click();
   await expect.poll(() => received.size).toBe(2);
@@ -108,7 +126,12 @@ test("Gym queues offline help, recovers after reload, and retrieves profile hist
   await install(second);
   const other = await second.newPage();
   try {
-    await other.goto("/gym-lab?from=family");
+    await other.goto("/gym-lab?from=family", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(
+      other.getByText("Profile connected", { exact: true }),
+    ).toBeVisible();
     await other
       .getByRole("button", { name: "My practice history", exact: true })
       .click();
