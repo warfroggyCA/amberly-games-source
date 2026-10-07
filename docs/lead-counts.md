@@ -2,7 +2,8 @@
 
 Open **Lead counts** in a recorded game's Replay, including Replay opened from
 History. The summary describes the complete corrected game, independently of the
-playback position. This milestone does not add cross-game totals or rankings.
+playback position. Separate on-demand [lead rankings](lead-standings.md) aggregate qualifying games;
+the Replay panel itself remains per-game.
 
 One completed turn by any player is one checkpoint. Plays, passes and exchanges
 all count; pauses, corrections, undo commands and final adjustments do not add
@@ -44,6 +45,6 @@ Tests cover correction/undo projection, counting boundaries, multiplayer order,
 pass/exchange, all-zero starts, ties, final adjustments, invalid histories,
 repeatability and no input mutation. Browser coverage checks keyboard disclosure,
 stable totals during seeking, mobile width, unavailable histories, no game writes,
-private-practice denial and removal. Any future all-games total must deduplicate
+private-practice denial and removal. The separate lead rankings deduplicate
 revisions and disclose coverage rather than treating missing journals as zero;
-it must not add full-history reads to the refresh polling path.
+they add no full-history reads to the refresh polling path.

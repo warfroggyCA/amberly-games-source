@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         ),
       );
     const query = {
+      leadCounts: params.get("leadCounts") === "1",
       cursor: params.get("cursor") ?? undefined,
       gameType: params.get("gameType") ?? undefined,
       playerId: params.get("playerId") ?? undefined,

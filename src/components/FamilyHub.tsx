@@ -1,4 +1,5 @@
 "use client";
+import { LeadStandings } from "./LeadStandings";
 import { HistoryGameReplay } from "./HistoryGameReplay";
 import { HistoryParticipants } from "./HistoryParticipants";
 import { historyLabel } from "../lib/history-participants";
@@ -848,6 +849,14 @@ export function FamilyHub({
         </main>
       ) : pathname === "/family/history" ? (
         <HubHistory
+          leadEpoch={JSON.stringify([
+            userId,
+            shared.family.id,
+            shared.member,
+            shared.removedGameIds,
+            shared.games.map((g) => [g.id, g.revision]),
+            shared.gameAccess,
+          ])}
           key={shared.member.role}
           canPractice={shared.member.role === "superadmin"}
           userId={userId}
@@ -1225,6 +1234,7 @@ function safeGameId(value: string): string {
   }
 }
 function HubHistory({
+  leadEpoch,
   userId,
   familyId,
   players,
@@ -1234,6 +1244,7 @@ function HubHistory({
   userId: string;
   familyId: string;
   canPractice: boolean;
+  leadEpoch: string;
   players: SharedState["players"];
   onOpen: (summary: GameSummary) => Promise<void>;
 }) {
@@ -1339,6 +1350,10 @@ function HubHistory({
               />
             </details>
           )}
+          <details className="standings-disclosure">
+            <summary>Scrabble lead rankings</summary>
+            <LeadStandings key={leadEpoch} userId={userId} players={players} />
+          </details>
           <div className="crokinole-fields">
             <label className="crokinole-field">
               Game

@@ -1,3 +1,4 @@
+import { readLeadStandings } from "./lead-standings";
 import type { Standing } from "../lib/standings";
 import { checkedCrokinoleState } from "./crokinole-integrity";
 import { requireCurrentSchema } from "./schema-compatibility";
@@ -33,7 +34,12 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
     async read(
       actor: VerifiedActor,
       familyId: string,
-      query: { cursor?: string; gameType?: string; playerId?: string } = {},
+      query: {
+        cursor?: string;
+        gameType?: string;
+        playerId?: string;
+        leadCounts?: boolean;
+      } = {},
     ): Promise<GameSummaryPage> {
       const uuid = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i;
       if (
@@ -99,6 +105,12 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
               "This account does not have active family access.",
               403,
             );
+          if (query.leadCounts)
+            return {
+              games: [],
+              nextCursor: null,
+              leadCounts: await readLeadStandings(tx, familyId),
+            };
           // Full-history aggregate in the same RLS-protected snapshot; never page-based totals.
           const standingsRows = !query.cursor
             ? await tx`
