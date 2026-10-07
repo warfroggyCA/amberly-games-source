@@ -6,6 +6,7 @@ const mock = vi.hoisted(() => ({
     email: "owner@example.com",
   },
   read: vi.fn(),
+  refresh: vi.fn(),
   mutate: vi.fn(),
   archive: vi.fn(),
   admit: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("../src/server/database", () => ({
   }),
   getSharedRepository: () => ({
     readState: mock.read,
+    readRefresh: mock.refresh,
     mutate: mock.mutate,
     exportHistory: mock.archive,
     admit: mock.admit,
@@ -225,4 +227,26 @@ describe("consistent family route safety", () => {
       expect(mock.mutate).not.toHaveBeenCalled();
     },
   );
+});
+
+it("keeps refresh reads authenticated, bounded and private", async () => {
+  mock.refresh.mockResolvedValue({ kind: "family-refresh-v1" });
+  const request = (user: string, versions: string) =>
+    new Request(origin + "/api/family", {
+      headers: { "x-scrabble-user": user, "x-scrabble-refresh": versions },
+    });
+  expect((await GET(request("wrong", "{}"))).status).toBe(401);
+  expect(mock.refresh).not.toHaveBeenCalled();
+  expect((await GET(request(mock.actor.id, "x".repeat(6001)))).status).toBe(
+    400,
+  );
+  expect((await GET(request(mock.actor.id, '{"catalog":"bad"}'))).status).toBe(
+    400,
+  );
+  expect(mock.refresh).not.toHaveBeenCalled();
+  const result = await GET(request(mock.actor.id, "{}"));
+  expect(result.status).toBe(200);
+  expect(result.headers.get("cache-control")).toBe("private, no-store");
+  expect(mock.refresh).toHaveBeenCalledOnce();
+  expect(mock.read).not.toHaveBeenCalled();
 });

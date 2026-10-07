@@ -1,3 +1,8 @@
+import type {
+  RefreshVersions,
+  SharedRefresh,
+  RefreshCatalog,
+} from "../lib/shared-refresh";
 import { requireCurrentSchema } from "./schema-compatibility";
 import {
   hasPermission,
@@ -1696,6 +1701,187 @@ export function createSharedRepository(
       true,
     );
   }
+  /** Versions and changed values share one authorized repeatable-read snapshot.
+   * No photo, game-state or journal value is selected for an unchanged resource.
+   * Explicit revisions cover mutable rows; immutable evidence uses its stable key.
+   */
+  async function readRefresh(
+    actor: VerifiedActor,
+    familyId: string,
+    known: RefreshVersions,
+    gameId?: string,
+  ): Promise<SharedRefresh> {
+    if (gameId && !safeId(gameId))
+      reject("INVALID_CURSOR", "Choose a valid game.");
+    return transaction(
+      actor,
+      familyId,
+      async (tx) => {
+        const who = await activeMember(tx, actor, familyId, false);
+        const [catalog] = await tx`select md5(jsonb_build_array(
+        ${JSON.stringify(who)}::text, ${actor.deviceHash ?? ""}::text,
+        (select jsonb_build_array(id,name) from scrabble.families where id=${familyId}::uuid),
+        (select jsonb_agg(jsonb_build_array(user_id,revision) order by user_id) from scrabble.memberships where family_id=${familyId}::uuid),
+        (select jsonb_agg(jsonb_build_array(id,revision) order by id) from scrabble.players where family_id=${familyId}::uuid),
+        (select jsonb_agg(jsonb_build_array(email,revision) order by email) from scrabble.invitations where family_id=${familyId}::uuid),
+        (select jsonb_agg(jsonb_build_array(game_id,player_id,user_id) order by game_id,player_id) from scrabble.game_participants where family_id=${familyId}::uuid),
+        (select jsonb_agg(game_id order by game_id) from scrabble.game_removals where family_id=${familyId}::uuid),
+        (select jsonb_agg(jsonb_build_array(word,created_at) order by word) from scrabble.verified_words where family_id=${familyId}::uuid),
+        (select equipment from scrabble.equipment where family_id=${familyId}::uuid)
+      )::text) version`;
+        const playerHeads =
+          await tx`select id,revision,archived from scrabble.players where family_id=${familyId}::uuid order by archived,lower(name),id limit 500`;
+        // The extra row is metadata only: pagination must not transfer a 21st game.
+        const page =
+          await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
+        where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
+        order by d.created_at desc,d.game_id desc limit 21`;
+        const visible = page.slice(0, 20);
+        if (gameId && !visible.some((r) => r.game_id === gameId)) {
+          const extra =
+            await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d where d.family_id=${familyId}::uuid and d.game_id=${gameId}
+          and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)`;
+          if (!extra.length)
+            reject("GAME_NOT_FOUND", "That game is not in this family.", 404);
+          visible.push(extra[0]);
+        }
+        const gameIds = visible.map((r) => r.game_id as string);
+        const heads = gameIds.length
+          ? await tx`select h.game_id,md5(jsonb_build_array(
+        h.family_id,h.game_id,h.revision,h.updated_at,h.scorer_user_id,h.scorer_device_id,h.scorer_device_hash,h.scorer_generation,d.mode,
+        ${JSON.stringify(who)}::text,${actor.deviceHash ?? ""}::text,
+        (select jsonb_agg(jsonb_build_array(p.player_id,p.user_id) order by p.player_id) from scrabble.game_participants p where p.family_id=h.family_id and p.game_id=h.game_id),
+        (select jsonb_agg(jsonb_build_array(a.player_id,a.stage,a.revision,a.approved_at) order by a.player_id,a.stage) from scrabble.game_approvals a where a.family_id=h.family_id and a.game_id=h.game_id),
+        (select jsonb_agg(jsonb_build_array(p.id,p.game_revision) order by p.id) from scrabble.game_protests p where p.family_id=h.family_id and p.game_id=h.game_id),
+        (select jsonb_agg(jsonb_build_array(r.protest_id,r.outcome,r.resolved_at) order by r.protest_id) from scrabble.game_protest_resolutions r where r.family_id=h.family_id and r.game_id=h.game_id)
+      )::text) version from scrabble.game_heads h join scrabble.game_definitions d using(family_id,game_id)
+        where h.family_id=${familyId}::uuid and h.game_id in ${tx(gameIds)}`
+          : [];
+        const versions: RefreshVersions = { catalog: catalog.version };
+        for (const p of playerHeads)
+          versions["p:" + p.id] = createHash("md5")
+            .update(JSON.stringify([familyId, p.id, p.revision]))
+            .digest("hex");
+        for (const h of heads) versions["g:" + h.game_id] = h.version;
+        const values: Record<string, unknown> = {};
+        const changed = (key: string) => known[key] !== versions[key];
+        const changedPlayers = playerHeads
+          .filter((p) => changed("p:" + p.id))
+          .map((p) => p.id);
+        if (changedPlayers.length) {
+          const rows =
+            await tx`select * from scrabble.players where family_id=${familyId}::uuid and id in ${tx(changedPlayers)}`;
+          for (const row of rows) values["p:" + row.id] = player(row);
+        }
+        const changedGames = gameIds.filter((id) => changed("g:" + id));
+        if (changedGames.length) {
+          const rows =
+            await tx`select h.*,d.mode from scrabble.game_heads h join scrabble.game_definitions d using(family_id,game_id)
+          where h.family_id=${familyId}::uuid and h.game_id in ${tx(changedGames)}`;
+          const approvals = await participants(tx, familyId, changedGames);
+          const protests = await gameProtests(tx, familyId, changedGames);
+          for (const row of rows)
+            values["g:" + row.game_id] = {
+              game: row.state,
+              access: {
+                ...access(
+                  row,
+                  approvals.filter((p) => p.game_id === row.game_id),
+                  actor,
+                  protests.get(row.game_id) ?? [],
+                ),
+                canScore:
+                  row.scorer_user_id === actor.userId &&
+                  hasPermission(who, "scoreGames"),
+              },
+            };
+        }
+        if (changed("catalog")) {
+          const [family] =
+            await tx`select id,name from scrabble.families where id=${familyId}::uuid`;
+          const members =
+            await tx`select * from scrabble.memberships where family_id=${familyId}::uuid order by joined_at,user_id`;
+          const invitations = hasPermission(who, "inviteMembers")
+            ? await tx`select email,active,player_id from scrabble.invitations where family_id=${familyId}::uuid order by email limit 500`
+            : [];
+          const blocked =
+            who.role === "superadmin" && playerHeads.some((p) => p.archived)
+              ? await tx`select id,scrabble.player_deletion_block(family_id,id) reason from scrabble.players where family_id=${familyId}::uuid and archived`
+              : [];
+          const words =
+            await tx`select evidence from scrabble.verified_words where family_id=${familyId}::uuid order by word`;
+          const removed =
+            await tx`select game_id from scrabble.game_removals where family_id=${familyId}::uuid`;
+          const metadata: RefreshCatalog = {
+            family: { id: family.id, name: family.name },
+            member: who,
+            members: members
+              .filter(
+                (m) => who.role === "superadmin" || m.user_id === actor.userId,
+              )
+              .map(member),
+            invitations: invitations.map((r) => ({
+              email: r.email,
+              active: r.active,
+              playerId: r.player_id,
+            })),
+            playerAccess: Object.fromEntries(
+              playerHeads.map((p) => [
+                p.id,
+                {
+                  revision: p.revision,
+                  archived: p.archived,
+                  userId:
+                    members.find((m) => m.player_id === p.id)?.user_id ?? null,
+                  ...(who.role === "superadmin" && p.archived
+                    ? {
+                        deletionBlock:
+                          blocked.find((b) => b.id === p.id)?.reason ?? null,
+                      }
+                    : {}),
+                },
+              ]),
+            ),
+            verifiedWords: words.map((r) => r.evidence),
+            removedGameIds: removed.map((r) => r.game_id),
+            equipment: await readEquipment(tx, familyId),
+            nextCursor: null,
+          };
+          values.catalog = metadata;
+        }
+        // Pagination changes independently of catalog metadata (a new game, for example).
+        const last = page[19];
+        const nextCursor =
+          page.length > 20
+            ? Buffer.from(
+                JSON.stringify({
+                  createdAt: last.created_cursor,
+                  id: last.game_id,
+                }),
+              ).toString("base64url")
+            : null;
+        return {
+          kind: "family-refresh-v1",
+          userId: actor.userId,
+          familyId,
+          scope: gameId ?? "",
+          versions,
+          values,
+          playerIds: playerHeads.map((p) => p.id),
+          gameIds: visible
+            .sort(
+              (a, b) =>
+                a.created_cursor.localeCompare(b.created_cursor) ||
+                a.game_id.localeCompare(b.game_id),
+            )
+            .map((r) => r.game_id),
+          nextCursor,
+        };
+      },
+      true,
+    );
+  }
+
   async function mutate(
     actor: VerifiedActor,
     familyId: string,
@@ -2212,6 +2398,7 @@ export function createSharedRepository(
     readWords,
     confirmWords,
     readState,
+    readRefresh,
     mutate,
     admit,
     exportHistory,

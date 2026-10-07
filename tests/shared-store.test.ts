@@ -1,3 +1,5 @@
+import { refreshFixture } from "./shared-refresh-fixture";
+import { REFRESH_HEADER } from "../src/lib/shared-refresh";
 import { LETTER_COUNTS } from "../src/domain/board";
 import type { Equipment } from "../src/domain/equipment";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -206,6 +208,98 @@ afterEach(() => {
 });
 
 describe("shared draft integrity and ownership", () => {
+  it("reuses authenticated resources, fetches only a changed game, and recovers from a missing cache value", async () => {
+    let remote = state();
+    fetchMock.mockImplementation((_path, init) =>
+      Promise.resolve(
+        response(
+          refreshFixture(
+            remote,
+            JSON.parse(init.headers[REFRESH_HEADER] ?? "{}"),
+          ),
+        ),
+      ),
+    );
+    const store = create();
+    await store.load();
+    await store.refresh!();
+    expect(
+      JSON.parse(fetchMock.mock.calls.at(-1)![1].headers[REFRESH_HEADER])[
+        "g:game-1"
+      ],
+    ).toBeTruthy();
+    expect(store.getSnapshot().data.games[0].revision).toBe(0);
+    const changed = applyCommand(
+      remote.games[0],
+      { type: "pass", id: "remote-pass", expectedRevision: 0 },
+      testLexicon,
+    );
+    if (!changed.ok) throw Error(changed.error.message);
+    remote = { ...remote, games: [changed.game] };
+    await store.refresh!();
+    expect(store.getSnapshot().data.games[0].revision).toBe(1);
+    // A malformed partial response must not replace the visible good state; next request is cold.
+    const broken = refreshFixture(remote);
+    delete broken.values["g:game-1"];
+    broken.versions["g:game-1"] = "b".repeat(32);
+    fetchMock.mockResolvedValueOnce(response(broken));
+    await expect(store.refresh!()).rejects.toThrow(/complete reload/);
+    expect(store.getSnapshot().data.games[0].revision).toBe(1);
+    await store.refresh!();
+    expect(fetchMock.mock.calls.at(-1)![1].headers[REFRESH_HEADER]).toBe("{}");
+    expect(store.getSnapshot().error).toBeNull();
+  });
+  it("does not expose cached resources after a cross-account response or revoked access", async () => {
+    const initial = refreshFixture(state());
+    fetchMock.mockImplementation(() => Promise.resolve(response(initial)));
+    const store = create();
+    await store.load();
+    fetchMock.mockResolvedValueOnce(
+      response({ ...initial, userId: "different-user", values: {} }),
+    );
+    await expect(store.refresh!()).rejects.toThrow(/account/);
+    expect(store.getSnapshot().data.games).toEqual([]);
+    await expect(store.refresh!()).rejects.toThrow(/closed/);
+  });
+  it("serializes overlapping refreshes and ignores a late delta after the store closes", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(response(refreshFixture(state()))),
+    );
+    const store = create();
+    await store.load();
+    let finish!: (value: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const first = store.refresh!();
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    const count = fetchMock.mock.calls.length;
+    const second = store.refresh!();
+    await Promise.resolve();
+    expect(fetchMock.mock.calls).toHaveLength(count);
+    finish(response(refreshFixture(state())));
+    await first;
+    await second;
+    expect(fetchMock.mock.calls).toHaveLength(count + 1);
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const late = store.refresh!();
+    await vi.waitFor(() =>
+      expect(fetchMock.mock.calls).toHaveLength(count + 2),
+    );
+    store.close();
+    finish(response(refreshFixture(state())));
+    await expect(late).rejects.toThrow(/closed/);
+    expect(store.getSnapshot().data.games).toEqual([]);
+  });
+
   it("loads a frozen snapshot and binds requests to the expected account", async () => {
     const store = create();
     await store.load();
@@ -1402,32 +1496,40 @@ describe("member permission changes and removed practice games", () => {
     expect(reopened.getSnapshot().data.games).toEqual([]);
   });
 
-  it("discards a cached practice view after admin demotion without erasing drafts or blocking ordinary shared history", async () => {
-    const store = create();
-    await store.load();
-    await store.update((data) => ({
-      ...data,
-      activeGameId: "game-1",
-      drafts: { "game-1": draft() },
-    }));
-    const member = state([]);
-    member.member.role = "member";
-    fetchMock
-      .mockResolvedValueOnce(response(member))
-      .mockResolvedValueOnce(
-        response(
-          { code: "GAME_NOT_FOUND", error: "This game is unavailable" },
-          404,
-        ),
-      );
-    await store.refresh!();
-    expect(store.getSnapshot().status).toBe("ready");
-    expect(store.getSnapshot().data.games).toEqual([]);
-    expect(store.getSnapshot().shared?.gameAccess).toEqual({});
-    expect(store.getSnapshot().data.activeGameId).toBeNull();
-    expect(store.canScore!("game-1")).toBe(false);
-    expect((await stored()).drafts).toEqual({ "game-1": draft() });
-  });
+  it.each([false, true])(
+    "discards a cached practice view after admin demotion (delta=%s) without erasing drafts or blocking ordinary shared history",
+    async (delta) => {
+      const baseline = refreshFixture(state());
+      if (delta)
+        fetchMock.mockImplementation(() => Promise.resolve(response(baseline)));
+      const store = create();
+      await store.load();
+      await store.update((data) => ({
+        ...data,
+        activeGameId: "game-1",
+        drafts: { "game-1": draft() },
+      }));
+      const member = state([]);
+      member.member.role = "member";
+      fetchMock
+        .mockResolvedValueOnce(
+          response(delta ? refreshFixture(member, baseline.versions) : member),
+        )
+        .mockResolvedValueOnce(
+          response(
+            { code: "GAME_NOT_FOUND", error: "This game is unavailable" },
+            404,
+          ),
+        );
+      await store.refresh!();
+      expect(store.getSnapshot().status).toBe("ready");
+      expect(store.getSnapshot().data.games).toEqual([]);
+      expect(store.getSnapshot().shared?.gameAccess).toEqual({});
+      expect(store.getSnapshot().data.activeGameId).toBeNull();
+      expect(store.canScore!("game-1")).toBe(false);
+      expect((await stored()).drafts).toEqual({ "game-1": draft() });
+    },
+  );
 
   it("permission denial refreshes capabilities and clears an uncommitted request while keeping the draft and account open", async () => {
     const allowed = state();

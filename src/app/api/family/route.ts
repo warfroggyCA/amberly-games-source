@@ -1,3 +1,7 @@
+import {
+  REFRESH_HEADER,
+  parseRefreshVersions,
+} from "../../../lib/shared-refresh";
 import { bindScoringDevice } from "../../../server/scoring-device";
 import { createAuthContext, type AuthContext } from "../../../server/auth";
 import { getSharedRepository } from "../../../server/database";
@@ -43,6 +47,18 @@ export async function GET(request: Request) {
     const gameId = params.get("gameId") ?? undefined;
     if ((cursor?.length ?? 0) > 600 || (gameId?.length ?? 0) > 120)
       throw new HttpError(400, "The history reference is invalid.");
+    const refresh = request.headers.get(REFRESH_HEADER);
+    if (refresh !== null && !cursor) {
+      let known;
+      try {
+        known = parseRefreshVersions(refresh);
+      } catch {
+        throw new HttpError(400, "The refresh reference is invalid.");
+      }
+      return context.json(
+        await repo.readRefresh(actor, familyId, known, gameId),
+      );
+    }
     return context.json(
       await repo.readState(actor, familyId, { cursor, gameId }),
     );
