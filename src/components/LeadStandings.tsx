@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { familyRequest, FamilyRequestError } from "../lib/shared-store";
 import { isGameSummaryPage } from "../lib/game-summary";
 import type {
@@ -22,8 +22,10 @@ type Sort = (typeof columns)[number][0];
 export function LeadStandings({
   userId,
   players,
+  claimInitialLoad,
 }: {
   userId: string;
+  claimInitialLoad?: () => boolean;
   players: (PlayerProfileFields & { id: string })[];
 }) {
   const [data, setData] = useState<Totals | null>(null);
@@ -62,7 +64,7 @@ export function LeadStandings({
       document.removeEventListener("visibilitychange", invalidate);
     };
   }, []);
-  async function load() {
+  const load = useCallback(async () => {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -100,7 +102,18 @@ export function LeadStandings({
         setLoading(false);
       }
     }
-  }
+  }, [userId]);
+  useEffect(() => {
+    let cancelled = false;
+    // The lobby tap claims one initial read. Remounts after background refresh
+    // invalidation must never turn into automatic full-history scans.
+    void Promise.resolve().then(() => {
+      if (!cancelled && claimInitialLoad?.()) void load();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [claimInitialLoad, load]);
   const name = (id: string) => {
     const p = players.find((p) => p.id === id);
     return p ? playerDisplayName(p) : "Former player";

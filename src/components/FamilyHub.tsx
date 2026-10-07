@@ -68,6 +68,17 @@ export function FamilyHub({
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
+  const initialLeadLoadClaimed = useRef(false);
+  const claimInitialLeadLoad = useCallback(() => {
+    if (initialLeadLoadClaimed.current) return false;
+    initialLeadLoadClaimed.current = true;
+    return true;
+  }, []);
+  const standingsDestination = search.get("standings");
+  useEffect(() => {
+    if (pathname !== "/family/history" || standingsDestination !== "scrabble")
+      initialLeadLoadClaimed.current = false;
+  }, [pathname, standingsDestination]);
   const [store] = useState(() =>
     createCrokinoleStore(shared.family.id, userId),
   );
@@ -849,6 +860,8 @@ export function FamilyHub({
         </main>
       ) : pathname === "/family/history" ? (
         <HubHistory
+          claimInitialLeadLoad={claimInitialLeadLoad}
+          onBackToGames={() => void navigate("/family")}
           leadEpoch={JSON.stringify([
             userId,
             shared.family.id,
@@ -919,7 +932,10 @@ export function FamilyHub({
             <PlayTiles compact loading />
           </div>
           <div className="hub-games">
-            <section className="hub-game">
+            <section
+              className="hub-game"
+              aria-labelledby="lobby-scrabble-title"
+            >
               <div className="hub-board-art hub-scrabble" aria-hidden="true">
                 {Array.from({ length: 49 }, (_, i) => (
                   <i
@@ -931,9 +947,20 @@ export function FamilyHub({
                 ))}
               </div>
               <div>
-                <h2>Scrabble</h2>
+                <h2 id="lobby-scrabble-title">Scrabble</h2>
                 <p>Words, rounds and family records.</p>
                 <div className="hub-actions">
+                  <button
+                    type="button"
+                    className="button light hub-standings-button"
+                    aria-label="Standings for Scrabble"
+                    onClickCapture={(event) => {
+                      event.stopPropagation();
+                      void navigate("/family/history?standings=scrabble");
+                    }}
+                  >
+                    Standings
+                  </button>
                   {resumeScrabble && (
                     <button
                       className="button primary"
@@ -958,7 +985,10 @@ export function FamilyHub({
                 </div>
               </div>
             </section>
-            <section className="hub-game">
+            <section
+              className="hub-game"
+              aria-labelledby="lobby-crokinole-title"
+            >
               <div className="hub-board-art hub-crokinole" aria-hidden="true">
                 <i />
                 <i />
@@ -967,9 +997,20 @@ export function FamilyHub({
                 <span />
               </div>
               <div>
-                <h2>Crokinole</h2>
+                <h2 id="lobby-crokinole-title">Crokinole</h2>
                 <p>Singles, doubles and family rounds.</p>
                 <div className="hub-actions">
+                  <button
+                    type="button"
+                    className="button light hub-standings-button"
+                    aria-label="Standings for Crokinole"
+                    onClickCapture={(event) => {
+                      event.stopPropagation();
+                      void navigate("/family/history?standings=crokinole");
+                    }}
+                  >
+                    Standings
+                  </button>
                   {resumeCroke && (
                     <button
                       className="button primary"
@@ -1234,6 +1275,8 @@ function safeGameId(value: string): string {
   }
 }
 function HubHistory({
+  claimInitialLeadLoad,
+  onBackToGames,
   leadEpoch,
   userId,
   familyId,
@@ -1245,12 +1288,25 @@ function HubHistory({
   familyId: string;
   canPractice: boolean;
   leadEpoch: string;
+  onBackToGames: () => void;
+  claimInitialLeadLoad: () => boolean;
   players: SharedState["players"];
   onOpen: (summary: GameSummary) => Promise<void>;
 }) {
   const router = useRouter();
   const search = useSearchParams();
   const replayId = search.get("replay");
+  const requestedStandings = search.get("standings");
+  const standingsGame =
+    requestedStandings === "scrabble" || requestedStandings === "crokinole"
+      ? requestedStandings
+      : null;
+  const standingsTitle =
+    standingsGame === "scrabble" ? "Scrabble" : "Crokinole";
+  const standingsHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (standingsGame) standingsHeading.current?.focus();
+  }, [standingsGame]);
   const returnPosition = useRef<{
     y: number;
     button: HTMLButtonElement;
@@ -1326,6 +1382,34 @@ function HubHistory({
       cancelled = true;
     };
   }, [load]);
+  if (standingsGame && !replayId)
+    return (
+      <main className="hub-content">
+        <button type="button" className="button light" onClick={onBackToGames}>
+          Back to games
+        </button>
+        <h1 ref={standingsHeading} tabIndex={-1}>
+          {standingsTitle} standings
+        </h1>
+        {loading && <p role="status">Loading standings…</p>}
+        {error && <p role="alert">{error}</p>}
+        {data.standings && !error && (
+          <FamilyStandings
+            rows={data.standings}
+            players={players}
+            gameFilter={standingsGame}
+          />
+        )}
+        {standingsGame === "scrabble" && (
+          <LeadStandings
+            key={leadEpoch}
+            userId={userId}
+            players={players}
+            claimInitialLoad={claimInitialLeadLoad}
+          />
+        )}
+      </main>
+    );
   return (
     <>
       {replayId && (

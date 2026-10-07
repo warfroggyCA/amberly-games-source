@@ -1,6 +1,18 @@
 # Scrabble lead rankings
 
-History → **Scrabble lead rankings** → **Load Scrabble lead rankings** reads a
+The lobby's Scrabble panel has a **Standings** button. It opens
+`/family/history?standings=scrabble`, showing the existing Scrabble win rankings
+and lead rankings directly. This explicit navigation claims one initial lead read;
+background invalidation/remounts cannot claim another, and subsequent reloads stay
+manual. The Crokinole panel opens `?standings=crokinole` with existing Crokinole
+win rankings and no lead-history request. Both destinations keep the existing
+signed-in History boundary, focus the page heading, support browser Back and have
+a **Back to games** action through the existing guarded navigation. Buttons are
+siblings of Start/Resume, have game-specific accessible names and 44px minimum
+targets, and stop click propagation during capture. Starting/scoring permission
+is not required to read standings; backend membership checks still apply.
+
+History → **Scrabble lead rankings** → **Load Scrabble lead rankings** also reads a
 fresh authorized full-history snapshot on demand. Five independent sortable
 measures are available: leads taken, total turns led alone, longest streak,
 average streak and percentage of eligible turns led. These do not change the
