@@ -131,9 +131,11 @@ function FamilyWorkspace({
     };
     const timer = setInterval(refresh, 5000);
     document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("online", refresh);
     };
   }, [state.status, store]);
   async function act(operation: () => Promise<void>) {

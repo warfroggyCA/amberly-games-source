@@ -1,3 +1,9 @@
+import {
+  REFRESH_HEADER,
+  refreshHeader,
+  materializeRefresh,
+  type RefreshCache,
+} from "./shared-refresh";
 import { hasPermission, isMemberPermissions } from "./member-permissions";
 import { EMPTY_EQUIPMENT, isEquipment } from "../domain/equipment";
 import type { PreviewData, Draft } from "./preview-store";
@@ -25,13 +31,19 @@ export class FamilyRequestError extends Error {
 export async function familyRequest<T>(
   path: string,
   body?: unknown,
-  options: { signal?: AbortSignal; expectedUserId?: string } = {},
+  options: {
+    signal?: AbortSignal;
+    expectedUserId?: string;
+    refresh?: string;
+  } = {},
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 40000);
   try {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (options.refresh !== undefined)
+      headers[REFRESH_HEADER] = options.refresh;
     if (options.expectedUserId)
       headers["X-Scrabble-User"] = options.expectedUserId;
     const response = await fetch(path, {
@@ -704,6 +716,7 @@ export function createSharedStore(userId: string): SharedScorerStore {
   let stopOwnershipChecks: (() => void) | undefined;
   let retired = false;
   let accessLost = false;
+  const refreshCaches = new Map<string, RefreshCache>();
   const lifetime = new AbortController();
   const listeners = new Set<() => void>();
   const publish = (next: ScorerSnapshot) => {
@@ -722,6 +735,7 @@ export function createSharedStore(userId: string): SharedScorerStore {
     scoringElsewhere = false,
   ) => {
     retired = true;
+    refreshCaches.clear();
     accessLost ||= denied;
     lifetime.abort();
     ownershipChannel?.close();
@@ -747,12 +761,17 @@ export function createSharedStore(userId: string): SharedScorerStore {
         true,
       );
   };
-  async function request<T>(path: string, body?: unknown): Promise<T> {
+  async function request<T>(
+    path: string,
+    body?: unknown,
+    refresh?: string,
+  ): Promise<T> {
     assertOpen();
     try {
       const result = await familyRequest<T>(path, body, {
         signal: lifetime.signal,
         expectedUserId: userId,
+        refresh,
       });
       assertOpen();
       return result;
@@ -768,8 +787,41 @@ export function createSharedStore(userId: string): SharedScorerStore {
   }
   async function sharedRequest(path: string): Promise<SharedState> {
     try {
-      return validateShared(await request(path), userId, familyId);
+      const prior = refreshCaches.get(path);
+      const result = await request<unknown>(
+        path,
+        undefined,
+        refreshHeader(prior?.versions ?? {}),
+      );
+      if (record(result) && result.kind === "family-refresh-v1") {
+        if (
+          result.userId !== userId ||
+          (familyId && result.familyId !== familyId)
+        )
+          throw new FamilyRequestError(
+            "Your account or family access changed. Sign in again.",
+            401,
+          );
+        const scope =
+          new URL(path, "http://local").searchParams.get("gameId") ?? "";
+        const materialized = materializeRefresh(
+          result,
+          prior,
+          userId,
+          familyId,
+          scope,
+        );
+        const state = validateShared(materialized.state, userId, familyId);
+        refreshCaches.delete(path);
+        refreshCaches.set(path, materialized.cache);
+        if (refreshCaches.size > 4)
+          refreshCaches.delete(refreshCaches.keys().next().value!);
+        return state;
+      }
+      refreshCaches.delete(path);
+      return validateShared(result, userId, familyId);
     } catch (error) {
+      refreshCaches.delete(path);
       if (
         error instanceof FamilyRequestError &&
         [401, 403].includes(error.status) &&

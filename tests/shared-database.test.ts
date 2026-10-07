@@ -1,3 +1,13 @@
+import {
+  createServer,
+  createConnection,
+  type Socket,
+  type AddressInfo,
+} from "node:net";
+import { gzipSync } from "node:zlib";
+import sharp from "sharp";
+import type { RefreshVersions } from "../src/lib/shared-refresh";
+import { materializeRefresh } from "../src/lib/shared-refresh";
 import { usageDatabaseCases } from "./usage-database-cases";
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
@@ -141,6 +151,366 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   usageDatabaseCases(owner, runtime);
+  it("measures database wire and response bytes for representative refresh workloads", async () => {
+    const f = await fixture();
+    for (let i = 2; i < 8; i++)
+      await f.mutate({
+        type: "create-player",
+        id: "player-" + i,
+        profile: { name: "Player " + i },
+      });
+    const photo =
+      "data:image/png;base64," +
+      (
+        await sharp(randomBytes(147 * 147 * 3), {
+          raw: { width: 147, height: 147, channels: 3 },
+        })
+          .png()
+          .toBuffer()
+      ).toString("base64");
+    await owner`update scrabble.players set photo_data_url=${photo},revision=revision+1 where family_id=${f.familyId}::uuid and id in ('ada','ben','player-2','player-3')`;
+    const games = [];
+    for (let i = 0; i < 21; i++)
+      games.push((await f.create("confirmed", "measure-" + i)).game!);
+    let bytes = 0;
+    const sockets = new Set<Socket>();
+    const proxy = createServer((client) => {
+      const upstream = createConnection({
+        path: socket + "/.s.PGSQL." + process.env.SCRABBLE_TEST_PORT,
+      });
+      sockets.add(client);
+      sockets.add(upstream);
+      upstream.on("data", (chunk) => {
+        bytes += chunk.length;
+      });
+      client.pipe(upstream);
+      upstream.pipe(client);
+      client.on("error", () => upstream.destroy());
+      upstream.on("error", () => client.destroy());
+      client.on("close", () => {
+        sockets.delete(client);
+        upstream.destroy();
+      });
+      upstream.on("close", () => sockets.delete(upstream));
+    });
+    await new Promise<void>((resolve) => proxy.listen(0, "127.0.0.1", resolve));
+    const versionQueries = new Map<
+      string,
+      { query: string; parameters: unknown[] }
+    >();
+    const sql = postgres({
+      debug: (_connection, query, parameters) => {
+        if (query.includes("md5(jsonb_build_array"))
+          versionQueries.set(query, { query, parameters: [...parameters] });
+      },
+      host: "127.0.0.1",
+      port: (proxy.address() as AddressInfo).port,
+      username: "scrabble_test_login",
+      database: "postgres",
+      max: 1,
+      ssl: false,
+      prepare: false, // match the production transaction-pooler connection
+      onnotice: () => undefined,
+    });
+    const measured = createSharedRepository(sql, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+    });
+    const rows: Record<string, unknown>[] = [];
+    const measure = async (
+      label: string,
+      known: RefreshVersions,
+      gameId?: string,
+    ) => {
+      bytes = 0;
+      const beforeStart = performance.now();
+      const baseline = await measured.readState(f.admin, f.familyId, {
+        gameId,
+      });
+      const beforeDb = bytes;
+      const beforeMs = performance.now() - beforeStart;
+      bytes = 0;
+      const afterStart = performance.now();
+      const next = await measured.readRefresh(
+        f.admin,
+        f.familyId,
+        known,
+        gameId,
+      );
+      const afterDb = bytes;
+      const afterMs = performance.now() - afterStart;
+      const browser = (v: unknown) => Buffer.byteLength(JSON.stringify(v));
+      rows.push({
+        label,
+        beforeDb,
+        afterDb,
+        beforeMs,
+        afterMs,
+        beforeBrowser: browser(baseline),
+        afterBrowser: browser(next),
+        beforeGzip: gzipSync(JSON.stringify(baseline)).length,
+        afterGzip: gzipSync(JSON.stringify(next)).length,
+        changed: Object.keys(next.values),
+      });
+      return next;
+    };
+    try {
+      await measured.readState(f.admin, f.familyId); // exclude connection setup from repeat requests
+      let response = await measure("cold-lobby", {});
+      const idle = await measure("idle-lobby", response.versions);
+      expect(Object.keys(idle.values)).toHaveLength(0);
+      expect(rows[1].afterDb as number).toBeLessThan(
+        (rows[1].beforeDb as number) * 0.03,
+      );
+      const game = games.at(-1)!;
+      await f.mutate({
+        type: "game-commands",
+        gameId: game.id,
+        deviceId: "device-a",
+        generation: 1,
+        commands: [
+          {
+            type: "play",
+            id: randomUUID(),
+            expectedRevision: 0,
+            placements: ["C", "A", "T"].map((letter, i) => ({
+              row: 7,
+              col: 7 + i,
+              tile: { letter: letter as "C" | "A" | "T", blank: false },
+            })),
+          },
+        ],
+      });
+      response = await measure("one-move", idle.versions);
+      expect(Object.keys(response.values)).toEqual(["g:" + game.id]);
+      await measure("second-client-same-move", idle.versions);
+      await f.mutate({
+        type: "update-player",
+        id: "ada",
+        expectedRevision: 1,
+        profile: { name: "Ada", photoDataUrl: photo, bio: "Updated profile" },
+      });
+      response = await measure("one-photo-update", response.versions);
+      expect(Object.keys(response.values).sort()).toEqual(["catalog", "p:ada"]);
+      await measure("idle-after-photo", response.versions);
+      const older = await measure("open-older-game", {}, games[0].id);
+      await measure("idle-older-game", older.versions, games[0].id);
+      const plans = await sql.begin("read only", async (tx) => {
+        await tx`set local role scrabble_runtime`;
+        await tx`select set_config('scrabble.actor_id',${f.admin.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+        const result = [];
+        for (const q of [...versionQueries.values()].slice(0, 2)) {
+          const [row] = await tx.unsafe(
+            "explain (analyze,buffers,format json) " + q.query,
+            q.parameters as never[],
+          );
+          const plan = row["QUERY PLAN"][0];
+          const indexes = new Set<string>();
+          const visit = (node: Record<string, unknown>) => {
+            if (typeof node["Index Name"] === "string")
+              indexes.add(node["Index Name"]);
+            for (const child of (node.Plans ?? []) as Record<string, unknown>[])
+              visit(child);
+          };
+          visit(plan.Plan);
+          result.push({
+            query: q.query.includes("h.game_id,md5")
+              ? "game versions"
+              : "catalog version",
+            executionMs: plan["Execution Time"],
+            planningMs: plan["Planning Time"],
+            rows: plan.Plan["Actual Rows"],
+            sharedHitBlocks: plan.Plan["Shared Hit Blocks"],
+            sharedReadBlocks: plan.Plan["Shared Read Blocks"],
+            indexes: [...indexes],
+          });
+        }
+        return result;
+      });
+      expect(plans).toHaveLength(2);
+      const receipt = {
+        plans,
+        photoBytes: Buffer.byteLength(photo) * 4,
+        players: 8,
+        games: 21,
+        rows,
+        method:
+          "Actual PostgreSQL server-to-client protocol bytes through a loopback TCP proxy, warmed connection with prepare:false (matching production), including result/command framing; no TLS or Supavisor overhead. Browser sizes are UTF-8 JSON response bodies and separately estimated gzip sizes, excluding HTTP/TLS headers. Synthetic data only; not a reconciliation of billed historical egress.",
+      };
+      console.log("REFRESH_BYTES " + JSON.stringify(receipt));
+      if (process.env.AMBERLY_REFRESH_RECEIPT)
+        await writeFile(
+          process.env.AMBERLY_REFRESH_RECEIPT,
+          JSON.stringify(receipt, null, 2),
+        );
+    } finally {
+      await sql.end();
+      for (const s of sockets) s.destroy();
+      await new Promise<void>((resolve) => proxy.close(() => resolve()));
+    }
+  }, 30000);
+
+  it("refreshes only changed authorized resources within a consistent snapshot", async () => {
+    const f = await fixture();
+    const first = (await f.create()).game!;
+    const second = (await f.create()).game!;
+    const full = await repository.readRefresh(f.admin, f.familyId, {});
+    const materialized = materializeRefresh(
+      full,
+      undefined,
+      f.admin.userId,
+      f.familyId,
+      "",
+    );
+    expect(materialized.state).toEqual(
+      await repository.readState(f.admin, f.familyId),
+    );
+    const idle = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      full.versions,
+    );
+    expect(idle.values).toEqual({});
+    await f.mutate(pass(first.id));
+    const move = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      idle.versions,
+    );
+    expect(Object.keys(move.values)).toEqual(["g:" + first.id]);
+    expect(
+      materializeRefresh(
+        move,
+        materialized.cache,
+        f.admin.userId,
+        f.familyId,
+        "",
+      ).state,
+    ).toEqual(await repository.readState(f.admin, f.familyId));
+    const linked = await f.mutate({
+      type: "update-player",
+      id: "ada",
+      expectedRevision: 0,
+      profile: { name: "Ada changed" },
+    });
+    expect(linked.player).toBeTruthy();
+    const profile = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      move.versions,
+    );
+    expect(Object.keys(profile.values).sort()).toEqual(["catalog", "p:ada"]);
+    await f.mutate({
+      type: "approve-game",
+      gameId: second.id,
+      stage: "start",
+      expectedRevision: 0,
+    });
+    const approval = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      profile.versions,
+    );
+    expect(Object.keys(approval.values)).toEqual(["g:" + second.id]);
+    const contested = await f.mutate({
+      type: "report-protest",
+      gameId: second.id,
+      reason: "Check this game",
+      reportedFor: null,
+    });
+    const concern = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      approval.versions,
+    );
+    expect(Object.keys(concern.values)).toEqual(["g:" + second.id]);
+    await f.mutate({
+      type: "resolve-protest",
+      gameId: second.id,
+      protestId: contested.gameAccess!.protests[0].id,
+      outcome: "dismissed",
+      reason: "Checked",
+    });
+    const resolved = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      concern.versions,
+    );
+    expect(Object.keys(resolved.values)).toEqual(["g:" + second.id]);
+    const simultaneous = await Promise.allSettled([
+      f.mutate(pass(first.id, 1)),
+      f.mutate(pass(first.id, 1)),
+    ]);
+    expect(simultaneous.filter((r) => r.status === "fulfilled")).toHaveLength(
+      1,
+    );
+    const afterRace = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      resolved.versions,
+    );
+    expect(
+      (afterRace.values["g:" + first.id] as { game: { revision: number } }).game
+        .revision,
+    ).toBe(2);
+    const practice = (await f.create("practice")).game!;
+    const guest = await repository.readRefresh(
+      f.guest,
+      f.familyId,
+      approval.versions,
+    );
+    expect(guest.gameIds).not.toContain(practice.id);
+    expect(Object.keys(guest.versions)).not.toContain("g:" + practice.id);
+    await code(
+      repository.readRefresh(f.guest, f.familyId, {}, practice.id),
+      "GAME_NOT_FOUND",
+    );
+    const beforeRemoval = await repository.readRefresh(f.admin, f.familyId, {});
+    await f.mutate({
+      type: "delete-practice-game",
+      gameId: practice.id,
+      expectedRevision: 0,
+      reason: "Remove test game",
+    });
+    const afterRemoval = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      beforeRemoval.versions,
+    );
+    const removalState = materializeRefresh(
+      afterRemoval,
+      materializeRefresh(
+        beforeRemoval,
+        undefined,
+        f.admin.userId,
+        f.familyId,
+        "",
+      ).cache,
+      f.admin.userId,
+      f.familyId,
+      "",
+    ).state;
+    expect(removalState.removedGameIds).toContain(practice.id);
+    expect(removalState.games.some((g) => g.id === practice.id)).toBe(false);
+    const other = await fixture();
+    await code(
+      repository.readRefresh(other.admin, f.familyId, full.versions),
+      "NOT_A_MEMBER",
+    );
+    await f.mutate({
+      type: "update-member",
+      userId: f.guest.userId,
+      role: "member",
+      active: false,
+      playerId: "ben",
+      reason: "Remove access",
+    });
+    await code(
+      repository.readRefresh(f.guest, f.familyId, guest.versions),
+      "NOT_A_MEMBER",
+    );
+  });
+
   gymHistoryDatabaseCases(owner, runtime);
   playerArchiveDatabaseCases(owner, runtime);
   it("shares confirmed words with scorer and Gym, retries without duplicates, and isolates families", async () => {
