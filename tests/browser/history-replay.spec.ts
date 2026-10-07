@@ -123,6 +123,66 @@ test("main History replays an unhydrated Scrabble result and restores filters, f
   expect(fixture.writes).toEqual([]);
 });
 
+test("lead counts describe corrected turns, stay stable while seeking and support keyboard disclosure without writes", async ({
+  page,
+}, info) => {
+  const fixture = await setup(page);
+  await page.goto("/family/history");
+  await page.getByRole("button", { name: /^Replay Doug and Erin/ }).click();
+  const disclosure = page
+    .locator("summary")
+    .filter({ hasText: /^Lead counts$/ });
+  await disclosure.focus();
+  await disclosure.press("Enter");
+  const counts = page.getByRole("region", { name: "Lead counts", exact: true });
+  await expect(counts).toBeVisible();
+  await expect(
+    counts.getByRole("heading", { name: "Completed game · 3 turns" }),
+  ).toBeVisible();
+  await expect(counts).toContainText("including passes and exchanges");
+  await expect(counts).toContainText("not full rounds or time");
+  await expect(
+    counts.getByRole("list", { name: "Doug lead spells" }),
+  ).toContainText("Turns 1–3 · 3 turns");
+  await expect(
+    counts.getByRole("article").filter({
+      has: page.getByRole("heading", { name: "Erin", exact: true }),
+    }),
+  ).toContainText("No sole-lead spells.");
+  const original = await counts.innerText();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  expect(await counts.innerText()).toBe(original);
+  await fitsWidth(page);
+  const viewport = page.viewportSize();
+  if (
+    viewport &&
+    viewport.width >= 601 &&
+    viewport.width <= 899 &&
+    viewport.height >= 551
+  ) {
+    const board = await page.locator(".game-replay .board-grid").boundingBox();
+    expect(board!.width).toBeGreaterThanOrEqual(320);
+  }
+  await page.screenshot({
+    path: info.outputPath("lead-counts.png"),
+    fullPage: true,
+  });
+  await disclosure.focus();
+  await disclosure.press("Space");
+  await expect(counts).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Close replay" }),
+  ).toBeVisible();
+  expect(fixture.writes).toEqual([]);
+  fixture.remove();
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(page.getByText(/This game is unavailable/)).toBeVisible();
+  await expect(disclosure).toHaveCount(0);
+});
+
 for (const canScore of [false, true])
   test(`opened final result offers Replay and returns to the same result (scorer: ${canScore})`, async ({
     page,
@@ -188,6 +248,13 @@ test("incomplete journals show a limitation instead of an invented replay", asyn
   fixture.game.events = [];
   await page.goto(`/family/history?replay=${fixture.game.id}`);
   await expect(page.getByText(/Replay unavailable: this record/)).toBeVisible();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Lead counts$/ })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Lead counts", exact: true }),
+  ).toContainText("Lead counts unavailable");
   await expect(page.getByRole("slider")).toHaveCount(0);
   expect(fixture.writes).toEqual([]);
 });
@@ -205,6 +272,9 @@ test("inaccessible games have no replay board", async ({ page }) => {
     page.getByRole("region", { name: "Recorded game replay" }),
   ).toHaveCount(0);
   expect(fixture.writes).toEqual([]);
+  await expect(
+    page.locator("summary").filter({ hasText: /^Lead counts$/ }),
+  ).toHaveCount(0);
 });
 
 test("a member cannot replay a private practice snapshot", async ({ page }) => {
@@ -219,4 +289,7 @@ test("a member cannot replay a private practice snapshot", async ({ page }) => {
     page.getByRole("region", { name: "Recorded game replay" }),
   ).toHaveCount(0);
   expect(fixture.writes).toEqual([]);
+  await expect(
+    page.locator("summary").filter({ hasText: /^Lead counts$/ }),
+  ).toHaveCount(0);
 });
