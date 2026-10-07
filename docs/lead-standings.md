@@ -49,14 +49,19 @@ It returns aggregate numbers only, not full journals or rack details. There are
 no migrations, writes, persistent summaries, extra polling requests or history
 scans in the normal refresh path. Canonical event reads are batched in groups of
 25 games. A process-local LRU retains compact verified summaries for at most four families,
-evicting a whole inactive family rather than individual games mid-verification.
+evicting a whole least-recently-used family rather than individual games mid-verification.
 Up to 5,000 completed games per family are supported; larger candidate sets return
 an explicit capacity error without totals or a promise that retrying will finish.
-authorization, removal/protest status and exact canonical content are checked
+Authorization, removal/protest status and exact canonical content are checked
 before reuse. All available cache hits are collected before new validations, avoiding
 sequential scan thrashing. Removed games are pruned and changed revisions replace
 old summaries; no full journals or spell lists are retained in this cache. Hashes include family/game identity, revision, definition, state
 and permanent events, so same-revision corruption cannot hit a cached summary.
+Deterministically invalid journals retain an unavailable assessment under that
+content key so repeated attempts cannot starve later games. Supported word-list
+versions are bundled and immutable for a process: unavailable versions are cached
+as unavailable, and deployments/process restarts recreate that cache. Changed
+evidence is always rechecked.
 
 The UI clears its snapshot on observed membership/access/game/removal changes,
 focus or visibility changes, and requires explicit reload. In-flight stale

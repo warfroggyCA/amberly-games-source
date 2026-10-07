@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
 import type { LeadStandings } from "../../src/lib/lead-standings";
+// Two eligible games: Doug/Erin (10 checkpoints) and Doug/Cristine (100).
+// Doug/Nate is unavailable; Doug/Cristine has one further policy-excluded game.
 const totals = (): LeadStandings => ({
   completedGames: 4,
   eligibleGames: 2,
@@ -15,11 +17,11 @@ const totals = (): LeadStandings => ({
       eligibleTurns: 110,
       leads: 3,
       regains: 1,
-      turnsLed: 98,
-      tiedTurns: 1,
-      longest: 90,
-      average: 98 / 3,
-      turnShare: 98 / 110,
+      turnsLed: 65,
+      tiedTurns: 2,
+      longest: 32,
+      average: 65 / 3,
+      turnShare: 65 / 110,
     },
     {
       playerId: "erin",
@@ -29,10 +31,23 @@ const totals = (): LeadStandings => ({
       leads: 1,
       regains: 0,
       turnsLed: 9,
-      tiedTurns: 1,
+      tiedTurns: 0,
       longest: 9,
       average: 9,
       turnShare: 0.9,
+    },
+    {
+      playerId: "cristine",
+      completedGames: 2,
+      eligibleGames: 1,
+      eligibleTurns: 100,
+      leads: 1,
+      regains: 0,
+      turnsLed: 34,
+      tiedTurns: 2,
+      longest: 34,
+      average: 34,
+      turnShare: 0.34,
     },
     {
       playerId: "nate",
@@ -97,19 +112,20 @@ test("lead rankings are sortable, coverage-aware and on-demand without extra pol
   });
   await expect(table).toBeVisible();
   const rows = table.locator("tbody tr");
-  await expect(rows.nth(0)).toContainText("32.7");
+  await expect(rows.nth(0)).toContainText("21.7");
   await expect(rows.nth(0)).toContainText("2/4 games · 110 eligible turns");
-  await expect(rows.nth(2)).toContainText("No qualifying history");
-  await expect(rows.nth(2).locator("td").first()).toHaveText("—");
+  await expect(rows.last()).toContainText("No qualifying history");
+  await expect(rows.last().locator("td").first()).toHaveText("—");
   await table.getByRole("button", { name: /^Turns led %/ }).click();
   await expect(rows.nth(0)).toContainText("Erin");
-  await expect(rows.nth(2)).toContainText("Nate");
+  await expect(rows.last()).toContainText("Nate");
   await table.getByRole("button", { name: /^Turns led %/ }).click();
-  await expect(rows.nth(0)).toContainText("Doug");
-  await expect(rows.nth(2)).toContainText("Nate");
+  await expect(rows.nth(0)).toContainText("Cristine");
+  await expect(rows.last()).toContainText("Nate");
   await page.waitForTimeout(5500);
   expect(fixture.reads()).toBe(1);
   await expect(table).toBeVisible();
+  await table.getByRole("button", { name: /^Leads taken/ }).click();
   await fitsWidth(page);
   await page.screenshot({
     path: info.outputPath("lead-rankings.png"),

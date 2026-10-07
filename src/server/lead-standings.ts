@@ -95,7 +95,16 @@ export function createLeadAssessor() {
       if (cached?.key === key) return structuredClone(cached.value);
       cache.delete(head.game_id);
       if (cachedOnly) return null;
-      const restored = hydrateGame(raw, resolveLexicon(raw.lexicon));
+      let lexicon;
+      try {
+        lexicon = resolveLexicon(raw.lexicon);
+      } catch {
+        // Supported dictionaries are bundled and immutable for this process.
+        // Deploying another version recreates this process-local cache.
+        cache.set(head.game_id, { key, value: structuredClone(assessment) });
+        return assessment;
+      }
+      const restored = hydrateGame(raw, lexicon);
       if (restored.ok) {
         const counts = deriveLeadCounts(restored.game);
         if (counts.available) {
@@ -106,9 +115,10 @@ export function createLeadAssessor() {
             players: counts.players.map((p) => ({ ...p, spells: [] })),
           };
           assessment.playerIds = restored.game.order;
-          cache.set(head.game_id, { key, value: structuredClone(assessment) });
         }
       }
+      // Deterministic invalid journals must not consume the same cold budget forever.
+      cache.set(head.game_id, { key, value: structuredClone(assessment) });
     } catch {
       /* Unavailable exact word versions/malformed journals are coverage gaps. */
     }
@@ -124,7 +134,7 @@ export function createLeadAssessor() {
 }
 const assess = createLeadAssessor();
 
-/** Keep progress within a family snapshot; only whole inactive family caches are evicted. */
+/** Keep progress within a family snapshot; only whole least-recently-used family caches are evicted. */
 export function createLeadCollection(
   familyId: string,
   assessor = assess,

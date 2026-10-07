@@ -129,3 +129,57 @@ it("reports a hard capacity boundary instead of promising endless partial verifi
     collection.add({ ...head, game_id: "overflow" }, head.state.events),
   ).toThrow(/5,000/);
 });
+
+it("an unchanged invalid journal cannot starve later verification, and changed evidence is rechecked", () => {
+  const assess = createLeadAssessor();
+  const bad = structuredClone(fixture("bad")),
+    good = fixture("good");
+  bad.state.scores.a = 1;
+  let clock = 0;
+  const first = createLeadCollection("family", assess, () =>
+    clock++ < 2 ? 0 : 1001,
+  );
+  for (const h of [bad, good]) first.add(h, h.state.events);
+  expect(first.finish()).toMatchObject({
+    unavailableGames: 1,
+    pendingGames: 1,
+    eligibleGames: 0,
+  });
+  const next = createLeadCollection("family", assess, () => 0);
+  for (const h of [bad, good]) next.add(h, h.state.events);
+  expect(next.finish()).toMatchObject({
+    unavailableGames: 1,
+    pendingGames: 0,
+    eligibleGames: 1,
+  });
+  const repaired = fixture("bad");
+  expect(assess("family", repaired, repaired.state.events).outcome).toBe(
+    "eligible",
+  );
+});
+
+it("an unavailable bundled dictionary cannot starve the next known-version game", () => {
+  const assess = createLeadAssessor();
+  const bad = structuredClone(fixture("unknown")),
+    good = fixture("known");
+  const lexicon = { ...bad.state.lexicon, id: "unavailable-version" };
+  bad.definition = { ...bad.definition, lexicon };
+  bad.state = { ...bad.state, lexicon, definition: bad.definition };
+  let clock = 0;
+  const first = createLeadCollection("family", assess, () =>
+    clock++ < 2 ? 0 : 1001,
+  );
+  for (const h of [bad, good]) first.add(h, h.state.events);
+  expect(first.finish()).toMatchObject({
+    unavailableGames: 1,
+    pendingGames: 1,
+    eligibleGames: 0,
+  });
+  const next = createLeadCollection("family", assess, () => 0);
+  for (const h of [bad, good]) next.add(h, h.state.events);
+  expect(next.finish()).toMatchObject({
+    unavailableGames: 1,
+    pendingGames: 0,
+    eligibleGames: 1,
+  });
+});
