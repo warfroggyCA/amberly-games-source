@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { familyRequest } from "../lib/shared-store";
+import { familyRequest, FamilyRequestError } from "../lib/shared-store";
 import { isGameSummaryPage } from "../lib/game-summary";
 import type {
   LeadStanding,
@@ -32,9 +32,21 @@ export function LeadStandings({
   const [sort, setSort] = useState<Sort>("leads");
   const [ascending, setAscending] = useState(false);
   const generation = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
+  const [requestedAt, setRequestedAt] = useState("");
+  function cancelLoad() {
+    generation.current++;
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setData(null);
+    setLoading(false);
+    setError("");
+  }
   useEffect(() => {
     const cancel = () => {
       generation.current++;
+      activeRequest.current?.abort();
+      activeRequest.current = null;
     };
     const invalidate = () => {
       cancel();
@@ -51,7 +63,11 @@ export function LeadStandings({
     };
   }, []);
   async function load() {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     const request = ++generation.current;
+    const startedAt = new Date().toLocaleString();
     setData(null);
     setError("");
     setLoading(true);
@@ -59,21 +75,30 @@ export function LeadStandings({
       const next = await familyRequest<unknown>(
         "/api/family/games?leadCounts=1",
         undefined,
-        { expectedUserId: userId },
+        { expectedUserId: userId, signal: controller.signal },
       );
       if (!isGameSummaryPage(next) || !next.leadCounts)
         throw Error(
           "Lead rankings returned an incomplete response. Try again.",
         );
-      if (generation.current === request && !document.hidden)
+      if (generation.current === request && !document.hidden) {
         setData(next.leadCounts);
+        setRequestedAt(startedAt);
+      }
     } catch (e) {
       if (generation.current === request)
         setError(
-          e instanceof Error ? e.message : "Could not load lead rankings.",
+          e instanceof FamilyRequestError && e.status === 0
+            ? "Loading was interrupted. Reload lead rankings to check current history."
+            : e instanceof Error
+              ? e.message
+              : "Could not load lead rankings.",
         );
     } finally {
-      if (generation.current === request) setLoading(false);
+      if (generation.current === request) {
+        activeRequest.current = null;
+        setLoading(false);
+      }
     }
   }
   const name = (id: string) => {
@@ -114,9 +139,25 @@ export function LeadStandings({
               ? "Refresh lead rankings"
               : "Load Scrabble lead rankings"}
       </button>
+      {loading && (
+        <>
+          <p role="status">
+            Checking history on the server. Large journals can take a while; you
+            can cancel or leave this page.
+          </p>
+          <button type="button" className="button light" onClick={cancelLoad}>
+            Cancel loading
+          </button>
+        </>
+      )}
       {error && <p role="alert">{error}</p>}
       {data && (
         <>
+          <p>
+            Snapshot requested at {requestedAt}. These figures are not live.
+            Older history, disputes or access changes may not appear until you
+            refresh. Refresh checks all currently accessible history again.
+          </p>
           <p role="status">
             Coverage: {data.eligibleGames} qualifying of {data.completedGames}{" "}
             completed games · {data.unavailableGames} unavailable histories ·{" "}

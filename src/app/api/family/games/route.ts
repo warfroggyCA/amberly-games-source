@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         ),
       );
     const query = {
+      signal: request.signal,
       leadCounts: params.get("leadCounts") === "1",
       cursor: params.get("cursor") ?? undefined,
       gameType: params.get("gameType") ?? undefined,

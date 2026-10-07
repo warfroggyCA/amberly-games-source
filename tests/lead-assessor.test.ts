@@ -183,3 +183,114 @@ it("an unavailable bundled dictionary cannot starve the next known-version game"
     eligibleGames: 1,
   });
 });
+
+it("cooperative assessments match exact synchronous results and cancellation cannot poison the cache", async () => {
+  const assess = createLeadAssessor(),
+    head = fixture("cooperative");
+  const controller = new AbortController();
+  const cancelled = assess.cooperatively(
+    "family",
+    head,
+    head.state.events,
+    controller.signal,
+  );
+  controller.abort();
+  await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+  expect(assess("family", head, head.state.events, true)).toBeNull();
+  expect(await assess.cooperatively("family", head, head.state.events)).toEqual(
+    createLeadAssessor()("family", head, head.state.events),
+  );
+  const changed = structuredClone(head);
+  changed.state.scores.a = 999;
+  expect(
+    await assess.cooperatively("family", changed, changed.state.events),
+  ).toMatchObject({ outcome: "unavailable" });
+  expect(
+    await assess.cooperatively("family", head, head.state.events),
+  ).toMatchObject({ outcome: "eligible" });
+});
+it("cooperative collection preserves coverage and rejects aborted warm reads", async () => {
+  const assess = createLeadAssessor();
+  const heads = [fixture("first"), fixture("second")];
+  let calls = 0;
+  const partial = createLeadCollection("family", assess, () =>
+    calls++ < 2 ? 0 : 1001,
+  );
+  heads.forEach((h) => partial.add(h, h.state.events));
+  expect(await partial.finishCooperatively()).toMatchObject({
+    eligibleGames: 1,
+    pendingGames: 1,
+  });
+  const all = createLeadCollection("family", assess, () => 0);
+  heads.forEach((h) => all.add(h, h.state.events));
+  expect(await all.finishCooperatively()).toMatchObject({
+    eligibleGames: 2,
+    pendingGames: 0,
+  });
+  const cached = createLeadCollection("family", assess, () => 0);
+  heads.forEach((h) => cached.add(h, h.state.events));
+  await expect(
+    cached.finishCooperatively(AbortSignal.abort()),
+  ).rejects.toMatchObject({ name: "AbortError" });
+});
+
+it("changed canonical revisions replace warmed metrics using corrected effective turns", async () => {
+  const initial = fixture("older-corrected-game"),
+    assess = createLeadAssessor();
+  expect(
+    (await assess.cooperatively("family", initial, initial.state.events)).counts
+      ?.players[0].turnsLed,
+  ).toBe(0);
+  const created = createGame(initial.definition);
+  if (!created.ok) throw Error(created.error.message);
+  let game = created.game;
+  const act = (payload: Record<string, unknown>) => {
+    const next = applyCommand(
+      game,
+      {
+        ...payload,
+        id: `changed-${game.revision}`,
+        expectedRevision: game.revision,
+      } as GameCommand,
+      releasedFamilyLexicon,
+    );
+    if (!next.ok) throw Error(next.error.message);
+    game = next.game;
+  };
+  const cat = [..."CAT"].map((letter, i) => ({
+    row: 7,
+    col: 7 + i,
+    tile: { letter, blank: false },
+  }));
+  act({ type: "play", placements: cat });
+  act({
+    type: "play",
+    placements: [{ row: 7, col: 10, tile: { letter: "S", blank: false } }],
+  });
+  act({
+    type: "edit-turn",
+    turnId: "changed-0",
+    placements: cat.map((p, i) =>
+      i === 0 ? { ...p, tile: { ...p.tile, blank: true } } : p,
+    ),
+    reason: "Physical blank",
+  });
+  act({ type: "undo", reason: "Withdraw last play" });
+  act({ type: "exchange", count: 2 });
+  for (let i = 0; i < 4; i++) act({ type: "pass" });
+  act({
+    type: "finalize",
+    reason: "blocked",
+    racks: { a: [..."READING"], b: [..."CATDOG?"] },
+  });
+  const changed = { ...initial, state: game, revision: game.revision };
+  const result = await assess.cooperatively("family", changed, game.events);
+  expect(result).toMatchObject({
+    outcome: "eligible",
+    counts: { completedTurns: 6 },
+  });
+  expect(result.counts?.players[0]).toMatchObject({ entries: 1, turnsLed: 6 });
+  expect(await assess.cooperatively("family", changed, game.events)).toEqual(
+    result,
+  );
+});

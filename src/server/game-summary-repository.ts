@@ -39,6 +39,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
         gameType?: string;
         playerId?: string;
         leadCounts?: boolean;
+        signal?: AbortSignal;
       } = {},
     ): Promise<GameSummaryPage> {
       const uuid = /^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i;
@@ -109,7 +110,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
             return {
               games: [],
               nextCursor: null,
-              leadCounts: await readLeadStandings(tx, familyId),
+              leadCounts: await readLeadStandings(tx, familyId, query.signal),
             };
           // Full-history aggregate in the same RLS-protected snapshot; never page-based totals.
           const standingsRows = !query.cursor

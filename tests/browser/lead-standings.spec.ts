@@ -111,6 +111,9 @@ test("lead rankings are sortable, coverage-aware and on-demand without extra pol
     exact: true,
   });
   await expect(table).toBeVisible();
+  await expect(
+    page.getByText(/Snapshot requested at.*These figures are not live/),
+  ).toBeVisible();
   const rows = table.locator("tbody tr");
   await expect(rows.nth(0)).toContainText("21.7");
   await expect(rows.nth(0)).toContainText("2/4 games · 110 eligible turns");
@@ -217,12 +220,12 @@ test("an in-flight response cannot restore counts after focus invalidation", asy
     .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
     .click();
   await expect.poll(() => requested).toBe(true);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  const response = page.waitForResponse((r) =>
+  const aborted = page.waitForEvent("requestfailed", (r) =>
     r.url().includes("leadCounts=1"),
   );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await aborted;
   release();
-  await response;
   await expect(
     page.getByRole("button", {
       name: "Load Scrabble lead rankings",
@@ -235,4 +238,143 @@ test("an in-flight response cannot restore counts after focus invalidation", asy
       exact: true,
     }),
   ).toHaveCount(0);
+});
+
+test("a slow read keeps rendering, rules, cancellation and navigation responsive without retries", async ({
+  page,
+}) => {
+  await setup(page);
+  let requests = 0;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/family/games?leadCounts=1", async (route) => {
+    requests++;
+    await held;
+    await route
+      .fulfill({ json: { games: [], nextCursor: null, leadCounts: totals() } })
+      .catch(() => {});
+  });
+  const load = page.getByRole("button", {
+    name: "Load Scrabble lead rankings",
+    exact: true,
+  });
+  await load.click();
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: "Checking history on the server" }),
+  ).toBeVisible();
+  const frames = await page.evaluate(async () => {
+    let frames = 0;
+    const start = performance.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        frames++;
+        if (performance.now() - start > 17500) resolve();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    return frames;
+  });
+  expect(frames).toBeGreaterThan(1);
+  await page
+    .getByText("Lead ranking rules and coverage", { exact: true })
+    .click();
+  await expect(
+    page.getByText(/Average streak is total sole-leading/),
+  ).toBeVisible();
+  const aborted = page.waitForEvent("requestfailed", (r) =>
+    r.url().includes("leadCounts=1"),
+  );
+  await page
+    .getByRole("button", { name: "Cancel loading", exact: true })
+    .click();
+  await aborted;
+  await expect(load).toBeEnabled();
+  await expect(
+    page.getByRole("region", {
+      name: "Scrabble lead rankings table",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  expect(requests).toBe(1);
+  await load.click();
+  await expect.poll(() => requests).toBe(2);
+  const navigationAbort = page.waitForEvent("requestfailed", (r) =>
+    r.url().includes("leadCounts=1"),
+  );
+  await page
+    .getByRole("navigation", { name: "Amberly Games" })
+    .getByRole("button", { name: "Games", exact: true })
+    .click();
+  await navigationAbort;
+  await expect(page).toHaveURL(/\/family$/);
+  release();
+  expect(requests).toBe(2);
+});
+
+test("older unseen changes stay labelled as snapshots and manual refresh replaces all totals", async ({
+  page,
+}) => {
+  await setup(page);
+  let reads = 0;
+  await page.route("**/api/family/games?leadCounts=1", (route) => {
+    reads++;
+    const result = totals();
+    if (reads > 1) {
+      // An older game became disputed/unavailable, outside the recent refresh window.
+      result.eligibleGames = 1;
+      result.excludedGames = 2;
+      result.rows = result.rows.map((row) => ({
+        ...row,
+        eligibleGames: 0,
+        eligibleTurns: 0,
+        leads: 0,
+        regains: 0,
+        turnsLed: 0,
+        tiedTurns: 0,
+        longest: null,
+        average: null,
+        turnShare: null,
+      }));
+      result.rows[0] = {
+        ...result.rows[0],
+        eligibleGames: 1,
+        eligibleTurns: 10,
+        leads: 1,
+        turnsLed: 1,
+        longest: 1,
+        average: 1,
+        turnShare: 0.1,
+      };
+      result.rows[1] = totals().rows[1];
+    }
+    return route.fulfill({
+      json: { games: [], nextCursor: null, leadCounts: result },
+    });
+  });
+  await page
+    .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      /Older history, disputes or access changes may not appear until you refresh/,
+    ),
+  ).toBeVisible();
+  const table = page.getByRole("region", {
+    name: "Scrabble lead rankings table",
+    exact: true,
+  });
+  await expect(table).toContainText("21.7");
+  await page
+    .getByRole("button", { name: "Refresh lead rankings", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Coverage:" }),
+  ).toContainText("1 qualifying of 4 completed games");
+  await expect(table).not.toContainText("21.7");
+  expect(reads).toBe(2);
 });

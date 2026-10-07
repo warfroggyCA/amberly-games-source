@@ -2,7 +2,13 @@ import { SharedRepositoryError } from "./shared-repository";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import type postgres from "postgres";
-import { hydrateGame, type GameState } from "../domain/game";
+import { setImmediate } from "node:timers/promises";
+import {
+  hydrateGame,
+  hydrateGameCooperatively,
+  type GameResult,
+  type GameState,
+} from "../domain/game";
 import { deriveLeadCounts } from "../domain/lead-counts";
 import { competitiveResultEligible } from "../domain/records";
 import {
@@ -50,6 +56,22 @@ export function createLeadAssessor() {
     events: unknown[],
     cachedOnly = false,
   ): LeadAssessment | null {
+    const steps = evaluate(familyId, head, events, cachedOnly);
+    const step = steps.next();
+    if (step.done) return step.value;
+    return steps.next(hydrateGame(step.value.raw, step.value.lexicon))
+      .value as LeadAssessment;
+  }
+  function* evaluate(
+    familyId: string,
+    head: LeadHead,
+    events: unknown[],
+    cachedOnly: boolean,
+  ): Generator<
+    { raw: GameState; lexicon: ReturnType<typeof resolveLexicon> },
+    LeadAssessment | null,
+    GameResult
+  > {
     const cache =
       families.get(familyId) ??
       new Map<string, { key: string; value: LeadAssessment }>();
@@ -104,7 +126,7 @@ export function createLeadAssessor() {
         cache.set(head.game_id, { key, value: structuredClone(assessment) });
         return assessment;
       }
-      const restored = hydrateGame(raw, lexicon);
+      const restored = yield { raw, lexicon };
       if (restored.ok) {
         const counts = deriveLeadCounts(restored.game);
         if (counts.available) {
@@ -125,6 +147,27 @@ export function createLeadAssessor() {
     return assessment;
   }
   return Object.assign(assess, {
+    async cooperatively(
+      familyId: string,
+      head: LeadHead,
+      events: unknown[],
+      signal?: AbortSignal,
+    ) {
+      signal?.throwIfAborted();
+      const steps = evaluate(familyId, head, events, false);
+      const step = steps.next();
+      if (step.done) return step.value!;
+      const restored = await hydrateGameCooperatively(
+        step.value.raw,
+        step.value.lexicon,
+        async () => {
+          signal?.throwIfAborted();
+          await setImmediate(undefined, { signal });
+          signal?.throwIfAborted();
+        },
+      );
+      return steps.next(restored).value as LeadAssessment;
+    },
     retain(familyId: string, ids: ReadonlySet<string>) {
       const cache = families.get(familyId);
       if (cache)
@@ -151,6 +194,31 @@ export function createLeadCollection(
       if (result) assessments.push(result);
       else pending.push(head); // Exact permanent events already matched this immutable snapshot.
     },
+    async finishCooperatively(signal?: AbortSignal) {
+      assessor.retain(familyId, seen);
+      const deadline = now() + 1000;
+      for (const head of pending) {
+        signal?.throwIfAborted();
+        if (now() >= deadline)
+          assessments.push({
+            gameId: head.game_id,
+            revision: head.revision,
+            playerIds: head.definition.players.map((p) => p.id),
+            outcome: "pending",
+          });
+        else
+          assessments.push(
+            await assessor.cooperatively(
+              familyId,
+              head,
+              head.state.events,
+              signal,
+            ),
+          );
+      }
+      signal?.throwIfAborted();
+      return aggregateLeadStandings(assessments);
+    },
     finish() {
       assessor.retain(familyId, seen);
       const deadline = now() + 1000;
@@ -173,7 +241,9 @@ export function createLeadCollection(
 export async function readLeadStandings(
   tx: postgres.TransactionSql,
   familyId: string,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const heads = await tx`
     select d.game_id,d.definition,h.state,h.revision,
       exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r
@@ -189,6 +259,8 @@ export async function readLeadStandings(
   const collection = createLeadCollection(familyId);
   // Bounded batches avoid a query per game and never retain a second full-family journal.
   for (let start = 0; start < heads.length; start += 25) {
+    signal?.throwIfAborted();
+    await setImmediate(undefined, { signal });
     const batch = heads.slice(start, start + 25);
     const events = await tx`select game_id,event from scrabble.game_events
       where family_id=${familyId}::uuid and game_id in ${tx(batch.map((h) => h.game_id))}
@@ -199,8 +271,12 @@ export async function readLeadStandings(
       journal.push(event.event);
       journals.set(event.game_id, journal);
     }
-    for (const head of batch)
+    for (const head of batch) {
+      // Warm reads still hash canonical bytes; let disconnects/other requests run
+      // between games instead of monopolizing a whole 25-journal batch.
+      await setImmediate(undefined, { signal });
       collection.add(head as LeadHead, journals.get(head.game_id) ?? []);
+    }
   }
-  return collection.finish();
+  return collection.finishCooperatively(signal);
 }

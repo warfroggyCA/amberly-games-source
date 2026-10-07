@@ -63,24 +63,51 @@ versions are bundled and immutable for a process: unavailable versions are cache
 as unavailable, and deployments/process restarts recreate that cache. Changed
 evidence is always rechecked.
 
-The UI clears its snapshot on observed membership/access/game/removal changes,
-focus or visibility changes, and requires explicit reload. In-flight stale
-responses cannot restore it. Failed loads clear data. Existing family polling
-continues unchanged; there is no promise of instantaneous detection of a remote
-change before that existing refresh observes it. Manual Refresh performs a new
-authorized snapshot, including old games outside the current recent-game page.
+The UI labels every result as a snapshot with its client request date/time and
+an always-visible warning that older history, disputes or access changes may not
+appear until manual Refresh. This time is not a server verification timestamp or
+promise of live accuracy. The existing family refresh sees only the recent game
+window, plus catalog/access information; no new full-history poll is introduced.
+Observed membership/access/game/removal changes, focus and visibility changes
+clear the snapshot. In-flight stale responses cannot restore it. Failed loads
+clear data. Manual Refresh starts a new authorized repeatable-read snapshot,
+including old games outside the recent page; it rechecks protests and all canonical
+bytes before cache reuse. A removal drops its contribution, revocation denies the
+read, and invalid/newly mismatched evidence becomes unavailable instead of retaining
+old totals. Corrections and undo recorded before finalization use effective turns.
+Ordinary correction/undo commands on already finalized games are rejected; this
+feature does not add an amendment or history-rewrite capability.
 
-The opt-in `AMBERLY_BENCHMARK=1` performance test builds a legal 5,000-event game
-and measures first validation, derivation and verified reuse. The cloud review
-run measured approximately 17.3 seconds cold, 21 ms for counting, and 8 ms warm.
-Cold hydration uses the existing command replay and can be slow for maximum-size
-journals. A one-second work budget, checked between cold validations, defers
-remaining games as **pending verification**. The UI labels partial coverage and
-offers **Verify more histories**; it never automatically retries. Already verified
-results still require current authorization and matching canonical bytes. This is
-a soft budget: it cannot interrupt a single synchronous validation, so one very
-large journal may exceed it. It is an on-demand cost, not polling overhead. The benchmark is one
-synthetic large game, not a hosted latency or whole-family scalability guarantee.
+Cold validation runs in the server's Node process, not the browser main thread.
+It now cooperatively schedules between replay commands, including nested replay
+inside a historical correction, using the **same** validation generator as
+synchronous hydration. Exact event and final projection comparisons are unchanged.
+The browser shows an indeterminate status (no invented percentage), lets users
+cancel, and remains navigable. Cancel, unmount, focus/visibility invalidation and
+superseding loads abort the fetch; request cancellation is forwarded through the
+route and repository to cooperative hydration. Cancelled work is not cached as
+unavailable. Disconnect signalling is transport-dependent, and SQL, hashing,
+projection and final comparison remain indivisible work between checkpoints.
+Cancellation is cooperative, not a hard deadline or guaranteed database-query abort.
+
+The opt-in `AMBERLY_BENCHMARK=1` test measures one maximum-event game plus a shorter
+mixed correction/undo/exchange game directly in Node. The 5,000-event fixture has
+4,994 pause/resume actions and only five effective turns: it stresses journal
+copy/reprojection cost, not a typical game, dense board or family-scale load.
+A cloud run measured 17.0 seconds synchronous versus 17.8 seconds cooperative, with
+1,251 timer heartbeats, largest timer gap 37 ms and cancellation in 31 ms. The
+500-event mixed fixture measured 436/462 ms, largest timer gap 14 ms and cancellation
+in 26 ms. Cooperative scheduling improves responsiveness, not total CPU complexity.
+The previous 16.7-second measurement did not exercise HTTP or browser responsiveness.
+These direct Node results and separately held-response browser tests are not a
+hosted concurrency, end-to-end latency or strict scheduling guarantee.
+
+A one-second work budget checked between cold game validations still marks remaining
+games **pending verification**. It cannot cap the total duration of one large game.
+**Verify more histories** runs only on request; no automatic retries or polling.
+Process-local progress can reset on another worker/restart/whole-family eviction.
+Large families still incur full-history reads and hashing. Client requests have the
+existing 40-second timeout; hosted CPU/response limits still require deployment review.
 
 Tests cover weighted aggregation, unequal participation, empty coverage, ties,
 deduplication/revisions/undo, cache corruption, RLS/access/removal/private-practice

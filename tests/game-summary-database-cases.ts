@@ -218,6 +218,69 @@ export function gameSummaryDatabaseCases(
       await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
       await expect(f.leads()).rejects.toMatchObject({ status: 403 });
     });
+    it("manual full-history reads recheck old disputes even when the game revision is unchanged", async () => {
+      const f = await completed();
+      const initial = (await f.leads()).leadCounts!;
+      const game = f.getGame();
+      // The aggregate read is independent of the recent-game window and dates.
+      await owner`update scrabble.game_heads set updated_at='2000-01-01' where family_id=${f.familyId}::uuid`;
+      const reported = await f.mutate({
+        type: "report-protest",
+        gameId: game.id,
+        reason: "Review an old recorded score",
+        reportedFor: null,
+      });
+      expect((await f.leads()).leadCounts).toMatchObject({
+        completedGames: 1,
+        eligibleGames: 0,
+        excludedGames: 1,
+      });
+      await f.mutate({
+        type: "resolve-protest",
+        gameId: game.id,
+        protestId: reported.gameAccess!.protests[0].id,
+        outcome: "dismissed",
+        reason: "Original history confirmed",
+      });
+      expect((await f.leads()).leadCounts).toEqual(initial);
+      expect(f.getGame().revision).toBe(game.revision);
+    });
+    it("rejects old finalized edits and refuses mismatched newer heads instead of warmed totals", async () => {
+      const f = await completed();
+      const game = f.getGame();
+      const initial = (await f.leads()).leadCounts!;
+      await expect(
+        f.command({ type: "undo", reason: "Late undo" }),
+      ).rejects.toMatchObject({ code: "GAME_FINALIZED" });
+      await expect(
+        f.command({
+          type: "edit-turn",
+          turnId: game.turns[0].id,
+          placements: placements("CAT"),
+          reason: "Late correction",
+        }),
+      ).rejects.toMatchObject({ code: "GAME_FINALIZED" });
+      const changed = JSON.parse(JSON.stringify(game));
+      changed.revision++;
+      changed.scores.alice++;
+      await owner`update scrabble.game_heads set state=${owner.json(changed)},revision=${changed.revision},updated_at='2000-01-01' where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      expect((await f.leads()).leadCounts).toMatchObject({
+        eligibleGames: 0,
+        unavailableGames: 1,
+      });
+      await owner`update scrabble.game_heads set state=${owner.json(JSON.parse(JSON.stringify(game)))},revision=${game.revision} where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      expect((await f.leads()).leadCounts).toEqual(initial);
+    });
+    it("aborted authorized lead reads reject and leave subsequent reads usable", async () => {
+      const f = await completed();
+      await expect(
+        summary.read(f.actor, f.familyId, {
+          leadCounts: true,
+          signal: AbortSignal.abort(),
+        }),
+      ).rejects.toMatchObject({ name: "AbortError" });
+      expect((await f.leads()).leadCounts!.eligibleGames).toBe(1);
+    });
     it("excludes practice even for its admin, and cannot read another family", async () => {
       const f = await completed("practice");
       expect((await f.leads()).leadCounts!.completedGames).toBe(0);
