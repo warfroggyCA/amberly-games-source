@@ -51,6 +51,7 @@ import type { VerifiedWord } from "../domain/verified-words";
 import { GymHistory } from "./GymHistory";
 import "./gym-lab.css";
 import { useGymDraft } from "./useGymDraft";
+import { useGymMotion } from "./useGymMotion";
 import { gymDraftKey, type GymDraft } from "../lib/gym-draft";
 import { GymDragViewport } from "../lib/gym-drag-viewport";
 interface Ready {
@@ -171,8 +172,18 @@ export function GymLab({
   const [hint, setHint] = useState(0);
   const [pointToHint, setPointToHint] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
-  const reducedMotionRef = useRef(false);
+  const {
+    reducedMotion,
+    setReducedMotion,
+    followsSystem,
+    followSystem,
+    restoreLegacyReduction,
+  } = useGymMotion();
+  const reducedMotionRef = useRef(true);
+  const [focusedSquare, setFocusedSquare] = useState<Square>({
+    row: 7,
+    col: 7,
+  });
   const [liveCoaching, setLiveCoaching] = useState(true);
   const [petPaused, setPetPaused] = useState(false);
   const [leavePrompt, setLeavePrompt] = useState(false);
@@ -199,6 +210,21 @@ export function GymLab({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const dragViewport = useRef<GymDragViewport | null>(null);
+  useEffect(() => {
+    reducedMotionRef.current = reducedMotion;
+    if (!reducedMotion) return;
+    if (timer.current) clearTimeout(timer.current);
+    for (const node of rackRef.current?.querySelectorAll("[data-rack-id]") ??
+      [])
+      for (const animation of node.getAnimations()) animation.cancel();
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setIntroduced(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [reducedMotion]);
   const gestureCancel = useCallback(() => {
     const active = gesture.current;
     if (!active) return;
@@ -267,6 +293,7 @@ export function GymLab({
           solutionIndex,
           help,
           reducedMotion,
+          motionPreferenceVersion: 1,
           liveCoaching,
           petPaused,
         }
@@ -621,8 +648,13 @@ export function GymLab({
           setReveal(snapshot.reveal);
           setSolutionIndex(snapshot.solutionIndex);
           setHelp(snapshot.help);
-          setReducedMotion(snapshot.reducedMotion);
-          reducedMotionRef.current = snapshot.reducedMotion;
+          // Before OS inheritance, true required an explicit reduction choice.
+          // False was also the default and cannot establish user intent.
+          if (
+            snapshot.motionPreferenceVersion === undefined &&
+            snapshot.reducedMotion
+          )
+            restoreLegacyReduction();
           setLiveCoaching(snapshot.liveCoaching);
           setPetPaused(snapshot.petPaused);
           setIntroduced(true);
@@ -1199,6 +1231,11 @@ export function GymLab({
                     <>Opponent · {ready.puzzle.position.opponentCount} tiles</>
                   )}
                 </div>
+                <p id="gym-board-keyboard-help" className="gym-keyboard-help">
+                  Use arrow keys to explore the board. Press Enter or Space to
+                  select a square or return a placed tile. Tab leaves the board
+                  for direction and rack controls.
+                </p>
                 <div className="gym-board-scroll">
                   <div
                     key={ready.puzzle.seed}
@@ -1206,6 +1243,7 @@ export function GymLab({
                     ref={boardRef}
                     role="group"
                     aria-label="Scrabble practice board"
+                    aria-describedby="gym-board-keyboard-help"
                   >
                     {ready.puzzle.position.board.flatMap((row, r) =>
                       row.map((fixed, c) => {
@@ -1257,6 +1295,41 @@ export function GymLab({
                             key={`${r}-${c}`}
                             type="button"
                             data-gym-square
+                            tabIndex={
+                              focusedSquare.row === r && focusedSquare.col === c
+                                ? 0
+                                : -1
+                            }
+                            onFocus={() => setFocusedSquare({ row: r, col: c })}
+                            onKeyDown={(event) => {
+                              const delta = {
+                                ArrowUp: [-1, 0],
+                                ArrowDown: [1, 0],
+                                ArrowLeft: [0, -1],
+                                ArrowRight: [0, 1],
+                              }[event.key];
+                              if (
+                                !delta ||
+                                event.altKey ||
+                                event.ctrlKey ||
+                                event.metaKey
+                              )
+                                return;
+                              event.preventDefault();
+                              const row = Math.max(
+                                0,
+                                Math.min(14, r + delta[0]),
+                              );
+                              const col = Math.max(
+                                0,
+                                Math.min(14, c + delta[1]),
+                              );
+                              boardRef.current
+                                ?.querySelector<HTMLButtonElement>(
+                                  `[data-row="${row}"][data-col="${col}"]`,
+                                )
+                                ?.focus();
+                            }}
                             data-drop-preview={
                               landing
                                 ? landing.blocked
@@ -1958,25 +2031,23 @@ export function GymLab({
                 type="checkbox"
                 checked={reducedMotion}
                 onChange={(e) => {
-                  const value = e.target.checked;
-                  reducedMotionRef.current = value;
-                  setReducedMotion(value);
-                  if (value) {
-                    setIntroduced(true);
-                    if (timer.current) clearTimeout(timer.current);
-                    for (const node of rackRef.current?.querySelectorAll(
-                      "[data-rack-id]",
-                    ) ?? [])
-                      for (const animation of node.getAnimations())
-                        animation.cancel();
-                  }
+                  setReducedMotion(e.target.checked);
                 }}
               />{" "}
               Reduced motion
             </label>
             <p>
-              Animations are on by default. These choices apply to this visit.
+              {followsSystem
+                ? "Motion follows your device setting."
+                : "Your motion choice overrides the device setting and is saved when browser storage is available."}
             </p>
+            <button
+              className="button light"
+              onClick={followSystem}
+              disabled={followsSystem}
+            >
+              Use device motion setting
+            </button>
           </Modal>
         )}
         {dragPreview && dragTile && (

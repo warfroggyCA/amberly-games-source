@@ -15,6 +15,8 @@ export interface GymDraft {
   solutionIndex: number;
   help: boolean;
   reducedMotion: boolean;
+  /** Distinguishes OS-derived effective values from legacy explicit reduction. */
+  motionPreferenceVersion?: 1;
   liveCoaching: boolean;
   petPaused: boolean;
 }
@@ -81,6 +83,8 @@ export function validGymDraft(value: unknown): value is GymDraft {
       Number.isInteger(v.solutionIndex) &&
       v.solutionIndex >= 0 &&
       v.solutionIndex <= 2 &&
+      (v.motionPreferenceVersion === undefined ||
+        v.motionPreferenceVersion === 1) &&
       [
         v.pointToHint,
         v.reveal,
