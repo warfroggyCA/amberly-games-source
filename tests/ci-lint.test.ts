@@ -80,7 +80,10 @@ async function expectStopped(stdout: string) {
       ") ",
     )[1][0];
   } catch (error) {
-    expect((error as NodeJS.ErrnoException).code).toBe("ENOENT");
+    // The process can disappear after procfs opens the entry but before reading it.
+    expect(["ENOENT", "ESRCH"]).toContain(
+      (error as NodeJS.ErrnoException).code,
+    );
   }
   try {
     // Assert the observed state before cleanup; never hide a supervisor leak.
