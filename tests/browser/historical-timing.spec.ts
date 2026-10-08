@@ -39,7 +39,7 @@ test("historical clock uncertainty preserves the spectator board, scores and tur
     "Timing unavailable",
   );
   await expect(
-    page.locator(".spectator-game-clock .game-clock"),
+    page.locator(".spectator-game-clock .turn-clock"),
   ).toHaveAttribute(
     "title",
     "Timing unavailable: recorded timestamps are incomplete or inconsistent.",
