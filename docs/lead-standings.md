@@ -59,8 +59,15 @@ The optional `leadCounts=1` History read uses the existing authenticated account
 header, active membership, restricted SQL role, RLS and repeatable-read snapshot.
 It returns aggregate numbers only, not full journals or rack details. There are
 no migrations, writes, persistent summaries, extra polling requests or history
-scans in the normal refresh path. Canonical event reads are batched in groups of
-25 games. A process-local LRU retains compact verified summaries for at most four families,
+scans in the normal refresh path. Candidate selection returns at most 5,001 game IDs; over-capacity requests
+are rejected before any full states or journals are returned to Node. Full heads
+and canonical event reads are batched in groups of 25 games. Deferred cold work
+retains only game IDs, revisions and player IDs, then reloads at most 25 heads
+from the same repeatable-read transaction. Slow reload waits do not consume the
+between-game validation budget, so they cannot alone starve continuation. Warm
+cache checks still precede cold work; cold reloads add bounded database reads.
+This bounds retained journal count, not bytes per individual game, total query
+work, concurrent-request memory, or end-to-end latency. A process-local LRU retains compact verified summaries for at most four families,
 evicting a whole least-recently-used family rather than individual games mid-verification.
 Up to 5,000 completed games per family are supported; larger candidate sets return
 an explicit capacity error without totals or a promise that retrying will finish.

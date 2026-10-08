@@ -184,7 +184,7 @@ export function createLeadCollection(
   now = () => performance.now(),
 ) {
   const assessments: LeadAssessment[] = [];
-  const pending: LeadHead[] = [];
+  const pending: LeadAssessment[] = [];
   const seen = new Set<string>();
   return {
     add(head: LeadHead, events: unknown[]) {
@@ -192,21 +192,49 @@ export function createLeadCollection(
       if (seen.size > MAX_LEAD_GAMES) throw capacityError();
       const result = assessor(familyId, head, events, true);
       if (result) assessments.push(result);
-      else pending.push(head); // Exact permanent events already matched this immutable snapshot.
+      else
+        pending.push({
+          gameId: head.game_id,
+          revision: head.revision,
+          playerIds: Array.isArray(head.definition?.players)
+            ? head.definition.players
+                .filter((p) => p && typeof p.id === "string")
+                .map((p) => p.id)
+            : [],
+          outcome: "pending",
+        }); // Retain no heads/journals after this batch's canonical comparison.
     },
-    async finishCooperatively(signal?: AbortSignal) {
+    // Reload only from the caller's SAME repeatable-read snapshot. Canonical
+    // events were compared during add; never use a different transaction here.
+    async finishCooperatively(
+      loadHeads: (ids: string[]) => Promise<LeadHead[]>,
+      signal?: AbortSignal,
+    ) {
       assessor.retain(familyId, seen);
-      const deadline = now() + 1000;
-      for (const head of pending) {
+      let deadline = now() + 1000;
+      for (let start = 0; start < pending.length; start += 25) {
         signal?.throwIfAborted();
-        if (now() >= deadline)
-          assessments.push({
-            gameId: head.game_id,
-            revision: head.revision,
-            playerIds: head.definition.players.map((p) => p.id),
-            outcome: "pending",
-          });
-        else
+        const batch = pending.slice(start, start + 25);
+        if (now() >= deadline) {
+          assessments.push(...batch);
+          continue;
+        }
+        const loadStarted = now();
+        const heads = await loadHeads(batch.map((p) => p.gameId));
+        // Preserve the cold-validation budget: a slow database reload alone
+        // must not cause every continuation request to make zero progress.
+        deadline += now() - loadStarted;
+        for (const item of batch) {
+          signal?.throwIfAborted();
+          if (now() >= deadline) {
+            assessments.push(item);
+            continue;
+          }
+          const head = heads.find((h) => h.game_id === item.gameId);
+          if (!head || head.revision !== item.revision)
+            throw new Error(
+              "Lead history snapshot changed during verification.",
+            );
           assessments.push(
             await assessor.cooperatively(
               familyId,
@@ -215,22 +243,24 @@ export function createLeadCollection(
               signal,
             ),
           );
+        }
       }
       signal?.throwIfAborted();
       return aggregateLeadStandings(assessments);
     },
-    finish() {
+    finish(loadHead: (id: string) => LeadHead) {
       assessor.retain(familyId, seen);
       const deadline = now() + 1000;
-      for (const head of pending) {
-        if (now() >= deadline)
-          assessments.push({
-            gameId: head.game_id,
-            revision: head.revision,
-            playerIds: head.definition.players.map((p) => p.id),
-            outcome: "pending",
-          });
-        else assessments.push(assessor(familyId, head, head.state.events));
+      for (const item of pending) {
+        if (now() >= deadline) assessments.push(item);
+        else {
+          const head = loadHead(item.gameId);
+          if (head.game_id !== item.gameId || head.revision !== item.revision)
+            throw new Error(
+              "Lead history snapshot changed during verification.",
+            );
+          assessments.push(assessor(familyId, head, head.state.events));
+        }
       }
       return aggregateLeadStandings(assessments);
     },
@@ -244,24 +274,37 @@ export async function readLeadStandings(
   signal?: AbortSignal,
 ) {
   signal?.throwIfAborted();
-  const heads = await tx`
-    select d.game_id,d.definition,h.state,h.revision,
-      exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r
-        on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id
-        where p.family_id=d.family_id and p.game_id=d.game_id and (r.outcome is null or r.outcome='upheld')) disputed
+  const candidates = await tx`
+    select d.game_id
     from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
     where d.family_id=${familyId}::uuid and d.mode='confirmed'
       and h.state->>'status'='finalized' and h.state->>'mode'='multiplayer'
       and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
     order by d.game_id limit 5001`;
-  if (heads.length > MAX_LEAD_GAMES) throw capacityError();
-  assess.retain(familyId, new Set(heads.map((h) => h.game_id)));
+  if (candidates.length > MAX_LEAD_GAMES) throw capacityError();
+  assess.retain(familyId, new Set(candidates.map((h) => h.game_id)));
+  const loadHeads = async (ids: string[]): Promise<LeadHead[]> => {
+    signal?.throwIfAborted();
+    const rows = await tx`
+    select d.game_id,d.definition,h.state,h.revision,
+      exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r
+        on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id
+        where p.family_id=d.family_id and p.game_id=d.game_id and (r.outcome is null or r.outcome='upheld')) disputed
+    from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
+    where d.family_id=${familyId}::uuid and d.game_id in ${tx(ids)}
+    order by d.game_id`;
+    signal?.throwIfAborted();
+    return rows as unknown as LeadHead[];
+  };
   const collection = createLeadCollection(familyId);
-  // Bounded batches avoid a query per game and never retain a second full-family journal.
-  for (let start = 0; start < heads.length; start += 25) {
+  // Only IDs survive across batches. Cold misses retain compact descriptors,
+  // then reload heads from this same immutable snapshot within the work budget.
+  for (let start = 0; start < candidates.length; start += 25) {
     signal?.throwIfAborted();
     await setImmediate(undefined, { signal });
-    const batch = heads.slice(start, start + 25);
+    const batch = await loadHeads(
+      candidates.slice(start, start + 25).map((h) => h.game_id),
+    );
     const events = await tx`select game_id,event from scrabble.game_events
       where family_id=${familyId}::uuid and game_id in ${tx(batch.map((h) => h.game_id))}
       order by game_id,sequence`;
@@ -278,5 +321,5 @@ export async function readLeadStandings(
       collection.add(head as LeadHead, journals.get(head.game_id) ?? []);
     }
   }
-  return collection.finishCooperatively(signal);
+  return collection.finishCooperatively(loadHeads, signal);
 }
