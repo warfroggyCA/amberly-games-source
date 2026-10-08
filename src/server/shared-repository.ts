@@ -65,6 +65,30 @@ import {
 } from "../lib/live-draft";
 
 type Tx = postgres.TransactionSql;
+// One complete roster is required by selection, archive management and refresh.
+// Page SQL reads in the caller's authorized repeatable-read snapshot; never silently
+// truncate accepted profiles. The resulting snapshot still retains O(roster size).
+const PLAYER_READ_BATCH = 500;
+async function readPlayerRows(
+  tx: Tx,
+  familyId: string,
+  headsOnly: boolean,
+  deletionBlocks = false,
+) {
+  const all: postgres.Row[] = [];
+  let cursor: { archived: boolean; name: string; id: string } | undefined;
+  for (;;) {
+    const rows =
+      await tx`select ${headsOnly ? tx`p.id,p.revision,p.archived` : tx`p.*,case when ${deletionBlocks} and p.archived then scrabble.player_deletion_block(p.family_id,p.id) else null end as deletion_block`},lower(p.name) as roster_name
+      from scrabble.players p where p.family_id=${familyId}::uuid
+      ${cursor ? tx`and (p.archived,lower(p.name),p.id)>(${cursor.archived},${cursor.name},${cursor.id})` : tx``}
+      order by p.archived,lower(p.name),p.id limit ${PLAYER_READ_BATCH}`;
+    all.push(...rows);
+    if (rows.length < PLAYER_READ_BATCH) return all;
+    const last = rows[rows.length - 1];
+    cursor = { archived: last.archived, name: last.roster_name, id: last.id };
+  }
+}
 type Options = {
   resolveLexicon?: (reference: unknown) => EnumerableLexicon;
   defaultLexicon?: EnumerableLexicon;
@@ -1597,8 +1621,12 @@ export function createSharedRepository(
           await tx`select id,name from scrabble.families where id=${familyId}::uuid`;
         const members =
           await tx`select * from scrabble.memberships where family_id=${familyId}::uuid order by joined_at,user_id`;
-        const players =
-          await tx`select p.*,case when ${who.role === "superadmin"} and p.archived then scrabble.player_deletion_block(p.family_id,p.id) else null end as deletion_block from scrabble.players p where family_id=${familyId}::uuid order by archived,lower(name),id limit 500`;
+        const players = await readPlayerRows(
+          tx,
+          familyId,
+          false,
+          who.role === "superadmin",
+        );
         const invitations = hasPermission(who, "inviteMembers")
           ? await tx`select email,active,player_id from scrabble.invitations where family_id=${familyId}::uuid order by email limit 500`
           : [];
@@ -1729,8 +1757,7 @@ export function createSharedRepository(
         (select jsonb_agg(jsonb_build_array(word,created_at) order by word) from scrabble.verified_words where family_id=${familyId}::uuid),
         (select equipment from scrabble.equipment where family_id=${familyId}::uuid)
       )::text) version`;
-        const playerHeads =
-          await tx`select id,revision,archived from scrabble.players where family_id=${familyId}::uuid order by archived,lower(name),id limit 500`;
+        const playerHeads = await readPlayerRows(tx, familyId, true);
         // The extra row is metadata only: pagination must not transfer a 21st game.
         const page =
           await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
@@ -1768,9 +1795,17 @@ export function createSharedRepository(
         const changedPlayers = playerHeads
           .filter((p) => changed("p:" + p.id))
           .map((p) => p.id);
-        if (changedPlayers.length) {
+        for (
+          let offset = 0;
+          offset < changedPlayers.length;
+          offset += PLAYER_READ_BATCH
+        ) {
+          const batch = changedPlayers.slice(
+            offset,
+            offset + PLAYER_READ_BATCH,
+          );
           const rows =
-            await tx`select * from scrabble.players where family_id=${familyId}::uuid and id in ${tx(changedPlayers)}`;
+            await tx`select * from scrabble.players where family_id=${familyId}::uuid and id in ${tx(batch)}`;
           for (const row of rows) values["p:" + row.id] = player(row);
         }
         const changedGames = gameIds.filter((id) => changed("g:" + id));

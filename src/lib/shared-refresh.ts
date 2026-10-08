@@ -74,7 +74,7 @@ export function materializeRefresh(
     throw new Error("The refreshed family snapshot is invalid.");
   const ids = (items: unknown[], prefix: string) => {
     if (
-      items.length > 500 ||
+      (prefix === "g:" && items.length > 500) ||
       new Set(items).size !== items.length ||
       items.some((id) => typeof id !== "string" || !resource(prefix + id))
     )
@@ -88,9 +88,10 @@ export function materializeRefresh(
     ...players.map((id) => "p:" + id),
     ...games.map((id) => "g:" + id),
   ];
+  const keySet = new Set(keys);
   if (
     Object.keys(input.versions).length !== keys.length ||
-    Object.keys(input.values).some((key) => !keys.includes(key))
+    Object.keys(input.values).some((key) => !keySet.has(key))
   )
     throw new Error("Unexpected refreshed resources.");
   const versions: RefreshVersions = {},
