@@ -1,5 +1,32 @@
 # Scrabble Gym — local build status
 
+## October 8 accessibility repair candidate (not yet released)
+
+This candidate supersedes the September 24 motion defaults described below.
+Gym follows the device's reduced-motion preference, including live changes,
+unless the user explicitly chooses full or reduced motion. That choice is saved
+on the device when browser storage is available; “Use device motion setting”
+restores OS inheritance. A static first render, static Scarlett image and
+persistent invalid-placement outline keep feedback available without animation.
+If storage is blocked, explicit choices still work for the current visit.
+
+Legacy saved drafts remain accepted. An old `reducedMotion: true` restores the
+previous reduction choice only when no new motion preference exists. Legacy
+`false` also represented the old default, so it cannot override an OS reduction
+request. New drafts mark their effective value to prevent it being mistaken for
+a legacy explicit choice; a new full-motion or device-setting choice takes
+priority over legacy restoration.
+
+The board has one Tab entry/exit point. Arrow keys explore squares without
+placing tiles; Enter/Space retain selection and return-tile behavior. Tab moves
+to direction/rack controls, and returning to the board preserves the last
+focused square. Browser verification and independent review are tracked in the
+October 8 repair receipt; physical-device/screen-reader acceptance remains
+outstanding. Historical preview addresses and receipts below are not current
+cloud startup instructions.
+
+## Historical preview record
+
 September 24, 2026. Local branch `codex/scrabble-gym`, based on `65ddd4a6498752c7fcaae6f763c04a94fa26c4bd`. Implementation is authorized. This is the P1 review build, **not the completed first release**. No production migration, hosted deployment or real family-data change has occurred.
 
 ## Try the preview
@@ -110,6 +137,8 @@ Validation: production build, type checking, lint and formatting passed. Sevente
 ## Sixth feedback pass — September 24, 2026
 
 Live scoring strength now shows rising bars beside a legal draft's points. Maximum-scoring moves, including ties, get five bars, a brief sparkle and a lasting star. Expandable feedback gives competition rank among every legal placement, ties, total placement count and percentage of maximum. Checked ranks use the same placement-count semantics; the earlier distinct-score rank has been superseded. Strategy strength remains unavailable rather than receiving an invented rating.
+
+**Motion defaults below are historical and superseded by the October 8 candidate above.**
 
 Mixed-colour letters carry the valid word direction and flip their diagonal treatment accordingly. Settings offers live coaching (default on) and reduced motion (default off), both for the current visit. Gym's explicit setting controls setup, companion, shuffle, warning and sparkle animation. The global OS-motion rule now excludes Gym descendants; other game screens retain their prior behavior.
 

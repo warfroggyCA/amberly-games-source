@@ -21,6 +21,48 @@ const wire = (): SharedRefresh => ({
   nextCursor: null,
 });
 describe("private resource refresh protocol", () => {
+  it("accepts complete large rosters while retaining resource validation", () => {
+    const input = wire();
+    for (let i = 0; i < 1000; i++) {
+      const id = "extra-" + i;
+      input.playerIds.push(id);
+      input.versions["p:" + id] = "c".repeat(32);
+      input.values["p:" + id] = { id, name: "Extra" };
+    }
+    expect(
+      materializeRefresh(input, undefined, "user", "family", "").state.players,
+    ).toHaveLength(1001);
+    expect(() =>
+      materializeRefresh(
+        { ...input, playerIds: [...input.playerIds, "ada"] },
+        undefined,
+        "user",
+        "family",
+        "",
+      ),
+    ).toThrow();
+    expect(() =>
+      materializeRefresh(
+        { ...input, values: { ...input.values, "p:unexpected": {} } },
+        undefined,
+        "user",
+        "family",
+        "",
+      ),
+    ).toThrow();
+    expect(() =>
+      materializeRefresh(
+        {
+          ...input,
+          gameIds: Array.from({ length: 501 }, (_, i) => "game-" + i),
+        },
+        undefined,
+        "user",
+        "family",
+        "",
+      ),
+    ).toThrow();
+  });
   it("materializes full/unchanged snapshots without mutating cached values", () => {
     const initial = wire();
     const cold = materializeRefresh(initial, undefined, "user", "family", "");

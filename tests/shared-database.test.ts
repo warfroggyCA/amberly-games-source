@@ -7,7 +7,11 @@ import {
 import { gzipSync } from "node:zlib";
 import sharp from "sharp";
 import type { RefreshVersions } from "../src/lib/shared-refresh";
-import { materializeRefresh } from "../src/lib/shared-refresh";
+import {
+  materializeRefresh,
+  refreshHeader,
+  parseRefreshVersions,
+} from "../src/lib/shared-refresh";
 import { usageDatabaseCases } from "./usage-database-cases";
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
@@ -348,6 +352,88 @@ suite("isolated real PostgreSQL shared family repository", () => {
       for (const s of sockets) s.destroy();
       await new Promise<void>((resolve) => proxy.close(() => resolve()));
     }
+  }, 30000);
+
+  it("preserves complete roster visibility across batch boundaries, archived rows and concurrent onboarding", async () => {
+    const f = await fixture();
+    await owner`insert into scrabble.players(family_id,id,name) select ${f.familyId}::uuid,'bulk-'||n,'Same name' from generate_series(1,497) n`;
+    const assertRoster = async (count: number) => {
+      const full = await repository.readState(f.admin, f.familyId);
+      expect(full.players).toHaveLength(count);
+      const ordered =
+        await owner`select id from scrabble.players where family_id=${f.familyId}::uuid order by archived,lower(name),id`;
+      expect(full.players.map((p) => p.id)).toEqual(ordered.map((p) => p.id));
+      const refresh = await repository.readRefresh(f.admin, f.familyId, {});
+      const first = materializeRefresh(
+        refresh,
+        undefined,
+        f.admin.userId,
+        f.familyId,
+        "",
+      );
+      expect(first.state).toEqual(full);
+      // The bounded wire header omits most versions: those values must refetch.
+      const known = parseRefreshVersions(refreshHeader(refresh.versions));
+      const next = await repository.readRefresh(f.admin, f.familyId, known);
+      expect(
+        materializeRefresh(next, first.cache, f.admin.userId, f.familyId, "")
+          .state,
+      ).toEqual(full);
+    };
+    await assertRoster(499);
+    await f.mutate({
+      type: "create-player",
+      id: "sort-first",
+      profile: { name: "AAA" },
+    });
+    await assertRoster(500);
+    await f.mutate({
+      type: "create-player",
+      id: "sort-last",
+      profile: { name: "ZZZ" },
+    });
+    await assertRoster(501);
+    await f.mutate({
+      type: "archive-player",
+      id: "sort-first",
+      archived: true,
+      expectedRevision: 0,
+    });
+    await assertRoster(501);
+    const invited = actor("large-roster-new");
+    await f.mutate({ type: "invite-member", email: invited.email });
+    await repository.admit(invited, f.familyId, randomUUID());
+    const memberState = await repository.readState(invited, f.familyId);
+    await Promise.all([
+      f.mutate({
+        type: "create-player",
+        id: "concurrent",
+        profile: { name: "AAA" },
+      }),
+      f.mutate(
+        {
+          type: "complete-profile",
+          id: "onboarded",
+          expectedRevision: memberState.member.revision!,
+          expectedPlayerRevision: null,
+          profile: { name: "ZZZ" },
+        },
+        invited,
+      ),
+    ]);
+    await assertRoster(503);
+    expect(
+      (await repository.readState(invited, f.familyId)).member.playerId,
+    ).toBe("onboarded");
+    // Cross another full page, including equal sort names and archived rows.
+    await owner`insert into scrabble.players(family_id,id,name) select ${f.familyId}::uuid,'archived-'||n,'Same name' from generate_series(1,498) n`;
+    await owner.begin(async (tx) => {
+      await tx`select set_config('scrabble.actor_id',${f.admin.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
+      await tx`update scrabble.players set archived=true,revision=revision+1 where family_id=${f.familyId}::uuid and id like 'archived-%'`;
+    });
+    await assertRoster(1001);
+    const other = await fixture();
+    await code(repository.readState(other.admin, f.familyId), "NOT_A_MEMBER");
   }, 30000);
 
   it("refreshes only changed authorized resources within a consistent snapshot", async () => {

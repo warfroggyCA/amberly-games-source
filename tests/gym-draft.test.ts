@@ -63,6 +63,17 @@ describe("saved Gym input validation (puzzle trace is separately verified in wor
     expect(validGymDraft({ ...fixture(), version: 2 })).toBe(false);
     expect(validGymDraft(null)).toBe(false);
   });
+  it("accepts legacy motion snapshots and current markers, rejects malformed markers", () => {
+    expect(validGymDraft(fixture())).toBe(true);
+    expect(validGymDraft({ ...fixture(), reducedMotion: true })).toBe(true);
+    expect(validGymDraft({ ...fixture(), motionPreferenceVersion: 1 })).toBe(
+      true,
+    );
+    for (const marker of [null, false, "1", 2])
+      expect(
+        validGymDraft({ ...fixture(), motionPreferenceVersion: marker }),
+      ).toBe(false);
+  });
   it("separates local and signed-in profiles", () => {
     const owner = { userId: "u", familyId: "f", playerId: "p" };
     expect(gymDraftKey(owner)).not.toBe(gymDraftKey());

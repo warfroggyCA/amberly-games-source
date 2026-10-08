@@ -746,8 +746,8 @@ test("placement errors wiggle continuously with a reduced-motion alternative", a
   ).toHaveCount(0);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(warning.first().locator(".gym-tile")).toHaveCSS(
-    "animation-iteration-count",
-    "infinite",
+    "animation-name",
+    "none",
   );
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page
@@ -782,7 +782,7 @@ test("local game chooser opens Gym and Back to Games returns to it", async ({
   ).toBeVisible();
   await expect(page.locator(".gym-welcome img")).toHaveAttribute(
     "src",
-    "/gym/scarlett-lift.webp",
+    "/gym/scarlett-lift-still.png",
   );
   await page.getByRole("link", { name: "Back to Games", exact: true }).click();
   await expect(page).toHaveURL(/\/gym-lab\/games$/);

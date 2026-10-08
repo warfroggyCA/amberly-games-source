@@ -263,7 +263,18 @@ Live coaching is on by default. Every legal draft, including a single tile, gets
 
 Strategy remains separate and unavailable as a dependable live rating; do not invent bars from immediate score or uncalibrated leave heuristics. The existing experiment does not establish reliable strategic strength.
 
-Settings offers Live score coaching and Reduced motion for the current visit. Animations default on regardless of the system preference; only the explicit Gym setting suppresses them. Original game screens still follow their existing system-motion behavior. In the future saved-results system, record whether live coaching was exposed so aided and unaided attempts remain distinguishable.
+The September 24 preview used visit-local motion controls and ignored the OS
+preference. That behavior is superseded by the October 8 accessibility repair
+candidate (publication pending): Gym follows the device preference, with live
+updates, unless a saved explicit full/reduced-motion choice overrides it. “Use
+device motion setting” restores inheritance. Blocked storage keeps the choice
+for the current visit. Legacy drafts with reduction enabled restore that prior
+choice only absent a new preference; legacy false never disables an OS reduction
+request. New drafts distinguish effective motion values from legacy choices.
+Original game screens retain their existing system-motion behavior. Live score
+coaching remains separately controlled; saved results distinguish assisted and
+unassisted attempts. See the current candidate note in
+[scrabble-gym-build-status.md](scrabble-gym-build-status.md).
 
 Mixed letter ink follows the valid word's axis. For valid vertical BIRD crossing invalid horizontal ND, the D uses a top-left-to-bottom-right division with green toward the upper/right half and red toward the lower/left half. Reverse the treatment for a valid horizontal word. Per-word text remains authoritative for ambiguous multi-direction crossings.
 

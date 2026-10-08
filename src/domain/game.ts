@@ -1067,6 +1067,7 @@ function* gameCommandSteps(
   lexicon: Lexicon,
   context: CommandContext,
   legacyFinalization: boolean,
+  replayClockCompatibility = false,
 ): Generator<void, GameResult, void> {
   if (game.version !== GAME_VERSION)
     return fail(
@@ -1147,8 +1148,18 @@ function* gameCommandSteps(
   if (
     command.timedAt &&
     game.events.some(
-      (e) => e.command.timedAt && e.command.timedAt > command.timedAt!,
-    )
+      (e) =>
+        e.command.timedAt &&
+        Date.parse(e.command.timedAt) > Date.parse(command.timedAt!),
+    ) &&
+    // Unversioned historical journals used lexical ordering. Replay must retain
+    // actions accepted by either engine, without rewriting commands/fingerprints.
+    // Only internal hydration/correction may use this compatibility path; new
+    // commands always use instant ordering, including after a historical load.
+    (!replayClockCompatibility ||
+      game.events.some(
+        (e) => e.command.timedAt && e.command.timedAt > command.timedAt!,
+      ))
   )
     return fail(
       "CLOCK_MOVED_BACK",
@@ -1195,6 +1206,7 @@ function* gameCommandSteps(
         lexicon,
         context,
         false,
+        true,
       );
       yield;
       if (!rebuilt.ok)
@@ -1526,6 +1538,7 @@ function* hydrateValidatedGame(
       lexicon,
       context,
       legacyFinalization,
+      true,
     );
     if (!applied.ok)
       return fail(

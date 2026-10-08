@@ -104,7 +104,8 @@ export function recordBookGames(
       })),
   ].sort(
     (a, b) =>
-      b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id),
+      Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+      a.id.localeCompare(b.id),
   );
 }
 
