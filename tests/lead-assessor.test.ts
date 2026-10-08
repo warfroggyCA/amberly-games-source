@@ -314,3 +314,66 @@ it("changed canonical revisions replace warmed metrics using corrected effective
     result,
   );
 });
+
+it.each([undefined, null, {}, [null], [{ id: "a" }, null, { id: 7 }]])(
+  "malformed definition players remain an unavailable history, not a failed collection (%j)",
+  async (players) => {
+    const head = fixture("malformed-players");
+    head.definition = {
+      ...head.definition,
+      players: players as typeof head.definition.players,
+    };
+    head.state = { ...head.state, definition: head.definition };
+    const assess = createLeadAssessor();
+    const collection = createLeadCollection(
+      "malformed-family",
+      assess,
+      () => 0,
+    );
+    expect(() => collection.add(head, head.state.events)).not.toThrow();
+    expect(
+      await collection.finishCooperatively(async () => [head]),
+    ).toMatchObject({
+      completedGames: 1,
+      unavailableGames: 1,
+      eligibleGames: 0,
+    });
+    const warm = createLeadCollection("malformed-family", assess, () => 0);
+    warm.add(head, head.state.events);
+    expect(
+      await warm.finishCooperatively(async () => {
+        throw Error("Unavailable cache should be reused");
+      }),
+    ).toMatchObject({ unavailableGames: 1 });
+  },
+);
+
+it("missing or stale cold reloads fail without caching fabricated results", async () => {
+  for (const missing of [true, false]) {
+    const head = fixture("reload-guard");
+    const assess = createLeadAssessor();
+    const collection = createLeadCollection("reload-family", assess, () => 0);
+    collection.add(head, head.state.events);
+    await expect(
+      collection.finishCooperatively(async () =>
+        missing ? [] : [{ ...head, revision: head.revision + 1 }],
+      ),
+    ).rejects.toThrow("snapshot changed");
+    expect(assess("reload-family", head, head.state.events, true)).toBeNull();
+  }
+});
+
+it("abort during a cold reload cannot cache an unavailable assessment", async () => {
+  const head = fixture("reload-abort");
+  const assess = createLeadAssessor();
+  const collection = createLeadCollection("abort-family", assess, () => 0);
+  collection.add(head, head.state.events);
+  const controller = new AbortController();
+  await expect(
+    collection.finishCooperatively(async () => {
+      controller.abort();
+      return [head];
+    }, controller.signal),
+  ).rejects.toMatchObject({ name: "AbortError" });
+  expect(assess("abort-family", head, head.state.events, true)).toBeNull();
+});

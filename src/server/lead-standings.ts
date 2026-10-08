@@ -196,7 +196,11 @@ export function createLeadCollection(
         pending.push({
           gameId: head.game_id,
           revision: head.revision,
-          playerIds: head.definition.players.map((p) => p.id),
+          playerIds: Array.isArray(head.definition?.players)
+            ? head.definition.players
+                .filter((p) => p && typeof p.id === "string")
+                .map((p) => p.id)
+            : [],
           outcome: "pending",
         }); // Retain no heads/journals after this batch's canonical comparison.
     },
