@@ -1,3 +1,4 @@
+import { releasedFamilyLexicon } from "../src/lib/lexicons";
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { describe, expect, it } from "vitest";
@@ -22,10 +23,14 @@ export function gameSummaryDatabaseCases(
     emptyBag = false,
     competitive = false,
     catalog: string[] = [],
+    realLexicon = false,
+    mode: "confirmed" | "practice" = "confirmed",
   ) {
-    const reference = competitive
-      ? { ...testLexicon, status: "ready" as const }
-      : testLexicon;
+    const reference = realLexicon
+      ? releasedFamilyLexicon
+      : competitive
+        ? { ...testLexicon, status: "ready" as const }
+        : testLexicon;
     const repository = createSharedRepository(runtime, {
       defaultLexicon: reference,
       resolveLexicon: () => reference,
@@ -88,7 +93,7 @@ export function gameSummaryDatabaseCases(
     const created = await mutate({
       type: "create-game",
       id: randomUUID(),
-      mode: "confirmed",
+      mode,
       players: [
         { id: "alice", seat: 0 },
         { id: "bob", seat: 2 },
@@ -125,6 +130,7 @@ export function gameSummaryDatabaseCases(
       familyId,
       actor,
       command,
+      mutate,
       getGame: () => game,
       read: () => summary.read(actor, familyId),
     };
@@ -137,6 +143,169 @@ export function gameSummaryDatabaseCases(
       tile: { letter: letter as Letter, blank: false },
     }));
 
+  describe("authorized canonical lead standings", () => {
+    async function completed(mode: "confirmed" | "practice" = "confirmed") {
+      const f = await fixture(false, true, [], true, mode);
+      const first = await f.command({
+        type: "play",
+        placements: placements("CAT"),
+      });
+      await f.command({ type: "undo", reason: "Correct setup" });
+      await f.command({ type: "play", placements: placements("AT") });
+      for (let i = 0; i < 4; i++) await f.command({ type: "pass" });
+      await f.command({
+        type: "finalize",
+        reason: "blocked",
+        racks: { alice: rack("READING"), bob: rack("CATDOG?") },
+      });
+      return {
+        ...f,
+        original: first,
+        leads: () => summary.read(f.actor, f.familyId, { leadCounts: true }),
+      };
+    }
+    it("counts verified canonical history once, including undo, with no paginated/filter denominator", async () => {
+      const f = await completed();
+      const page = await f.leads();
+      expect(page.leadCounts).toMatchObject({
+        completedGames: 1,
+        eligibleGames: 1,
+        unavailableGames: 0,
+      });
+      expect(
+        page.leadCounts!.rows.find((r) => r.playerId === "alice"),
+      ).toMatchObject({
+        eligibleGames: 1,
+        eligibleTurns: 5,
+        turnsLed: 5,
+        leads: 1,
+      });
+      expect(
+        (
+          await summary.read(f.actor, f.familyId, {
+            leadCounts: true,
+            playerId: "bob",
+            gameType: "crokinole",
+          })
+        ).leadCounts,
+      ).toEqual(page.leadCounts);
+      expect((await f.leads()).leadCounts).toEqual(page.leadCounts);
+      expect((await f.read()).leadCounts).toBeUndefined();
+    });
+    it("does not count tampered same-revision projections as reliable history", async () => {
+      const f = await completed();
+      await f.leads();
+      await owner`update scrabble.game_heads set state=jsonb_set(state,'{events}','[]'::jsonb) where family_id=${f.familyId}::uuid`;
+      expect((await f.leads()).leadCounts).toMatchObject({
+        eligibleGames: 0,
+        unavailableGames: 1,
+      });
+    });
+    it("clears removed games and forbids a member after access revocation", async () => {
+      const f = await completed();
+      expect((await f.leads()).leadCounts!.eligibleGames).toBe(1);
+      await f.mutate({
+        type: "remove-game",
+        gameId: f.getGame().id,
+        expectedRevision: f.getGame().revision,
+        reason: "Remove test game",
+      });
+      expect((await f.leads()).leadCounts).toMatchObject({
+        completedGames: 0,
+        eligibleGames: 0,
+        rows: [],
+      });
+      await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
+      await expect(f.leads()).rejects.toMatchObject({ status: 403 });
+    });
+    it("manual full-history reads recheck old disputes even when the game revision is unchanged", async () => {
+      const f = await completed();
+      const initial = (await f.leads()).leadCounts!;
+      const game = f.getGame();
+      // The aggregate read is independent of the recent-game window and dates.
+      await owner`update scrabble.game_heads set updated_at='2000-01-01' where family_id=${f.familyId}::uuid`;
+      const reported = await f.mutate({
+        type: "report-protest",
+        gameId: game.id,
+        reason: "Review an old recorded score",
+        reportedFor: null,
+      });
+      expect((await f.leads()).leadCounts).toMatchObject({
+        completedGames: 1,
+        eligibleGames: 0,
+        excludedGames: 1,
+      });
+      await f.mutate({
+        type: "resolve-protest",
+        gameId: game.id,
+        protestId: reported.gameAccess!.protests[0].id,
+        outcome: "dismissed",
+        reason: "Original history confirmed",
+      });
+      expect((await f.leads()).leadCounts).toEqual(initial);
+      expect(f.getGame().revision).toBe(game.revision);
+    });
+    it("rejects old finalized edits and refuses mismatched newer heads instead of warmed totals", async () => {
+      const f = await completed();
+      const game = f.getGame();
+      const initial = (await f.leads()).leadCounts!;
+      await expect(
+        f.command({ type: "undo", reason: "Late undo" }),
+      ).rejects.toMatchObject({ code: "GAME_FINALIZED" });
+      await expect(
+        f.command({
+          type: "edit-turn",
+          turnId: game.turns[0].id,
+          placements: placements("CAT"),
+          reason: "Late correction",
+        }),
+      ).rejects.toMatchObject({ code: "GAME_FINALIZED" });
+      const changed = JSON.parse(JSON.stringify(game));
+      changed.revision++;
+      changed.scores.alice++;
+      await owner`update scrabble.game_heads set state=${owner.json(changed)},revision=${changed.revision},updated_at='2000-01-01' where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      expect((await f.leads()).leadCounts).toMatchObject({
+        eligibleGames: 0,
+        unavailableGames: 1,
+      });
+      await owner`update scrabble.game_heads set state=${owner.json(JSON.parse(JSON.stringify(game)))},revision=${game.revision} where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      expect((await f.leads()).leadCounts).toEqual(initial);
+    });
+    it("aborted authorized lead reads reject and leave subsequent reads usable", async () => {
+      const f = await completed();
+      await expect(
+        summary.read(f.actor, f.familyId, {
+          leadCounts: true,
+          signal: AbortSignal.abort(),
+        }),
+      ).rejects.toMatchObject({ name: "AbortError" });
+      expect((await f.leads()).leadCounts!.eligibleGames).toBe(1);
+    });
+    it("excludes practice even for its admin, and cannot read another family", async () => {
+      const f = await completed("practice");
+      expect((await f.leads()).leadCounts!.completedGames).toBe(0);
+      await expect(
+        summary.read(f.actor, randomUUID(), { leadCounts: true }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+    it("reports policy-excluded early games separately from unavailable journals", async () => {
+      const f = await fixture(false, true, [], true);
+      await f.command({
+        type: "finalize",
+        reason: "early",
+        racks: { alice: rack("READING"), bob: rack("CATDOG?") },
+      });
+      expect(
+        (await summary.read(f.actor, f.familyId, { leadCounts: true }))
+          .leadCounts,
+      ).toMatchObject({
+        completedGames: 1,
+        eligibleGames: 0,
+        excludedGames: 1,
+        unavailableGames: 0,
+      });
+    });
+  });
   describe("combined Scrabble history scores", () => {
     it("persists historical corrections with later plays and original audit", async () => {
       const f = await fixture();

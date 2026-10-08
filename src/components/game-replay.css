@@ -108,6 +108,70 @@
 .replay-note p {
   margin: 4px 0;
 }
+.lead-counts {
+  grid-column: 1 / -1;
+  text-align: left;
+  margin-block: 8px;
+  border: 1px solid #c8b99b;
+  border-radius: 10px;
+  background: #faf7ef;
+  color: #30281e;
+}
+.lead-counts summary {
+  cursor: pointer;
+  padding: 12px;
+  min-height: 44px;
+  font-weight: 700;
+}
+.lead-counts summary:focus-visible {
+  outline: 3px solid #426f64;
+  outline-offset: 2px;
+}
+.lead-counts-content {
+  max-height: min(55svh, 460px);
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.lead-counts h2,
+.lead-counts h3 {
+  font-size: 1rem;
+  margin-block: 8px;
+}
+.lead-counts article {
+  border-top: 1px solid #c8b99b;
+  padding-block: 8px;
+}
+.lead-counts dl {
+  margin-block: 8px;
+}
+.lead-counts dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lead-counts dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.lead-counts ol {
+  padding-left: 24px;
+}
+.lead-ending-note {
+  font-weight: 700;
+}
+@media (min-width: 601px) and (max-width: 899px) and (min-height: 551px) {
+  .app-shell.replay-shell:has(.lead-counts[open]) {
+    height: auto;
+  }
+  .app-shell.replay-shell:has(.lead-counts[open]) .spectator-game {
+    height: max(500px, calc(100svh - 230px));
+    flex: none;
+  }
+}
 .app-shell.replay-shell .spectator-game {
   height: auto;
   flex: 1;
@@ -162,7 +226,15 @@
   .replay-position,
   .replay-caption,
   .replay-note {
-    grid-column: 1 / -1;
+    grid-column: 1;
+  }
+  .replay-controls > .lead-counts {
+    grid-column: 2;
+    grid-row: 2 / 5;
+    align-self: start;
+    width: 240px;
+    max-width: 40vw;
+    margin: 0;
   }
   .app-shell.replay-shell {
     height: auto;

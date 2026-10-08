@@ -12,6 +12,7 @@ import type { SavedPlayer } from "../lib/preview-store";
 import { PlaybackClock } from "../lib/playback-clock";
 import { replayStepLabel } from "../lib/game-replay";
 import { SpectatorGame } from "./SpectatorGame";
+import { LeadCounts } from "./LeadCounts";
 import "./game-replay.css";
 
 /** A local viewer only: no store, command, draft, audio or network dependency. */
@@ -139,10 +140,13 @@ export function GameReplay({
         </button>
       </header>
       {!timeline || !frame || !before ? (
-        <p role="status">
-          Replay unavailable: this record has an incomplete or inconsistent
-          journal. Its saved history has not been changed.
-        </p>
+        <>
+          <p role="status">
+            Replay unavailable: this record has an incomplete or inconsistent
+            journal. Its saved history has not been changed.
+          </p>
+          <LeadCounts game={record} />
+        </>
       ) : (
         <>
           <section className="replay-controls" aria-label="Replay controls">
@@ -224,6 +228,7 @@ export function GameReplay({
                 Rack draws and exchanged letters are not shown.
               </p>
             </details>
+            <LeadCounts game={record} />
           </section>
           <SpectatorGame
             game={frame}

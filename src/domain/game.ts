@@ -1050,6 +1050,24 @@ function applyGameCommand(
   context: CommandContext,
   legacyFinalization: boolean,
 ): GameResult {
+  const steps = gameCommandSteps(
+    game,
+    command,
+    lexicon,
+    context,
+    legacyFinalization,
+  );
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+function* gameCommandSteps(
+  game: GameState,
+  command: GameCommand,
+  lexicon: Lexicon,
+  context: CommandContext,
+  legacyFinalization: boolean,
+): Generator<void, GameResult, void> {
   if (game.version !== GAME_VERSION)
     return fail(
       "UNSUPPORTED_VERSION",
@@ -1165,13 +1183,20 @@ function applyGameCommand(
     placements.set(command.turnId, command.placements);
     for (const priorEvent of game.events) {
       if (priorEvent.command.type === "edit-turn") continue;
-      const replayCommand = {
+      const replayCommand: GameCommand = {
         ...priorEvent.command,
         expectedRevision: rebuilt.game.revision,
       };
       if (replayCommand.type === "play" && placements.has(replayCommand.id))
         replayCommand.placements = placements.get(replayCommand.id)!;
-      rebuilt = applyCommand(rebuilt.game, replayCommand, lexicon, context);
+      rebuilt = yield* gameCommandSteps(
+        rebuilt.game,
+        replayCommand,
+        lexicon,
+        context,
+        false,
+      );
+      yield;
       if (!rebuilt.ok)
         return fail(
           "EDIT_CONFLICT",
@@ -1415,8 +1440,42 @@ export function hydrateGame(
   lexicon: Lexicon,
   context: CommandContext = {},
 ): GameResult {
+  const steps = hydrationSteps(value, lexicon, context);
+  let step = steps.next();
+  while (!step.done) step = steps.next();
+  return step.value;
+}
+/** Same verification as hydrateGame, with caller-owned scheduling/cancellation.
+ * Yields between commands; never exposes an unverified intermediate projection.
+ */
+export async function hydrateGameCooperatively(
+  value: unknown,
+  lexicon: Lexicon,
+  yieldControl: () => Promise<void>,
+  context: CommandContext = {},
+): Promise<GameResult> {
+  const steps = hydrationSteps(value, lexicon, context);
+  await yieldControl();
+  let deadline = performance.now() + 12;
+  let step = steps.next();
+  while (!step.done) {
+    if (performance.now() >= deadline) {
+      await yieldControl();
+      deadline = performance.now() + 12;
+    }
+    step = steps.next();
+  }
+  // Cancellation after final comparison must not return/cache a successful result.
+  await yieldControl();
+  return step.value;
+}
+function* hydrationSteps(
+  value: unknown,
+  lexicon: Lexicon,
+  context: CommandContext,
+): Generator<void, GameResult, void> {
   try {
-    return hydrateValidatedGame(value, lexicon, context);
+    return yield* hydrateValidatedGame(value, lexicon, context);
   } catch {
     return fail(
       "INVALID_SAVED_GAME",
@@ -1424,11 +1483,11 @@ export function hydrateGame(
     );
   }
 }
-function hydrateValidatedGame(
+function* hydrateValidatedGame(
   value: unknown,
   lexicon: Lexicon,
   context: CommandContext,
-): GameResult {
+): Generator<void, GameResult, void> {
   if (
     !isRecord(value) ||
     value.version !== GAME_VERSION ||
@@ -1461,7 +1520,7 @@ function hydrateValidatedGame(
       stored.command.type === "finalize" &&
       isRecord(stored.result) &&
       !Object.hasOwn(stored.result, "eligibilityPolicy");
-    const applied = applyGameCommand(
+    const applied: GameResult = yield* gameCommandSteps(
       restored.game,
       stored.command as GameCommand,
       lexicon,
@@ -1486,6 +1545,7 @@ function hydrateValidatedGame(
       );
     }
     restored = applied;
+    yield;
   }
   try {
     if (canonical(restored.game) !== canonical(value))

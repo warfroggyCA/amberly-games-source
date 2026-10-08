@@ -415,3 +415,8 @@
   min-height: 44px;
   margin-right: 8px;
 }
+
+.hub-standings-button {
+  min-width: 44px;
+  min-height: 44px;
+}
