@@ -2237,6 +2237,89 @@ suite("isolated real PostgreSQL shared family repository", () => {
       await owner`drop function scrabble.test_fail_projection()`;
     }
   });
+  it("stores bounded game references and reads legacy and compact receipts together", async () => {
+    const f = await fixture();
+    const op: SharedOperation = {
+      type: "create-game",
+      id: "compact-game",
+      mode: "practice",
+      players: [{ id: "ada", seat: 0 }],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    };
+    const requestId = randomUUID();
+    const initial = await f.mutate(op, f.admin, requestId);
+    const [stored] =
+      await owner`select fingerprint,response from scrabble.requests where family_id=${f.familyId}::uuid and request_id=${requestId}`;
+    expect(stored.response).toEqual({ game: { id: op.id, receiptVersion: 1 } });
+    const legacyId = randomUUID();
+    await owner`insert into scrabble.requests(family_id,actor_id,request_id,fingerprint,response) values(${f.familyId}::uuid,${f.admin.userId}::uuid,${legacyId},${stored.fingerprint},${owner.json(JSON.parse(JSON.stringify(initial)))})`;
+    const minimalLegacyId = randomUUID();
+    await owner`insert into scrabble.requests(family_id,actor_id,request_id,fingerprint,response) values(${f.familyId}::uuid,${f.admin.userId}::uuid,${minimalLegacyId},${stored.fingerprint},${owner.json({ game: { id: op.id } })})`;
+    const unsupportedId = randomUUID();
+    await owner`insert into scrabble.requests(family_id,actor_id,request_id,fingerprint,response) values(${f.familyId}::uuid,${f.admin.userId}::uuid,${unsupportedId},${stored.fingerprint},${owner.json({ game: { id: op.id, receiptVersion: 2 } })})`;
+    await expect(f.mutate(op, f.admin, unsupportedId)).rejects.toMatchObject({
+      code: "INVALID_RECEIPT",
+      status: 409,
+    });
+    expect(
+      (await repository.readState(f.admin, f.familyId)).games[0].revision,
+    ).toBe(0);
+    let game = initial.game!;
+    for (let i = 0; i < 100; i++) {
+      const result = await f.mutate({
+        type: "game-commands",
+        gameId: game.id,
+        deviceId: "device-a",
+        generation: 1,
+        commands: [
+          {
+            type: i % 2 ? "resume" : "pause",
+            id: `clock-${i}`,
+            expectedRevision: game.revision,
+          },
+        ],
+      });
+      game = result.game!;
+      if ([19, 49, 99].includes(i)) {
+        const receipts =
+          await owner`select response from scrabble.requests where family_id=${f.familyId}::uuid and response->'game'->>'receiptVersion'='1'`;
+        const sizes = receipts.map((r) =>
+          Buffer.byteLength(JSON.stringify(r.response)),
+        );
+        expect(sizes).toHaveLength(i + 2);
+        expect(Math.max(...sizes)).toBeLessThanOrEqual(512);
+        for (const r of receipts)
+          expect(Object.keys(r.response.game).sort()).toEqual([
+            "id",
+            "receiptVersion",
+          ]);
+        console.log(
+          "COMPACT_RECEIPT_BYTES",
+          JSON.stringify({
+            events: i + 1,
+            receipts: sizes.length,
+            total: sizes.reduce((a, b) => a + b, 0),
+            max: Math.max(...sizes),
+          }),
+        );
+      }
+    }
+    const restarted = createSharedRepository(runtime, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+    });
+    for (const id of [requestId, legacyId, minimalLegacyId]) {
+      const retried = await restarted.mutate(f.admin, f.familyId, {
+        requestId: id,
+        operation: op,
+      });
+      expect(retried.game).toEqual(game);
+      expect(retried.replayed).toBe(true);
+      expect(retried.game).not.toHaveProperty("receiptVersion");
+    }
+  });
   it("makes concurrent duplicate retries exactly one game, rejects reused IDs", async () => {
     const f = await fixture();
     const requestId = randomUUID();
@@ -2739,7 +2822,12 @@ suite("isolated real PostgreSQL shared family repository", () => {
     };
     const verified = await f.mutate(operation, f.admin, requestId);
     expect(verified.game!.verifiedWords?.[0].word).toBe("ZZTEST");
-    await f.mutate(operation, f.admin, requestId);
+    const retried = await f.mutate(operation, f.admin, requestId);
+    expect(retried.verifiedWords).toEqual(verified.verifiedWords);
+    const [receipt] =
+      await owner`select response from scrabble.requests where family_id=${f.familyId}::uuid and request_id=${requestId}`;
+    expect(receipt.response.verifiedWords).toEqual(verified.verifiedWords);
+    expect(receipt.response.game).toEqual({ id: game.id, receiptVersion: 1 });
     expect(verifierCalls - calls).toBe(1);
     const newGame = await f.create();
     expect(newGame.game!.verifiedWords?.[0].word).toBe("ZZTEST");

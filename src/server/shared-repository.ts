@@ -64,6 +64,21 @@ import {
   type LiveDraftInput,
 } from "../lib/live-draft";
 
+// Stored game acknowledgements deliberately omit the growing journal and access
+// snapshot. Retries have always reconstructed current canonical state/access.
+type GameReceipt = Omit<SharedMutationResult, "game" | "gameAccess"> & {
+  game: { id: string; receiptVersion: 1 };
+};
+type StoredReceipt = SharedMutationResult | GameReceipt;
+function storedReceipt(result: SharedMutationResult): StoredReceipt {
+  const { game, ...acknowledgement } = result;
+  if (!game) return result;
+  delete acknowledgement.gameAccess;
+  // Keep the legacy reference location: older readers use only game.id and
+  // replace game/access before returning. The nested version never leaks.
+  return { ...acknowledgement, game: { id: game.id, receiptVersion: 1 } };
+}
+
 type Tx = postgres.TransactionSql;
 // One complete roster is required by selection, archive management and refresh.
 // Page SQL reads in the caller's authorized repeatable-read snapshot; never silently
@@ -1979,7 +1994,7 @@ export function createSharedRepository(
                 409,
               );
             return {
-              response: request.response as SharedMutationResult,
+              response: request.response as StoredReceipt,
               cached: new Map<string, VerifiedWord>(),
             };
           }
@@ -2032,19 +2047,26 @@ export function createSharedRepository(
             "This request ID was already used for different content.",
             409,
           );
-        const response = prior.response as SharedMutationResult;
+        const receipt = prior.response as StoredReceipt;
+        const { game: recordedGame, ...response } = receipt;
+        if (
+          recordedGame &&
+          "receiptVersion" in recordedGame &&
+          recordedGame.receiptVersion !== 1
+        )
+          reject(
+            "INVALID_RECEIPT",
+            "This request receipt requires a newer reader.",
+            409,
+          );
+        const gameId = recordedGame?.id;
         // A committed request may be acknowledged after the scorer changes. Return
         // current state/permissions so retry recovery cannot restore the former scorer.
-        if (response.game) {
+        if (gameId) {
           const removed =
-            await tx`select 1 from scrabble.game_removals where family_id=${familyId}::uuid and game_id=${response.game.id}`;
-          if (removed.length)
-            return { removedGameId: response.game.id, replayed: true };
-          const { row, game } = await checkedGame(
-            tx,
-            familyId,
-            response.game.id,
-          );
+            await tx`select 1 from scrabble.game_removals where family_id=${familyId}::uuid and game_id=${gameId}`;
+          if (removed.length) return { removedGameId: gameId, replayed: true };
+          const { row, game } = await checkedGame(tx, familyId, gameId);
           return {
             ...response,
             game,
@@ -2100,7 +2122,7 @@ export function createSharedRepository(
         deferred,
       );
       // Record retry identity before any deferred self-revocation removes insert access.
-      await tx`insert into scrabble.requests(family_id,actor_id,request_id,fingerprint,response) values(${familyId}::uuid,${actor.userId}::uuid,${input.requestId},${hash},${json(tx, result)})`;
+      await tx`insert into scrabble.requests(family_id,actor_id,request_id,fingerprint,response) values(${familyId}::uuid,${actor.userId}::uuid,${input.requestId},${hash},${json(tx, storedReceipt(result))})`;
       for (const finish of deferred) await finish();
       return result;
     });
