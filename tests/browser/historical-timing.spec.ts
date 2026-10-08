@@ -36,6 +36,12 @@ test("historical clock uncertainty preserves the spectator board, scores and tur
     page.getByRole("region", { name: "Live game viewer" }),
   ).toBeVisible();
   await expect(page.locator(".spectator-game-clock")).toContainText(
+    "Timing unavailable",
+  );
+  await expect(
+    page.locator(".spectator-game-clock .game-clock"),
+  ).toHaveAttribute(
+    "title",
     "Timing unavailable: recorded timestamps are incomplete or inconsistent.",
   );
   await expect(page.getByLabel("Current turn elapsed time")).toHaveCount(0);

@@ -28,7 +28,11 @@ export function GameClock({
 }) {
   const timing = useTiming(game);
   if (!timing.reliable) {
-    return <span className="game-clock">{TIMING_UNAVAILABLE}</span>;
+    return (
+      <span className="game-clock" title={TIMING_UNAVAILABLE}>
+        Timing unavailable
+      </span>
+    );
   }
   return timing.started ? (
     <span className="game-clock" aria-label="Total game time">
@@ -52,7 +56,11 @@ export function TurnClock({
   const timing = useTiming(game);
   if (game.status === "finalized") return null;
   if (!timing.reliable) {
-    return <span className="turn-clock">{TIMING_UNAVAILABLE}</span>;
+    return (
+      <span className="turn-clock" title={TIMING_UNAVAILABLE}>
+        Timing unavailable
+      </span>
+    );
   }
   return timing.started ? (
     <span className="turn-clock" aria-label="Current turn elapsed time">
@@ -157,7 +165,11 @@ export function PlayerElapsedTime({
   const timing = turnTiming(game, now);
   if (!timing.started) return null;
   if (!timing.reliable) {
-    return <small className="player-elapsed">{TIMING_UNAVAILABLE}</small>;
+    return (
+      <small className="player-elapsed" title={TIMING_UNAVAILABLE}>
+        Timing unavailable
+      </small>
+    );
   }
   const total =
     game.turns
