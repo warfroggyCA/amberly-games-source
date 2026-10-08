@@ -83,7 +83,7 @@ it("retains progress across 65-game snapshots instead of evicting individual sum
   const run = () => {
     const collection = createLeadCollection("family", assess, () => 0);
     heads.forEach((h) => collection.add(h, h.state.events));
-    return collection.finish();
+    return collection.finish((id) => heads.find((h) => h.game_id === id)!);
   };
   expect(run().eligibleGames).toBe(65);
   expect(coldCalls).toBe(65);
@@ -99,7 +99,9 @@ it("reports deferred verification separately and continues from verified summari
     calls++ < 2 ? 0 : 1001,
   );
   heads.forEach((h) => first.add(h, h.state.events));
-  expect(first.finish()).toMatchObject({
+  expect(
+    first.finish((id) => heads.find((h) => h.game_id === id)!),
+  ).toMatchObject({
     completedGames: 3,
     eligibleGames: 1,
     pendingGames: 2,
@@ -107,7 +109,7 @@ it("reports deferred verification separately and continues from verified summari
   });
   const second = createLeadCollection("family", assess, () => 0);
   heads.forEach((h) => second.add(h, h.state.events));
-  const all = second.finish();
+  const all = second.finish((id) => heads.find((h) => h.game_id === id)!);
   expect(all).toMatchObject({
     completedGames: 3,
     eligibleGames: 3,
@@ -140,14 +142,18 @@ it("an unchanged invalid journal cannot starve later verification, and changed e
     clock++ < 2 ? 0 : 1001,
   );
   for (const h of [bad, good]) first.add(h, h.state.events);
-  expect(first.finish()).toMatchObject({
+  expect(
+    first.finish((id) => [bad, good].find((h) => h.game_id === id)!),
+  ).toMatchObject({
     unavailableGames: 1,
     pendingGames: 1,
     eligibleGames: 0,
   });
   const next = createLeadCollection("family", assess, () => 0);
   for (const h of [bad, good]) next.add(h, h.state.events);
-  expect(next.finish()).toMatchObject({
+  expect(
+    next.finish((id) => [bad, good].find((h) => h.game_id === id)!),
+  ).toMatchObject({
     unavailableGames: 1,
     pendingGames: 0,
     eligibleGames: 1,
@@ -170,14 +176,18 @@ it("an unavailable bundled dictionary cannot starve the next known-version game"
     clock++ < 2 ? 0 : 1001,
   );
   for (const h of [bad, good]) first.add(h, h.state.events);
-  expect(first.finish()).toMatchObject({
+  expect(
+    first.finish((id) => [bad, good].find((h) => h.game_id === id)!),
+  ).toMatchObject({
     unavailableGames: 1,
     pendingGames: 1,
     eligibleGames: 0,
   });
   const next = createLeadCollection("family", assess, () => 0);
   for (const h of [bad, good]) next.add(h, h.state.events);
-  expect(next.finish()).toMatchObject({
+  expect(
+    next.finish((id) => [bad, good].find((h) => h.game_id === id)!),
+  ).toMatchObject({
     unavailableGames: 1,
     pendingGames: 0,
     eligibleGames: 1,
@@ -214,23 +224,33 @@ it("cooperative collection preserves coverage and rejects aborted warm reads", a
   const heads = [fixture("first"), fixture("second")];
   let calls = 0;
   const partial = createLeadCollection("family", assess, () =>
-    calls++ < 2 ? 0 : 1001,
+    calls++ < 5 ? 0 : 1001,
   );
   heads.forEach((h) => partial.add(h, h.state.events));
-  expect(await partial.finishCooperatively()).toMatchObject({
+  expect(
+    await partial.finishCooperatively(async (ids) =>
+      heads.filter((h) => ids.includes(h.game_id)),
+    ),
+  ).toMatchObject({
     eligibleGames: 1,
     pendingGames: 1,
   });
   const all = createLeadCollection("family", assess, () => 0);
   heads.forEach((h) => all.add(h, h.state.events));
-  expect(await all.finishCooperatively()).toMatchObject({
+  expect(
+    await all.finishCooperatively(async (ids) =>
+      heads.filter((h) => ids.includes(h.game_id)),
+    ),
+  ).toMatchObject({
     eligibleGames: 2,
     pendingGames: 0,
   });
   const cached = createLeadCollection("family", assess, () => 0);
   heads.forEach((h) => cached.add(h, h.state.events));
   await expect(
-    cached.finishCooperatively(AbortSignal.abort()),
+    cached.finishCooperatively(async () => {
+      throw Error("Unexpected reload");
+    }, AbortSignal.abort()),
   ).rejects.toMatchObject({ name: "AbortError" });
 });
 
