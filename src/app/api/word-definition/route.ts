@@ -1,3 +1,4 @@
+import { reportFailure } from "../../../server/diagnostics";
 import { normalizeOfficialWord } from "../../../lib/official-word";
 import { lookupLocalDefinition } from "../../../lib/word-definition-server";
 
@@ -20,10 +21,18 @@ export async function GET(request: Request): Promise<Response> {
   }
   try {
     return Response.json(await lookupLocalDefinition(word), { headers });
-  } catch {
+  } catch (error) {
+    const incidentId = reportFailure("definition", error);
     return Response.json(
       { error: "The local definition could not be loaded." },
-      { status: 503, headers: { ...headers, "Cache-Control": "no-store" } },
+      {
+        status: 503,
+        headers: {
+          ...headers,
+          "Cache-Control": "no-store",
+          "X-Incident-Id": incidentId,
+        },
+      },
     );
   }
 }

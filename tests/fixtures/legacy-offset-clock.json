@@ -1,0 +1,452 @@
+{
+  "version": "family-v1.0.0",
+  "definition": {
+    "id": "historical-offset",
+    "players": [
+      {
+        "id": "a",
+        "name": "A",
+        "seat": 0
+      },
+      {
+        "id": "b",
+        "name": "B",
+        "seat": 2
+      }
+    ],
+    "firstPlayerId": "a",
+    "direction": "clockwise",
+    "lexicon": {
+      "id": "fixture",
+      "edition": "1",
+      "status": "test"
+    },
+    "createdAt": "2026-10-08T00:00:00.000Z"
+  },
+  "id": "historical-offset",
+  "players": [
+    {
+      "id": "a",
+      "name": "A",
+      "seat": 0
+    },
+    {
+      "id": "b",
+      "name": "B",
+      "seat": 2
+    }
+  ],
+  "order": ["a", "b"],
+  "currentPlayerId": "b",
+  "direction": "clockwise",
+  "mode": "multiplayer",
+  "lexicon": {
+    "id": "fixture",
+    "edition": "1",
+    "status": "test"
+  },
+  "board": [
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "letter": "A",
+        "blank": false
+      },
+      {
+        "letter": "T",
+        "blank": false
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "scores": {
+    "a": 4,
+    "b": 0
+  },
+  "turns": [
+    {
+      "id": "play",
+      "number": 1,
+      "round": 1,
+      "type": "play",
+      "playerId": "a",
+      "score": 4,
+      "words": [
+        {
+          "word": "AT",
+          "score": 4,
+          "row": 7,
+          "col": 7,
+          "direction": "across"
+        }
+      ],
+      "source": "human",
+      "placements": [
+        {
+          "row": 7,
+          "col": 7,
+          "tile": {
+            "letter": "A",
+            "blank": false
+          }
+        },
+        {
+          "row": 7,
+          "col": 8,
+          "tile": {
+            "letter": "T",
+            "blank": false
+          }
+        }
+      ],
+      "bingo": false,
+      "newTileCount": 2,
+      "runningScores": {
+        "a": 4,
+        "b": 0
+      }
+    }
+  ],
+  "events": [
+    {
+      "sequence": 1,
+      "command": {
+        "id": "start",
+        "expectedRevision": 0,
+        "type": "start-clock",
+        "timedAt": "2026-10-08T10:00:00Z"
+      },
+      "fingerprint": "{\"expectedRevision\":0,\"id\":\"start\",\"timedAt\":\"2026-10-08T10:00:00Z\",\"type\":\"start-clock\"}"
+    },
+    {
+      "sequence": 2,
+      "command": {
+        "id": "play",
+        "expectedRevision": 1,
+        "type": "play",
+        "timedAt": "2026-10-08T11:00:00+02:00",
+        "placements": [
+          {
+            "row": 7,
+            "col": 7,
+            "tile": {
+              "letter": "A",
+              "blank": false
+            }
+          },
+          {
+            "row": 7,
+            "col": 8,
+            "tile": {
+              "letter": "T",
+              "blank": false
+            }
+          }
+        ]
+      },
+      "fingerprint": "{\"expectedRevision\":1,\"id\":\"play\",\"placements\":[{\"col\":7,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"A\"}},{\"col\":8,\"row\":7,\"tile\":{\"blank\":false,\"letter\":\"T\"}}],\"timedAt\":\"2026-10-08T11:00:00+02:00\",\"type\":\"play\"}",
+      "turn": {
+        "id": "play",
+        "number": 1,
+        "round": 1,
+        "type": "play",
+        "playerId": "a",
+        "score": 4,
+        "words": [
+          {
+            "word": "AT",
+            "score": 4,
+            "row": 7,
+            "col": 7,
+            "direction": "across"
+          }
+        ],
+        "source": "human",
+        "placements": [
+          {
+            "row": 7,
+            "col": 7,
+            "tile": {
+              "letter": "A",
+              "blank": false
+            }
+          },
+          {
+            "row": 7,
+            "col": 8,
+            "tile": {
+              "letter": "T",
+              "blank": false
+            }
+          }
+        ],
+        "bingo": false,
+        "newTileCount": 2,
+        "runningScores": {
+          "a": 4,
+          "b": 0
+        }
+      }
+    }
+  ],
+  "revision": 2,
+  "status": "active",
+  "expectedRackCounts": {
+    "a": 7,
+    "b": 7
+  },
+  "expectedBagCount": 84,
+  "consecutivePasses": 0,
+  "pendingEnd": null,
+  "assistance": null,
+  "result": null
+}

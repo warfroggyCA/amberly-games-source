@@ -1,5 +1,10 @@
+import {
+  createCrokinoleGame,
+  applyCrokinoleCommand,
+} from "../src/domain/crokinole";
 import { expect, it } from "vitest";
 import {
+  recordBookGames,
   bookHighlights,
   bookRivalry,
   type BookGame,
@@ -60,4 +65,74 @@ it("keeps the entire result crown above portraits at single, paired and four-win
     expect(box.y + box.height).toBeLessThan(584 - radius - 5);
     expect(box.x + box.width / 2).toBe(540);
   }
+});
+
+it("orders confirmed games by instant, with deterministic ties, preserving timestamp bytes", () => {
+  const make = (id: string, createdAt: string) => {
+    const created = createCrokinoleGame({
+      schemaVersion: 1,
+      rulesVersion: 1,
+      id,
+      familyId: "f",
+      mode: "confirmed",
+      createdAt,
+      players: [
+        { id: "a", name: "A", seatOrder: 0 },
+        { id: "b", name: "B", seatOrder: 1 },
+      ],
+      participants: [
+        {
+          id: "a",
+          name: "A",
+          playerIds: ["a"],
+          colour: { id: "red", name: "Red", value: "#ff0000" },
+        },
+        {
+          id: "b",
+          name: "B",
+          playerIds: ["b"],
+          colour: { id: "blue", name: "Blue", value: "#0000ff" },
+        },
+      ],
+      format: "singles",
+      scoringMode: "cumulative_round_totals",
+      endCondition: { type: "fixed_rounds", rounds: 1 },
+      initialStartingPlayerId: "a",
+    });
+    return applyCrokinoleCommand(created, {
+      id: "round-command",
+      expectedRevision: 0,
+      type: "record_round",
+      roundId: "round",
+      entries: [
+        { participantId: "a", rawScore: 5 },
+        { participantId: "b", rawScore: 0 },
+      ],
+    });
+  };
+  const earlier = make("earlier", "2026-10-08T12:00:00+02:00");
+  const later = make("later", "2026-10-08T10:30:00Z");
+  const tied = make("a-tie", "2026-10-08T12:30:00.000+02:00");
+  const games = [earlier, later, tied];
+  const before = JSON.stringify(games);
+  const access = Object.fromEntries(
+    games.map((g) => [
+      g.definition.id,
+      {
+        mode: "confirmed" as const,
+        concerns: [],
+        scorerUserId: "scorer",
+        generation: 1,
+        canScore: false,
+      },
+    ]),
+  );
+  expect(
+    recordBookGames([], {}, games, access).map((g) => [g.id, g.createdAt]),
+  ).toEqual([
+    ["a-tie", "2026-10-08T12:30:00.000+02:00"],
+    ["later", "2026-10-08T10:30:00Z"],
+    ["earlier", "2026-10-08T12:00:00+02:00"],
+  ]);
+  expect(JSON.stringify(games)).toBe(before);
 });

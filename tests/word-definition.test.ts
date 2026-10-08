@@ -116,16 +116,33 @@ describe("local word meanings", () => {
 
 describe("word definition route", () => {
   it("reports a source-loading failure separately from a missing definition", async () => {
+    const diagnostic = vi.spyOn(console, "error").mockImplementation(() => {});
     const lookup = vi
       .spyOn(definitionServer, "lookupLocalDefinition")
-      .mockRejectedValueOnce(new Error("Unavailable asset"));
+      .mockRejectedValueOnce(
+        new Error("private asset path /secret/TON with token"),
+      );
     try {
       const response = await GET(request("?word=TON"));
       expect(response.status).toBe(503);
       expect(response.headers.get("Cache-Control")).toBe("no-store");
-      expect(await response.json()).toHaveProperty("error");
+      expect(await response.json()).toEqual({
+        error: "The local definition could not be loaded.",
+      });
+      const incidentId = response.headers.get("X-Incident-Id");
+      expect(incidentId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(diagnostic).toHaveBeenCalledTimes(1);
+      const logged = JSON.parse(diagnostic.mock.calls[0][0]);
+      expect(logged).toEqual({
+        event: "amberly.failure",
+        incidentId,
+        area: "definition",
+        at: expect.any(String),
+      });
+      expect(JSON.stringify(logged)).not.toMatch(/private|secret|TON|token/);
     } finally {
       lookup.mockRestore();
+      diagnostic.mockRestore();
     }
   });
   it("returns only a selected word and bounded related meanings", async () => {
