@@ -42,6 +42,50 @@ jobs:
       - run: node scripts/check-secrets.mjs
       - run: npm ci
       - run: npm audit --omit=dev --audit-level=high
+      - name: Report full dependency audit (SEC-1 remains pending)
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'NODE'
+          import { spawnSync } from 'node:child_process';
+          import { mkdirSync, writeFileSync, appendFileSync } from 'node:fs';
+          const result = spawnSync('npm', ['audit', '--json', '--audit-level=high'], {
+            encoding: 'utf8', timeout: 120000, maxBuffer: 8 * 1024 * 1024,
+          });
+          let audit;
+          try { audit = JSON.parse(result.stdout); } catch {}
+          const complete = Boolean(audit?.metadata?.vulnerabilities && !audit.error);
+          const report = {
+            reportOnly: true,
+            pendingFinding: 'SEC-1: braces <=3.0.3 has no published compatible fix; this report does not accept that risk.',
+            complete,
+            exitCode: result.status,
+            counts: complete ? audit.metadata.vulnerabilities : null,
+            vulnerabilities: complete ? Object.values(audit.vulnerabilities ?? {}).map((item) => ({
+              name: item.name, severity: item.severity, range: item.range,
+              direct: item.isDirect,
+              via: item.via.map((via) => typeof via === 'string' ? via : {
+                name: via.name, title: via.title, url: via.url, range: via.range,
+              }),
+            })) : [],
+          };
+          mkdirSync('output/dependency-audit', { recursive: true });
+          writeFileSync('output/dependency-audit/report.json', JSON.stringify(report, null, 2) + '\n');
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '### Full dependency audit — report only\n\n' +
+            (complete ? JSON.stringify(report.counts) : 'Audit could not complete.') +
+            '\n\nSEC-1 remains pending. This step does not waive advisories; the production audit remains blocking.\n');
+          if (!complete || result.status !== 0) {
+            console.log('::warning::Full dependency audit is not clear. Review the retained report; SEC-1 remains pending.');
+            process.exit(1);
+          }
+          NODE
+      - name: Retain full dependency audit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: full-dependency-audit
+          path: output/dependency-audit/report.json
+          retention-days: 14
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
