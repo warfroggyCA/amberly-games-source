@@ -227,6 +227,18 @@ function isDenseArray(value: unknown): value is unknown[] {
   return true;
 }
 const copy = <T>(value: T): T => structuredClone(value);
+// Only privately cloned, recursively frozen events may be shared between
+// projections. A caller's frozen outer object is not proof of nested immutability.
+// Weak ownership avoids retaining journals after their games are released.
+const ownedEvents = new WeakSet<GameEvent>();
+function copyEvents(events: GameEvent[]): GameEvent[] {
+  return events.map((event) => {
+    if (ownedEvents.has(event)) return event;
+    const owned = freeze(copy(event));
+    ownedEvents.add(owned);
+    return owned;
+  });
+}
 function freeze<T>(value: T): T {
   if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
     Object.values(value).forEach(freeze);
@@ -529,7 +541,7 @@ function project(
       game.status = "finalized";
     }
   }
-  game.events = copy(events);
+  game.events = copyEvents(events);
   game.revision = events.length;
   return game;
 }
