@@ -87,7 +87,11 @@ jobs:
           path: output/dependency-audit/report.json
           retention-days: 14
       - run: npm run format:check
-      - run: npm run lint
+      - name: Lint with bounded CI resources
+        timeout-minutes: 3
+        run: |
+          ulimit -c 0
+          node scripts/lint-ci.mjs
       - run: npm run typecheck
       - run: npm test
       - name: Database transactions, authorization and restore rehearsal
