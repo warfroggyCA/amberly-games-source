@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import type { GameState } from "../domain/game";
 import { formatDuration, turnTiming, type TimedGame } from "../lib/turn-timing";
 
+const TIMING_UNAVAILABLE =
+  "Timing unavailable: recorded timestamps are incomplete or inconsistent.";
+
 function useTiming(game: TimedGame) {
   const [now, setNow] = useState(0);
   useEffect(() => {
@@ -24,6 +27,9 @@ export function GameClock({
   onStart?: () => void;
 }) {
   const timing = useTiming(game);
+  if (!timing.reliable) {
+    return <span className="game-clock">{TIMING_UNAVAILABLE}</span>;
+  }
   return timing.started ? (
     <span className="game-clock" aria-label="Total game time">
       {formatDuration(timing.totalMs)} · game time
@@ -45,6 +51,9 @@ export function TurnClock({
 }) {
   const timing = useTiming(game);
   if (game.status === "finalized") return null;
+  if (!timing.reliable) {
+    return <span className="turn-clock">{TIMING_UNAVAILABLE}</span>;
+  }
   return timing.started ? (
     <span className="turn-clock" aria-label="Current turn elapsed time">
       {formatDuration(timing.currentMs)}
@@ -67,8 +76,17 @@ export function TimingSummary({
 }: {
   game: TimedGame & Pick<GameState, "turns" | "players">;
 }) {
-  const { started, durations } = turnTiming(game, 0);
-  if (!started) return null;
+  const timing = turnTiming(game, 0);
+  if (!timing.started) return null;
+  if (!timing.reliable) {
+    return (
+      <section className="timing-summary" aria-label="Turn timing statistics">
+        <h3>Time at the table</h3>
+        <p>{TIMING_UNAVAILABLE} Scores and recorded turns are unchanged.</p>
+      </section>
+    );
+  }
+  const { durations } = timing;
   const timed = game.turns.filter((t) => durations[t.id] !== undefined);
   const rounds = [...new Set(timed.map((t) => t.round))];
   return (
@@ -138,6 +156,9 @@ export function PlayerElapsedTime({
   }, []);
   const timing = turnTiming(game, now);
   if (!timing.started) return null;
+  if (!timing.reliable) {
+    return <small className="player-elapsed">{TIMING_UNAVAILABLE}</small>;
+  }
   const total =
     game.turns
       .filter((t) => t.playerId === playerId)
