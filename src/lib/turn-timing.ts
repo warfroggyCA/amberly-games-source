@@ -39,8 +39,42 @@ export function turnTiming(game: TimedGame, now: number) {
   let elapsed = 0;
   let totalMs = 0;
   const durations: Record<string, number> = {};
+  let previousAt: number | null = null;
   for (const command of timingEvents(game)) {
     const at = command.timedAt ? Date.parse(command.timedAt) : null;
+    // Old journals can contain timestamps accepted by the former lexical
+    // comparison. Their real elapsed time cannot be reconstructed safely.
+    // Validate across pauses too: a backward resume would corrupt later totals.
+    const requiresTime = [
+      "start-clock",
+      "play",
+      "pass",
+      "exchange",
+      "pause",
+      "resume",
+      "undo",
+      "finalize",
+      "assisted-pass",
+    ].includes(command.type);
+    if (
+      (started || command.type === "start-clock") &&
+      (requiresTime || command.timedAt != null)
+    ) {
+      if (
+        at === null ||
+        !Number.isFinite(at) ||
+        (previousAt !== null && at < previousAt)
+      ) {
+        return {
+          started: true,
+          reliable: false as const,
+          currentMs: null,
+          totalMs: null,
+          durations: {} as Record<string, number>,
+        };
+      }
+      previousAt = at;
+    }
     if (command.type === "start-clock") {
       started = true;
       anchor = at;
@@ -63,7 +97,7 @@ export function turnTiming(game: TimedGame, now: number) {
   }
   const currentMs = elapsed + (anchor === null ? 0 : Math.max(0, now - anchor));
   totalMs += anchor === null ? 0 : Math.max(0, now - anchor);
-  return { started, currentMs, totalMs, durations };
+  return { started, reliable: true as const, currentMs, totalMs, durations };
 }
 export function formatDuration(ms: number) {
   const seconds = Math.floor(ms / 1000);
