@@ -733,8 +733,7 @@ export function BoardEditor({
       >
         {privateTesting && (
           <p className="word-buddy-private-label" role="status">
-            <strong>Private test — only on this device.</strong> Green tiles are
-            not shared or recorded.
+            <strong>Private test</strong> · Tiles stay on this device.
           </p>
         )}
         {focused && !fitScreen && (

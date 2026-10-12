@@ -71,6 +71,8 @@ test("private tiles never persist or publish; toggle clears; explicit promotion 
     3,
   );
   await expect(page.locator(".word-buddy-private-label")).toBeVisible();
+  const board = await page.getByRole("grid").boundingBox();
+  expect(board!.width).toBeGreaterThanOrEqual(190);
   await page.screenshot({ path: info.outputPath("word-buddy-private.png") });
   await page.waitForTimeout(700);
   expect(f.posts).toHaveLength(0);

@@ -120,10 +120,15 @@ export function WordBuddyScorer({
           {testing ? "Score game" : "Test words"}
         </button>
         {!testing && !parked && (
-          <span className="word-buddy-mode">Live scoring · shared</span>
+          <span
+            className="word-buddy-mode"
+            title="Live scoring — entries are shared"
+          >
+            Live scoring
+          </span>
         )}
         {testing && occupied && <p>Your scoring draft is preserved.</p>}
-        {testing && !occupied && !confirm && (
+        {testing && !occupied && (
           <button
             className="button primary"
             disabled={props.locked || recording || !draft?.placements.length}

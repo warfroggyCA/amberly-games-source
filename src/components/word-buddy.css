@@ -41,7 +41,7 @@
   padding: 0;
 }
 .word-buddy-controls .button {
-  padding: 0.35rem 0.6rem;
+  padding: 0.35rem;
   min-height: 44px;
   font-size: 0.85rem;
 }
@@ -55,4 +55,66 @@
   color: #173923;
   background: #e7f5e3;
   font-size: 0.8rem;
+}
+
+/* The landscape game's fixed entry tools own the left/bottom gutters.
+   Give Word Buddy its own right rail, without shrinking the board vertically. */
+@media (min-width: 601px) and (max-height: 520px) {
+  body .app-shell.game-screen:has(.word-buddy-controls) > main {
+    padding-top: 56px;
+  }
+  body .game-screen:has(.word-buddy-controls) .game-return-navigation {
+    position: fixed;
+    z-index: 7;
+    top: 4px;
+    left: 170px;
+    right: 220px;
+    padding: 0;
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  body .game-screen:has(.word-buddy-controls) .game-return-navigation .button {
+    padding: 6px;
+    min-height: 44px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  body .game-screen .word-buddy-controls {
+    position: fixed;
+    z-index: 35;
+    top: 62px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 140px;
+    max-height: calc(var(--usable-game-height, 100dvh) - 124px);
+    overflow-y: auto;
+    align-items: stretch;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  body .game-screen .word-buddy-controls > * {
+    flex-shrink: 0;
+  }
+  body .game-screen .word-buddy-controls .word-buddy > button {
+    width: 100%;
+  }
+  body .game-screen:has(.word-buddy-controls) .board-stage {
+    margin-right: 148px;
+  }
+}
+
+@media (max-width: 600px) {
+  body .game-screen:has(.word-buddy-controls) .game-return-navigation {
+    padding: 0 6px;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+}
+@media (min-width: 601px) and (max-height: 520px) {
+  body .game-screen:has(.word-buddy-controls) .entry-board-status {
+    font-size: 12px;
+  }
+  body .game-screen:has(.word-buddy-controls) .entry-board-status strong {
+    font-size: 20px;
+  }
 }

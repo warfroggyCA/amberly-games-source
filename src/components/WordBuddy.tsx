@@ -23,6 +23,7 @@ export function WordBuddy({
     <section className="word-buddy" aria-label="Word Buddy">
       <button
         className="button light"
+        aria-label={`Word Buddy · ${open ? "Close" : "Check a word"}`}
         aria-expanded={open}
         aria-controls={id}
         onClick={() => {
@@ -30,7 +31,7 @@ export function WordBuddy({
           setOpen(!open);
         }}
       >
-        Word Buddy · {open ? "Close" : "Check a word"}
+        {open ? "Close" : "Check word"}
       </button>
       {open && (
         <Modal
