@@ -32,7 +32,11 @@ vi.mock("../src/server/auth", () => ({
   }),
 }));
 vi.mock("../src/server/database", () => ({
-  getCrokinoleRepository: () => ({ readState: mock.read, mutate: mock.mutate }),
+  getCrokinoleRepository: () => ({
+    readState: mock.read,
+    readHistoryRefresh: mock.refresh,
+    mutate: mock.mutate,
+  }),
   getGameSummaryRepository: () => ({
     read: mock.read,
     exportHistory: mock.archive,
@@ -249,4 +253,32 @@ it("keeps refresh reads authenticated, bounded and private", async () => {
   expect(result.headers.get("cache-control")).toBe("private, no-store");
   expect(mock.refresh).toHaveBeenCalledOnce();
   expect(mock.read).not.toHaveBeenCalled();
+});
+
+it("scopes replay reads and authenticates conditional Crokinole history", async () => {
+  mock.refresh.mockResolvedValue({ version: "a".repeat(32), state: null });
+  const request = (url: string, version: string, user = mock.actor.id) =>
+    new Request(origin + url, {
+      headers: { "x-scrabble-user": user, "x-scrabble-refresh": version },
+    });
+  expect((await GET(request("/api/family?replay=1", "{}"))).status).toBe(400);
+  expect(
+    (await GET(request("/api/family?replay=1&gameId=g", "{}"))).status,
+  ).toBe(200);
+  expect(mock.refresh.mock.calls.at(-1)?.slice(-2)).toEqual(["g", true]);
+  expect(
+    (
+      await crokinoleGet(
+        request("/api/family/crokinole", "a".repeat(32), "wrong"),
+      )
+    ).status,
+  ).toBe(401);
+  expect(
+    (await crokinoleGet(request("/api/family/crokinole", "bad"))).status,
+  ).toBe(400);
+  const response = await crokinoleGet(
+    request("/api/family/crokinole", "a".repeat(32)),
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toContain("no-store");
 });

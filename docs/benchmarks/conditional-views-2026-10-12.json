@@ -1,0 +1,367 @@
+{
+  "baselineSource": "6649aba8a7c8d4fd87d0a8fd04600b0033312a3b",
+  "transferRows": [
+    {
+      "label": "replay-cold",
+      "beforeDb": 414122,
+      "afterDb": 181079,
+      "beforeMs": 110.90606899999966,
+      "afterMs": 16.752057000000605,
+      "beforeBrowser": 400530,
+      "afterBrowser": 177838
+    },
+    {
+      "label": "replay-idle",
+      "beforeDb": 414122,
+      "afterDb": 1787,
+      "beforeMs": 150.33657500000027,
+      "afterMs": 10.770571000000018,
+      "beforeBrowser": 400530,
+      "afterBrowser": 426
+    },
+    {
+      "label": "replay-warm-independent-reader",
+      "beforeDb": 414122,
+      "afterDb": 1787,
+      "beforeMs": 151.6663899999994,
+      "afterMs": 10.075551999999334,
+      "beforeBrowser": 400530,
+      "afterBrowser": 426
+    },
+    {
+      "label": "replay-changed-turn",
+      "beforeDb": 415554,
+      "afterDb": 6172,
+      "beforeMs": 108.62884399999984,
+      "afterMs": 13.501130000000558,
+      "beforeBrowser": 401182,
+      "afterBrowser": 3449
+    },
+    {
+      "label": "replay-reconnect",
+      "beforeDb": 415554,
+      "afterDb": 181794,
+      "beforeMs": 110.22903099999985,
+      "afterMs": 17.151028999999653,
+      "beforeBrowser": 401182,
+      "afterBrowser": 178490
+    },
+    {
+      "label": "replay-second-client-cold",
+      "beforeDb": 415554,
+      "afterDb": 181794,
+      "beforeMs": 110.46277999999984,
+      "afterMs": 17.133622000000287,
+      "beforeBrowser": 401182,
+      "afterBrowser": 178490
+    },
+    {
+      "label": "replay-concurrent-two-warm-clients",
+      "beforeDb": 831108,
+      "afterDb": 3574,
+      "beforeMs": 215.13766399999986,
+      "afterMs": 24.1647210000001,
+      "beforeBrowser": 802367,
+      "afterBrowser": 855
+    },
+    {
+      "label": "spectator-cold",
+      "beforeDb": 2852,
+      "afterDb": 2918,
+      "beforeMs": 6.047160999999505,
+      "afterMs": 5.109678000000713,
+      "beforeBrowser": 2166,
+      "afterBrowser": 2211
+    },
+    {
+      "label": "spectator-idle",
+      "beforeDb": 2852,
+      "afterDb": 409,
+      "beforeMs": 4.622964000000138,
+      "afterMs": 4.594959000000017,
+      "beforeBrowser": 2166,
+      "afterBrowser": 58
+    },
+    {
+      "label": "spectator-draft-heartbeat",
+      "beforeDb": 3071,
+      "afterDb": 409,
+      "beforeMs": 4.777783999999883,
+      "afterMs": 4.260843000000023,
+      "beforeBrowser": 2362,
+      "afterBrowser": 58
+    },
+    {
+      "label": "spectator-changed-turn",
+      "beforeDb": 3182,
+      "afterDb": 3248,
+      "beforeMs": 4.348697000000357,
+      "afterMs": 4.6053060000003825,
+      "beforeBrowser": 2463,
+      "afterBrowser": 2508
+    },
+    {
+      "label": "spectator-finalized",
+      "beforeDb": 3534,
+      "afterDb": 3600,
+      "beforeMs": 4.73848899999939,
+      "afterMs": 4.981725999999981,
+      "beforeBrowser": 2777,
+      "afterBrowser": 2822
+    },
+    {
+      "label": "spectator-finalized-idle",
+      "beforeDb": 3534,
+      "afterDb": 409,
+      "beforeMs": 4.4427089999999225,
+      "afterMs": 4.835092999999688,
+      "beforeBrowser": 2777,
+      "afterBrowser": 58
+    },
+    {
+      "label": "records-cold",
+      "beforeDb": 31147,
+      "afterDb": 30592,
+      "beforeMs": 46.02264000000014,
+      "afterMs": 48.016020999999455,
+      "beforeBrowser": 28051,
+      "afterBrowser": 28144
+    },
+    {
+      "label": "records-idle",
+      "beforeDb": 31147,
+      "afterDb": 1408,
+      "beforeMs": 47.450542999999925,
+      "afterMs": 4.605322000000342,
+      "beforeBrowser": 28051,
+      "afterBrowser": 97
+    },
+    {
+      "label": "records-older-cold",
+      "beforeDb": 3416,
+      "afterDb": 3709,
+      "beforeMs": 2.5293259999998554,
+      "afterMs": 3.0749350000005506,
+      "beforeBrowser": 2873,
+      "afterBrowser": 2966
+    },
+    {
+      "label": "records-older-idle",
+      "beforeDb": 3416,
+      "afterDb": 1416,
+      "beforeMs": 2.362062000000151,
+      "afterMs": 2.471161999999822,
+      "beforeBrowser": 2873,
+      "afterBrowser": 97
+    },
+    {
+      "label": "records-inserted",
+      "beforeDb": 31150,
+      "afterDb": 30595,
+      "beforeMs": 44.705393000000186,
+      "afterMs": 48.33016899999984,
+      "beforeBrowser": 28055,
+      "afterBrowser": 28148
+    }
+  ],
+  "plans": [
+    {
+      "query": "catalog version",
+      "executionMs": 4.711,
+      "planningMs": 0.327,
+      "rows": 1,
+      "sharedHitBlocks": 290,
+      "sharedReadBlocks": 0,
+      "indexes": [
+        "families_pkey",
+        "memberships_family_id_player_id_key",
+        "players_pkey",
+        "invitations_pkey",
+        "game_participants_family_id_game_id_user_id_key",
+        "game_definitions_pkey",
+        "game_removals_pkey",
+        "verified_words_pkey",
+        "equipment_pkey"
+      ]
+    },
+    {
+      "query": "game versions",
+      "executionMs": 13.748,
+      "planningMs": 0.548,
+      "rows": 20,
+      "sharedHitBlocks": 1042,
+      "sharedReadBlocks": 0,
+      "indexes": [
+        "game_heads_pkey",
+        "game_definitions_pkey",
+        "game_participants_pkey",
+        "game_approvals_pkey",
+        "game_protests_pkey",
+        "game_protest_resolutions_pkey"
+      ]
+    }
+  ],
+  "photoBytes": 347624,
+  "players": 8,
+  "games": 21,
+  "rows": [
+    {
+      "label": "cold-lobby",
+      "beforeDb": 409321,
+      "afterDb": 410198,
+      "beforeMs": 105.71858599999996,
+      "afterMs": 166.0371409999998,
+      "beforeBrowser": 396587,
+      "afterBrowser": 398999,
+      "beforeGzip": 263994,
+      "afterGzip": 264971,
+      "changed": [
+        "p:ada",
+        "p:ben",
+        "p:player-2",
+        "p:player-3",
+        "p:player-4",
+        "p:player-5",
+        "p:player-6",
+        "p:player-7",
+        "g:measure-1",
+        "g:measure-10",
+        "g:measure-11",
+        "g:measure-12",
+        "g:measure-13",
+        "g:measure-14",
+        "g:measure-15",
+        "g:measure-16",
+        "g:measure-17",
+        "g:measure-18",
+        "g:measure-19",
+        "g:measure-2",
+        "g:measure-20",
+        "g:measure-3",
+        "g:measure-4",
+        "g:measure-5",
+        "g:measure-6",
+        "g:measure-7",
+        "g:measure-8",
+        "g:measure-9",
+        "catalog"
+      ]
+    },
+    {
+      "label": "idle-lobby",
+      "beforeDb": 409321,
+      "afterDb": 4291,
+      "beforeMs": 109.18617300000051,
+      "afterMs": 24.908558000000085,
+      "beforeBrowser": 396587,
+      "afterBrowser": 2026,
+      "beforeGzip": 263994,
+      "afterGzip": 1012,
+      "changed": []
+    },
+    {
+      "label": "one-move",
+      "beforeDb": 411059,
+      "afterDb": 9704,
+      "beforeMs": 108.20910500000082,
+      "afterMs": 27.000229999999647,
+      "beforeBrowser": 398154,
+      "afterBrowser": 5967,
+      "beforeGzip": 264371,
+      "afterGzip": 1859,
+      "changed": ["g:measure-20"]
+    },
+    {
+      "label": "second-client-same-move",
+      "beforeDb": 411059,
+      "afterDb": 9704,
+      "beforeMs": 111.65589799999998,
+      "afterMs": 27.487620999999308,
+      "beforeBrowser": 398154,
+      "afterBrowser": 5967,
+      "beforeGzip": 264371,
+      "afterGzip": 1859,
+      "changed": ["g:measure-20"]
+    },
+    {
+      "label": "one-photo-update",
+      "beforeDb": 411074,
+      "afterDb": 92887,
+      "beforeMs": 126.31453299999976,
+      "afterMs": 29.732536000000437,
+      "beforeBrowser": 398178,
+      "afterBrowser": 90450,
+      "beforeGzip": 264391,
+      "afterGzip": 67270,
+      "changed": ["p:ada", "catalog"]
+    },
+    {
+      "label": "idle-after-photo",
+      "beforeDb": 411074,
+      "afterDb": 4291,
+      "beforeMs": 150.24596999999994,
+      "afterMs": 24.585892000000058,
+      "beforeBrowser": 398178,
+      "afterBrowser": 2026,
+      "beforeGzip": 264391,
+      "afterGzip": 1012,
+      "changed": []
+    },
+    {
+      "label": "open-older-game",
+      "beforeDb": 414122,
+      "afterDb": 414911,
+      "beforeMs": 149.00025000000005,
+      "afterMs": 153.72721999999976,
+      "beforeBrowser": 400530,
+      "afterBrowser": 403032,
+      "beforeGzip": 264421,
+      "afterGzip": 265429,
+      "changed": [
+        "p:ada",
+        "p:ben",
+        "p:player-2",
+        "p:player-3",
+        "p:player-4",
+        "p:player-5",
+        "p:player-6",
+        "p:player-7",
+        "g:measure-0",
+        "g:measure-1",
+        "g:measure-10",
+        "g:measure-11",
+        "g:measure-12",
+        "g:measure-13",
+        "g:measure-14",
+        "g:measure-15",
+        "g:measure-16",
+        "g:measure-17",
+        "g:measure-18",
+        "g:measure-19",
+        "g:measure-2",
+        "g:measure-20",
+        "g:measure-3",
+        "g:measure-4",
+        "g:measure-5",
+        "g:measure-6",
+        "g:measure-7",
+        "g:measure-8",
+        "g:measure-9",
+        "catalog"
+      ]
+    },
+    {
+      "label": "idle-older-game",
+      "beforeDb": 414122,
+      "afterDb": 4515,
+      "beforeMs": 108.23533299999963,
+      "afterMs": 25.18301700000029,
+      "beforeBrowser": 400530,
+      "afterBrowser": 2096,
+      "beforeGzip": 264421,
+      "afterGzip": 1036,
+      "changed": []
+    }
+  ],
+  "method": "Actual PostgreSQL server-to-client protocol bytes through a loopback TCP proxy, warmed connection with prepare:false (matching production), including result/command framing; no TLS or Supavisor overhead. Browser sizes are UTF-8 JSON response bodies and separately estimated gzip sizes, excluding HTTP/TLS headers. Synthetic data only; not a reconciliation of billed historical egress."
+}

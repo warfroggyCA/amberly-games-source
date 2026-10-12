@@ -108,3 +108,28 @@ test("small refreshes keep moves current, pause while hidden and recover on reco
   await expect(page.getByText(/connection was interrupted/i)).toHaveCount(0);
   await expect(page.getByTestId("cell-H8")).toHaveAccessibleName(/H8 C/);
 });
+
+test("Crokinole polling stops on Scrabble routes and resumes on return", async ({
+  page,
+}) => {
+  await installFixture(page);
+  let reads = 0;
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/api/family/crokinole" &&
+      request.method() === "GET"
+    )
+      reads++;
+  });
+  await page.goto("/family/settings");
+  await page
+    .getByRole("button", { name: "Scrabble records", exact: true })
+    .click();
+  await expect(page).toHaveURL(/family\/scrabble\?view=records/);
+  const before = reads;
+  await page.waitForTimeout(5500);
+  expect(reads).toBe(before);
+  await page.goBack();
+  await expect(page).toHaveURL(/family\/settings$/);
+  await expect.poll(() => reads).toBeGreaterThan(before);
+});

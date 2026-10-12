@@ -74,6 +74,77 @@ export function crokinoleDatabaseCases(
         return work(tx);
       });
     }
+    it("invalidates conditional pages for scores, permissions, palette, removals and revoked membership", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      let cached = await repo.readHistoryRefresh(f.admin, f.familyId, "");
+      expect(cached.state?.games).toHaveLength(1);
+      expect(
+        (await repo.readHistoryRefresh(f.admin, f.familyId, cached.version))
+          .state,
+      ).toBeNull();
+      await f.mutate({
+        type: "command",
+        gameId: f.definition.id,
+        generation: 1,
+        expectedDraftRevision: 0,
+        command: {
+          type: "record_round",
+          id: "conditional-round",
+          roundId: "r1",
+          expectedRevision: 0,
+          entries: [
+            { participantId: "ada", rawScore: 10 },
+            { participantId: "ben", rawScore: 5 },
+          ],
+        },
+      });
+      cached = await repo.readHistoryRefresh(
+        f.admin,
+        f.familyId,
+        cached.version,
+      );
+      expect(cached.state?.games[0].revision).toBe(1);
+      await owner`update scrabble.memberships set role='member',permissions='{"scoreGames":false}'::jsonb where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+      cached = await repo.readHistoryRefresh(
+        f.admin,
+        f.familyId,
+        cached.version,
+      );
+      expect(cached.state?.access[f.definition.id].canScore).toBe(false);
+      await owner`update scrabble.memberships set role='superadmin',permissions='{}'::jsonb where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+      await f.mutate({
+        type: "save-palette",
+        expectedRevision: 0,
+        colours: DEFAULT_PIECE_COLOURS,
+      });
+      cached = await repo.readHistoryRefresh(
+        f.admin,
+        f.familyId,
+        cached.version,
+      );
+      expect(cached.state?.palette.revision).toBe(1);
+      await f.mutate({
+        type: "remove-game",
+        gameId: f.definition.id,
+        expectedRevision: 1,
+        reason: "Remove test",
+      });
+      cached = await repo.readHistoryRefresh(
+        f.admin,
+        f.familyId,
+        cached.version,
+      );
+      expect(cached.state?.games).toEqual([]);
+      await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+      await expect(
+        repo.readHistoryRefresh(f.admin, f.familyId, cached.version),
+      ).rejects.toMatchObject({ status: 403 });
+    });
     it("blocks same-revision score edits, duplicate command IDs and orphan events at SQL level", async () => {
       const f = await fixture();
       await f.mutate({

@@ -28,6 +28,7 @@ export function WatchGame() {
     let request: AbortController | null = null;
     let draftRequest: AbortController | null = null;
     let draftBusy = false;
+    let version = "";
     const load = async () => {
       if (disposed || stopped || busy || document.visibilityState !== "visible")
         return;
@@ -46,7 +47,10 @@ export function WatchGame() {
       const timeout = setTimeout(() => controller.abort(), 10000);
       try {
         const response = await fetch("/api/watch", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "x-scrabble-watch-version": version,
+          },
           credentials: "omit",
           cache: "no-store",
           signal: controller.signal,
@@ -63,6 +67,17 @@ export function WatchGame() {
           );
           return;
         }
+        if (result.game === null) {
+          if (!currentGame.current || !version || result.version !== version)
+            throw new Error("Incomplete scoreboard refresh");
+          setError(null);
+          return;
+        }
+        version =
+          typeof result.version === "string" &&
+          /^[a-f0-9]{32}$/.test(result.version)
+            ? result.version
+            : "";
         const previous = currentGame.current;
         currentGame.current = result.game;
         setGame(result.game);

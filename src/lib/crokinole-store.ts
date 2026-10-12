@@ -431,17 +431,54 @@ export function createCrokinoleStore(
     });
     return opening;
   }
+  const historyCache = new Map<
+    string,
+    { version: string; state: CrokinoleSharedState }
+  >();
   async function get(gameId?: string, cursor?: string) {
     const params = new URLSearchParams();
     if (gameId) params.set("gameId", gameId);
     if (cursor) params.set("cursor", cursor);
-    const value = await request<unknown>(
-      `/api/family/crokinole?${params}`,
-      undefined,
-      { expectedUserId: userId, signal: controller.signal },
-    );
-    checkShared(value);
-    return value;
+    const key = cursor ?? "";
+    const prior = gameId ? undefined : historyCache.get(key);
+    let value: unknown;
+    try {
+      value = await request<unknown>(
+        `/api/family/crokinole?${params}`,
+        undefined,
+        {
+          expectedUserId: userId,
+          signal: controller.signal,
+          ...(!gameId ? { refresh: prior?.version ?? "" } : {}),
+        },
+      );
+      if (
+        !gameId &&
+        object(value) &&
+        value.kind === "crokinole-history-refresh-v1"
+      ) {
+        if (
+          typeof value.version !== "string" ||
+          !/^[a-f0-9]{32}$/.test(value.version)
+        )
+          throw new Error("Invalid history version.");
+        const state =
+          value.state === null && value.version === prior?.version
+            ? prior.state
+            : value.state;
+        checkShared(state);
+        historyCache.set(key, { version: value.version, state });
+        // Bound memory independently of the number of pages opened in Record Book.
+        if (historyCache.size > 20)
+          historyCache.delete(historyCache.keys().next().value!);
+        return state;
+      }
+      checkShared(value);
+      return value;
+    } catch (error) {
+      historyCache.clear();
+      throw error;
+    }
   }
   function mergeGame(game: CrokinoleGame) {
     return [
@@ -1104,6 +1141,7 @@ export function createCrokinoleStore(
       }
     },
     close() {
+      historyCache.clear();
       closed = true;
       clearTimeout(timer);
       controller.abort();

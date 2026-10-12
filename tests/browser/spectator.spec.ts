@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { createGame, applyCommand } from "../../src/domain/game";
 import { testLexicon } from "../../src/lib/test-lexicon";
@@ -54,9 +55,22 @@ test("viewer keeps provisional points separate, reconnects, and clears word sele
     expiresAt: new Date(Date.now() + 11000).toISOString(),
   };
   let disconnected = false;
-  await page.route("**/api/watch", (route) =>
-    disconnected ? route.abort() : route.fulfill({ json: { game } }),
-  );
+  const responses: number[] = [];
+  await page.route("**/api/watch", (route) => {
+    if (disconnected) return route.abort();
+    const version = createHash("md5")
+      .update(JSON.stringify(game))
+      .digest("hex");
+    const result = {
+      version,
+      game:
+        route.request().headers()["x-scrabble-watch-version"] === version
+          ? null
+          : game,
+    };
+    responses.push(Buffer.byteLength(JSON.stringify(result)));
+    return route.fulfill({ json: result });
+  });
   await page.route("**/api/watch/draft", (route) =>
     disconnected
       ? route.abort()
@@ -81,6 +95,22 @@ test("viewer keeps provisional points separate, reconnects, and clears word sele
     "1:",
   );
   await expect(page.getByLabel("Player accrued time")).toHaveCount(2);
+  await expect
+    .poll(() => responses.length, { timeout: 8000 })
+    .toBeGreaterThan(1);
+  expect(responses.at(-1)!).toBeLessThan(responses[0] / 10);
+  const restoredDraft = {
+    ...draft!,
+    expiresAt: new Date(Date.now() + 11000).toISOString(),
+  };
+  draft = null;
+  await expect(
+    page.getByRole("button", { name: /Provisional tile, not recorded/ }),
+  ).toHaveCount(0);
+  draft = restoredDraft;
+  await expect(
+    page.getByRole("button", { name: /Provisional tile, not recorded. K8 S/ }),
+  ).toBeVisible();
   game.status = "paused";
   game.timingEvents.push({ type: "pause", timedAt: new Date().toISOString() });
   game.revision++;

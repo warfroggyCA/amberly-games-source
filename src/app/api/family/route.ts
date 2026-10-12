@@ -47,6 +47,9 @@ export async function GET(request: Request) {
     const gameId = params.get("gameId") ?? undefined;
     if ((cursor?.length ?? 0) > 600 || (gameId?.length ?? 0) > 120)
       throw new HttpError(400, "The history reference is invalid.");
+    const replayOnly = params.get("replay") === "1";
+    if (replayOnly && (!gameId || cursor))
+      throw new HttpError(400, "Choose one recorded game.");
     const refresh = request.headers.get(REFRESH_HEADER);
     if (refresh !== null && !cursor) {
       let known;
@@ -56,7 +59,7 @@ export async function GET(request: Request) {
         throw new HttpError(400, "The refresh reference is invalid.");
       }
       return context.json(
-        await repo.readRefresh(actor, familyId, known, gameId),
+        await repo.readRefresh(actor, familyId, known, gameId, replayOnly),
       );
     }
     return context.json(

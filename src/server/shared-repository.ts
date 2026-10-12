@@ -1753,8 +1753,9 @@ export function createSharedRepository(
     familyId: string,
     known: RefreshVersions,
     gameId?: string,
+    replayOnly = false,
   ): Promise<SharedRefresh> {
-    if (gameId && !safeId(gameId))
+    if ((gameId && !safeId(gameId)) || (replayOnly && !gameId))
       reject("INVALID_CURSOR", "Choose a valid game.");
     return transaction(
       actor,
@@ -1772,10 +1773,15 @@ export function createSharedRepository(
         (select jsonb_agg(jsonb_build_array(word,created_at) order by word) from scrabble.verified_words where family_id=${familyId}::uuid),
         (select equipment from scrabble.equipment where family_id=${familyId}::uuid)
       )::text) version`;
-        const playerHeads = await readPlayerRows(tx, familyId, true);
+        const playerHeads = replayOnly
+          ? await tx`select id,revision,archived from scrabble.players where family_id=${familyId}::uuid
+              and id in (select player_id from scrabble.game_participants where family_id=${familyId}::uuid and game_id=${gameId!})
+              order by archived,lower(name),id`
+          : await readPlayerRows(tx, familyId, true);
         // The extra row is metadata only: pagination must not transfer a 21st game.
-        const page =
-          await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
+        const page = replayOnly
+          ? []
+          : await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
         where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
         order by d.created_at desc,d.game_id desc limit 21`;
         const visible = page.slice(0, 20);
@@ -1914,7 +1920,7 @@ export function createSharedRepository(
           kind: "family-refresh-v1",
           userId: actor.userId,
           familyId,
-          scope: gameId ?? "",
+          scope: replayOnly ? `replay:${gameId}` : (gameId ?? ""),
           versions,
           values,
           playerIds: playerHeads.map((p) => p.id),
@@ -2348,6 +2354,15 @@ export function createSharedRepository(
     };
   }
   async function readWatch(token: string): Promise<SpectatorState> {
+    return (await readWatchRefresh(token)).game!;
+  }
+  async function readWatchRefresh(
+    token: string,
+    known = "",
+  ): Promise<{
+    version: string;
+    game: SpectatorState | null;
+  }> {
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token))
       reject(
         "WATCH_LINK_UNAVAILABLE",
@@ -2359,15 +2374,24 @@ export function createSharedRepository(
       await tx`set local role scrabble_runtime`;
       await requireCurrentSchema(tx);
       await tx`select set_config('statement_timeout','5000',true)`;
-      const [result] = await tx`select scrabble.read_watch(${hash}) state`;
-      if (!result?.state)
+      // Authorization is evaluated even when the client's version matches. The
+      // database suppresses unchanged JSON before it crosses the pooler wire.
+      // Drafts have their own one-second read; heartbeats must not resend the board.
+      const [result] = await tx`with snapshot as materialized (
+        select scrabble.read_watch(${hash}) state
+      ), versioned as (select state,md5((state - 'liveDraft')::text) version from snapshot)
+      select version,case when version=${known} then null else state end state from versioned`;
+      if (!result?.version)
         reject(
           "WATCH_LINK_UNAVAILABLE",
           "This private viewing link is invalid, expired or revoked.",
           404,
         );
-      return result.state as SpectatorState;
-    })) as SpectatorState;
+      return {
+        version: result.version,
+        game: result.state as SpectatorState | null,
+      };
+    })) as { version: string; game: SpectatorState | null };
   }
   // Additions are append-only and shared by scorer and Gym. Network work stays
   // outside the family lock; authorization is checked again before insertion.
@@ -2460,6 +2484,7 @@ export function createSharedRepository(
     admit,
     exportHistory,
     readWatch,
+    readWatchRefresh,
     writeLiveDraft,
     readLiveDraft,
     readWatchDraft,

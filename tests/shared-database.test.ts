@@ -15,6 +15,10 @@ import {
 import { usageDatabaseCases } from "./usage-database-cases";
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
+import {
+  DEFAULT_PIECE_COLOURS,
+  type CrokinoleDefinition,
+} from "../src/domain/crokinole";
 import { createCrokinoleRepository } from "../src/server/crokinole-repository";
 import { crokinoleDatabaseCases } from "./crokinole-database-cases";
 import { gameSummaryDatabaseCases } from "./game-summary-database-cases";
@@ -163,17 +167,26 @@ suite("isolated real PostgreSQL shared family repository", () => {
         id: "player-" + i,
         profile: { name: "Player " + i },
       });
+    let seed = 0x12345678;
+    const pixels = Buffer.from(
+      Array.from({ length: 147 * 147 * 3 }, () => {
+        seed ^= seed << 13;
+        seed ^= seed >>> 17;
+        seed ^= seed << 5;
+        return seed & 255;
+      }),
+    );
     const photo =
       "data:image/png;base64," +
       (
-        await sharp(randomBytes(147 * 147 * 3), {
+        await sharp(pixels, {
           raw: { width: 147, height: 147, channels: 3 },
         })
           .png()
           .toBuffer()
       ).toString("base64");
     await owner`update scrabble.players set photo_data_url=${photo},revision=revision+1 where family_id=${f.familyId}::uuid and id in ('ada','ben','player-2','player-3')`;
-    const games = [];
+    const games: import("../src/domain/game").GameState[] = [];
     for (let i = 0; i < 21; i++)
       games.push((await f.create("confirmed", "measure-" + i)).game!);
     let bytes = 0;
@@ -220,6 +233,24 @@ suite("isolated real PostgreSQL shared family repository", () => {
       defaultLexicon: testLexicon,
       resolveLexicon: () => testLexicon,
     });
+    const baselineShared = process.env.AMBERLY_BASELINE_SHARED
+      ? (await import(/* @vite-ignore */ process.env.AMBERLY_BASELINE_SHARED))
+          .createSharedRepository
+      : createSharedRepository;
+    const baselineCrokinole = process.env.AMBERLY_BASELINE_CROKINOLE
+      ? (
+          await import(
+            /* @vite-ignore */ process.env.AMBERLY_BASELINE_CROKINOLE
+          )
+        ).createCrokinoleRepository
+      : createCrokinoleRepository;
+    const baseline = baselineShared(sql, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+    }) as ReturnType<typeof createSharedRepository>;
+    const oldCrok = baselineCrokinole(sql, { enabled: true }) as ReturnType<
+      typeof createCrokinoleRepository
+    >;
     const rows: Record<string, unknown>[] = [];
     const measure = async (
       label: string,
@@ -299,6 +330,214 @@ suite("isolated real PostgreSQL shared family repository", () => {
       await measure("idle-after-photo", response.versions);
       const older = await measure("open-older-game", {}, games[0].id);
       await measure("idle-older-game", older.versions, games[0].id);
+      // Paired current-before/after transport calls against identical fixture state.
+      // Legacy read methods remain available for old clients and supply the baseline.
+      const transferRows: Record<string, unknown>[] = [];
+      async function paired<T>(
+        label: string,
+        before: () => Promise<unknown>,
+        after: () => Promise<T>,
+      ) {
+        bytes = 0;
+        const beforeStart = performance.now();
+        const old = await before();
+        const beforeMs = performance.now() - beforeStart,
+          beforeDb = bytes;
+        bytes = 0;
+        const afterStart = performance.now();
+        const next = await after();
+        transferRows.push({
+          label,
+          beforeDb,
+          afterDb: bytes,
+          beforeMs,
+          afterMs: performance.now() - afterStart,
+          beforeBrowser: Buffer.byteLength(JSON.stringify(old)),
+          afterBrowser: Buffer.byteLength(JSON.stringify(next)),
+        });
+        return next;
+      }
+      const replay = (known: RefreshVersions = {}) =>
+        measured.readRefresh(f.admin, f.familyId, known, games[0].id, true);
+      const fullReplay = () =>
+        baseline.readState(f.admin, f.familyId, { gameId: games[0].id });
+      let replayState = await paired("replay-cold", fullReplay, () => replay());
+      expect(replayState.gameIds).toEqual([games[0].id]);
+      await paired("replay-idle", fullReplay, () =>
+        replay(replayState.versions),
+      );
+      await paired("replay-warm-independent-reader", fullReplay, () =>
+        replay(replayState.versions),
+      );
+      await f.mutate(pass(games[0].id));
+      replayState = await paired("replay-changed-turn", fullReplay, () =>
+        replay(replayState.versions),
+      );
+      expect(Object.keys(replayState.values)).toEqual(["g:" + games[0].id]);
+      await paired("replay-reconnect", fullReplay, () => replay());
+      const secondCache = await paired(
+        "replay-second-client-cold",
+        fullReplay,
+        () => replay(),
+      );
+      await paired(
+        "replay-concurrent-two-warm-clients",
+        () => Promise.all([fullReplay(), fullReplay()]),
+        () =>
+          Promise.all([
+            replay(replayState.versions),
+            replay(secondCache.versions),
+          ]),
+      );
+
+      const token = "b".repeat(64);
+      await f.mutate({ type: "create-watch-link", gameId: game.id, token });
+      const fullWatch = async () => ({ game: await baseline.readWatch(token) });
+      let watch = await paired("spectator-cold", fullWatch, () =>
+        measured.readWatchRefresh(token),
+      );
+      const idleWatch = await paired("spectator-idle", fullWatch, () =>
+        measured.readWatchRefresh(token, watch.version),
+      );
+      expect(idleWatch.game).toBeNull();
+      await repository.writeLiveDraft(f.admin, f.familyId, {
+        gameId: game.id,
+        revision: 1,
+        generation: 1,
+        streamId: randomUUID(),
+        sequence: 1,
+        kind: "edit",
+        placements: [{ row: 7, col: 10, tile: { letter: "S", blank: false } }],
+      });
+      const draftWatch = await paired(
+        "spectator-draft-heartbeat",
+        fullWatch,
+        () => measured.readWatchRefresh(token, watch.version),
+      );
+      expect(draftWatch.game).toBeNull();
+      expect((await measured.readWatchDraft(token)).draft).not.toBeNull();
+      await f.mutate(pass(game.id, 1));
+      watch = await paired("spectator-changed-turn", fullWatch, () =>
+        measured.readWatchRefresh(token, watch.version),
+      );
+      expect(watch.game?.revision).toBe(2);
+      await f.mutate({
+        type: "game-commands",
+        gameId: game.id,
+        deviceId: "device-a",
+        generation: 1,
+        commands: [
+          {
+            type: "finalize",
+            id: randomUUID(),
+            expectedRevision: 2,
+            reason: "early",
+            racks: {
+              ada: ["A", "A", "A", "A", "A", "A", "A"],
+              ben: ["E", "E", "E", "E", "E", "E", "E"],
+            },
+          },
+        ],
+      });
+      watch = await paired("spectator-finalized", fullWatch, () =>
+        measured.readWatchRefresh(token, watch.version),
+      );
+      expect(watch.game?.status).toBe("finalized");
+      const completed = await paired(
+        "spectator-finalized-idle",
+        fullWatch,
+        () => measured.readWatchRefresh(token, watch.version),
+      );
+      expect(completed.game).toBeNull();
+      await f.mutate({ type: "revoke-watch-link", gameId: game.id });
+      await expect(
+        measured.readWatchRefresh(token, watch.version),
+      ).rejects.toMatchObject({ status: 404 });
+      const crok = createCrokinoleRepository(sql, { enabled: true });
+      const definition: CrokinoleDefinition = {
+        schemaVersion: 1,
+        rulesVersion: 1,
+        id: "records-0",
+        familyId: f.familyId,
+        mode: "confirmed",
+        createdAt: "2026-10-01T12:00:00Z",
+        players: [
+          { id: "ada", name: "Ada", seatOrder: 0 },
+          { id: "ben", name: "Ben", seatOrder: 1 },
+        ],
+        participants: ["ada", "ben"].map((id, i) => ({
+          id,
+          name: i ? "Ben" : "Ada",
+          playerIds: [id],
+          colour: {
+            id: DEFAULT_PIECE_COLOURS[i].id,
+            name: DEFAULT_PIECE_COLOURS[i].name,
+            value: DEFAULT_PIECE_COLOURS[i].value,
+          },
+        })),
+        format: "singles",
+        scoringMode: "cumulative_round_totals",
+        endCondition: { type: "fixed_rounds", rounds: 4 },
+        initialStartingPlayerId: "ada",
+      };
+      for (let i = 0; i < 32; i++)
+        await crok.mutate(f.admin, f.familyId, {
+          requestId: randomUUID(),
+          operation: {
+            type: "create-game",
+            definition: { ...definition, id: "records-" + i },
+            paletteRevision: 0,
+          },
+        });
+      const fullPage = () => oldCrok.readState(f.admin, f.familyId);
+      const page = await paired("records-cold", fullPage, () =>
+        crok.readHistoryRefresh(f.admin, f.familyId, ""),
+      );
+      expect(page.state?.games).toHaveLength(30);
+      const unchanged = await paired("records-idle", fullPage, () =>
+        crok.readHistoryRefresh(f.admin, f.familyId, page.version),
+      );
+      expect(unchanged.state).toBeNull();
+      const cursor = page.state!.nextCursor!;
+      const olderPage = await paired(
+        "records-older-cold",
+        () => oldCrok.readState(f.admin, f.familyId, { cursor }),
+        () => crok.readHistoryRefresh(f.admin, f.familyId, "", cursor),
+      );
+      expect(olderPage.state?.games).toHaveLength(2);
+      await paired(
+        "records-older-idle",
+        () => oldCrok.readState(f.admin, f.familyId, { cursor }),
+        () =>
+          crok.readHistoryRefresh(
+            f.admin,
+            f.familyId,
+            olderPage.version,
+            cursor,
+          ),
+      );
+      await crok.mutate(f.admin, f.familyId, {
+        requestId: randomUUID(),
+        operation: {
+          type: "create-game",
+          definition: { ...definition, id: "records-new" },
+          paletteRevision: 0,
+        },
+      });
+      const inserted = await paired("records-inserted", fullPage, () =>
+        crok.readHistoryRefresh(f.admin, f.familyId, page.version),
+      );
+      expect(
+        inserted.state?.games.some((g) => g.definition.id === "records-new"),
+      ).toBe(true);
+      for (const row of transferRows.filter((r) =>
+        ["replay-idle", "spectator-idle", "records-idle"].includes(
+          String(r.label),
+        ),
+      ))
+        expect(row.afterDb as number).toBeLessThan(
+          (row.beforeDb as number) * 0.25,
+        );
       const plans = await sql.begin("read only", async (tx) => {
         await tx`set local role scrabble_runtime`;
         await tx`select set_config('scrabble.actor_id',${f.admin.userId},true),set_config('scrabble.family_id',${f.familyId},true)`;
@@ -333,6 +572,9 @@ suite("isolated real PostgreSQL shared family repository", () => {
       });
       expect(plans).toHaveLength(2);
       const receipt = {
+        baselineSource:
+          process.env.AMBERLY_BASELINE_SHA ?? "current legacy methods",
+        transferRows,
         plans,
         photoBytes: Buffer.byteLength(photo) * 4,
         players: 8,
@@ -352,7 +594,66 @@ suite("isolated real PostgreSQL shared family repository", () => {
       for (const s of sockets) s.destroy();
       await new Promise<void>((resolve) => proxy.close(() => resolve()));
     }
-  }, 30000);
+  }, 60000);
+
+  it("rechecks replay-only permissions, private practice and removed games with matching versions", async () => {
+    const f = await fixture();
+    const game = (await f.create("practice")).game!;
+    const cached = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      {},
+      game.id,
+      true,
+    );
+    expect(cached.scope).toBe(`replay:${game.id}`);
+    expect(cached.gameIds).toEqual([game.id]);
+    await code(
+      repository.readRefresh(
+        f.guest,
+        f.familyId,
+        cached.versions,
+        game.id,
+        true,
+      ),
+      "GAME_NOT_FOUND",
+    );
+    await f.mutate({
+      type: "delete-practice-game",
+      gameId: game.id,
+      expectedRevision: 0,
+      reason: "Remove fixture",
+    });
+    await code(
+      repository.readRefresh(
+        f.admin,
+        f.familyId,
+        cached.versions,
+        game.id,
+        true,
+      ),
+      "GAME_NOT_FOUND",
+    );
+    const publicGame = (await f.create()).game!;
+    const guestCache = await repository.readRefresh(
+      f.guest,
+      f.familyId,
+      {},
+      publicGame.id,
+      true,
+    );
+    await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.guest.userId}::uuid`;
+    await code(
+      repository.readRefresh(
+        f.guest,
+        f.familyId,
+        guestCache.versions,
+        publicGame.id,
+        true,
+      ),
+      "NOT_A_MEMBER",
+    );
+  });
 
   it("preserves complete roster visibility across batch boundaries, archived rows and concurrent onboarding", async () => {
     const f = await fixture();

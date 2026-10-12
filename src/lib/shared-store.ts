@@ -487,22 +487,42 @@ function validateShared(
   }
   return value as SharedState;
 }
+export type ReplayReadCache = {
+  current?: { identity: string; cache: RefreshCache };
+};
 /** Fetch an authorized replay snapshot without opening a scorer or saving workspace state. */
 export async function readGameForReplay(
   gameId: string,
   userId: string,
   familyId: string,
   signal: AbortSignal,
+  cache: ReplayReadCache = {},
 ) {
-  const shared = validateShared(
-    await familyRequest<unknown>(
-      `/api/family?gameId=${encodeURIComponent(gameId)}`,
-      undefined,
-      { expectedUserId: userId, signal },
-    ),
-    userId,
-    familyId,
+  const identity = JSON.stringify([userId, familyId, gameId]);
+  const prior =
+    cache.current?.identity === identity ? cache.current.cache : undefined;
+  // Never retain a previously authorized snapshot after a failed/aborted read.
+  cache.current = undefined;
+  const response = await familyRequest<unknown>(
+    `/api/family?gameId=${encodeURIComponent(gameId)}&replay=1`,
+    undefined,
+    {
+      expectedUserId: userId,
+      signal,
+      refresh: refreshHeader(prior?.versions ?? {}),
+    },
   );
+  const refreshed =
+    record(response) && response.kind === "family-refresh-v1"
+      ? materializeRefresh(
+          response,
+          prior,
+          userId,
+          familyId,
+          `replay:${gameId}`,
+        )
+      : undefined;
+  const shared = validateShared(refreshed?.state ?? response, userId, familyId);
   const game = shared.games.find((value) => value.id === gameId);
   const access = shared.gameAccess[gameId];
   if (
@@ -512,6 +532,8 @@ export async function readGameForReplay(
     (access.mode === "practice" && shared.member.role !== "superadmin")
   )
     throw new Error("This game is no longer available for replay.");
+  if (signal.aborted) throw new Error("Replay read was cancelled.");
+  if (refreshed) cache.current = { identity, cache: refreshed.cache };
   return {
     game,
     profiles: shared.players,

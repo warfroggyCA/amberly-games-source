@@ -37,6 +37,14 @@ async function handle(request: Request, write: boolean) {
     const cursor = params.get("cursor") ?? undefined;
     if ((gameId?.length ?? 0) > 120 || (cursor?.length ?? 0) > 600)
       throw new HttpError(400, "Invalid game reference.");
+    const version = request.headers.get("x-scrabble-refresh");
+    if (!gameId && version !== null) {
+      if (version !== "" && !/^[a-f0-9]{32}$/.test(version))
+        throw new HttpError(400, "Invalid history version.");
+      return context.json(
+        await repo.readHistoryRefresh(actor, familyId, version, cursor),
+      );
+    }
     return context.json(
       await repo.readState(actor, familyId, { gameId, cursor }),
     );

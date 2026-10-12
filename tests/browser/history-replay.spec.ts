@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
+import { refreshFixture } from "../shared-refresh-fixture";
+import { REFRESH_HEADER } from "../../src/lib/shared-refresh";
 import { replayFixture } from "../fixtures/replay";
 
 async function setup(page: Page, canScore = false) {
@@ -21,11 +23,19 @@ async function setup(page: Page, canScore = false) {
   await page.route(/\/api\/family(?:\?.*)?$/, (route) => {
     const id = new URL(route.request().url()).searchParams.get("gameId");
     if (id) reads.push(id);
+    const snapshot = {
+      ...fixture.family,
+      games: available && id === game.id ? [game] : [],
+    };
     return route.fulfill({
-      json: {
-        ...fixture.family,
-        games: available && id === game.id ? [game] : [],
-      },
+      json:
+        new URL(route.request().url()).searchParams.get("replay") === "1"
+          ? refreshFixture(
+              snapshot,
+              JSON.parse(route.request().headers()[REFRESH_HEADER] ?? "{}"),
+              `replay:${id}`,
+            )
+          : snapshot,
     });
   });
   await page.route("**/api/family/games?*", (route) =>
@@ -292,4 +302,22 @@ test("a member cannot replay a private practice snapshot", async ({ page }) => {
   await expect(
     page.locator("summary").filter({ hasText: /^Lead counts$/ }),
   ).toHaveCount(0);
+});
+
+test("unchanged replay remains at the chosen step across conditional polls", async ({
+  page,
+}) => {
+  const fixture = await setup(page);
+  await page.goto(`/family/history?replay=${fixture.game.id}`);
+  await expect(
+    page.getByRole("region", { name: "Recorded game replay" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  const reads = fixture.reads.length;
+  await expect
+    .poll(() => fixture.reads.length, { timeout: 8000 })
+    .toBeGreaterThan(reads);
+  await expect(page.getByRole("slider")).toHaveValue("1");
+  expect(fixture.writes).toEqual([]);
 });
