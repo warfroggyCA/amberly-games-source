@@ -189,11 +189,11 @@ export function WordBuddyScorer({
           <Modal title="About Word Buddy" onClose={() => setHelp(false)}>
             <p>
               Word Buddy is on for this game. Scores and records count normally.
-              Everyone can privately check words against this game's word list.
+              Everyone can privately check words against this game’s word list.
             </p>
             <p>
               Test words uses green tiles, only on this device, for the current
-              player's turn. Returning to Score game clears test placements and
+              player’s turn. Returning to Score game clears test placements and
               restores available tiles. Your previous scoring draft is
               preserved; record or clear it before using a test play.
             </p>
