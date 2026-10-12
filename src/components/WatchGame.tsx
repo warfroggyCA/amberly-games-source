@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useGameSounds } from "./useGameSounds";
+import { TurnCoaching } from "./TurnCoaching";
 import { SpectatorGame } from "./SpectatorGame";
 import { Modal } from "./Modal";
 import { TabletopIcon } from "./TabletopIcon";
@@ -201,12 +202,15 @@ export function WatchGame() {
           </p>
         )}
         {game ? (
-          <SpectatorGame
-            soundControl={soundControl}
-            game={game}
-            liveDraft={currentLiveDraft(draft, game)}
-            toolsTarget={toolsTarget}
-          />
+          <>
+            <TurnCoaching game={game} />
+            <SpectatorGame
+              soundControl={soundControl}
+              game={game}
+              liveDraft={currentLiveDraft(draft, game)}
+              toolsTarget={toolsTarget}
+            />
+          </>
         ) : (
           !error && <p role="status">Opening the live scoreboard…</p>
         )}

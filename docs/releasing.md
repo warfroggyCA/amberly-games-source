@@ -62,6 +62,7 @@ The required local files, in order, are:
 16. `20260927005922_access_usage.sql`
 17. `20260927123000_transparent_profile_photos.sql`
 18. `20261012024030_word_buddy_watch.sql`
+19. `20261012160000_turn_coaching.sql`
 
 Word Buddy rollout requires the matching reader and watch projection. Once a
 Word Buddy game exists, PR53 and older readers cannot canonically hydrate its

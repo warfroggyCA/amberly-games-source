@@ -1,4 +1,5 @@
 "use client";
+import { coachingAvailable } from "../lib/coaching-availability";
 import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import { playerDisplayName } from "../lib/player-profile";
 import { PlayerName } from "./PlayerName";
@@ -58,10 +59,12 @@ export function PlayerSetup({
     tileSetId: string | null,
     equipmentRevision: number,
     wordBuddy: boolean,
+    coaching: boolean,
   ) => Promise<void>;
   onClose: () => void;
   error: string | null;
 }) {
+  const [coaching, setCoaching] = useState(false);
   const [wordBuddy, setWordBuddy] = useState(false);
   const [tileSetId, setTileSetId] = useState<string | null>(
     equipment.defaultSetId,
@@ -545,6 +548,24 @@ export function PlayerSetup({
             </small>
           </label>
         )}
+        {coachingAvailable && (
+          <label className="field">
+            <span>
+              <input
+                type="checkbox"
+                checked={coaching}
+                disabled={disabled}
+                onChange={(event) => setCoaching(event.target.checked)}
+              />{" "}
+              Post-turn coaching
+            </span>
+            <small>
+              Everyone can privately review a registered turn against
+              score-leading moves. Choose before play. Optional racks stay in
+              page memory on each player’s own device; reload loses them.
+            </small>
+          </label>
+        )}
         {wordBuddyAvailable && (
           <label className="field">
             <span>
@@ -600,6 +621,7 @@ export function PlayerSetup({
                   tileSetId,
                   equipmentRevision,
                   wordBuddy,
+                  coachingAvailable && coaching,
                 );
               } catch (failure) {
                 setLocalError(

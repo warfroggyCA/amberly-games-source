@@ -51,6 +51,8 @@ export type GameTurn = {
 export type CreateGameInput = {
   /** Chosen before play; word checks do not alter scoring or eligibility. */
   wordBuddy?: boolean;
+  /** Equal-access post-turn review, chosen before play. */
+  coaching?: boolean;
   tileSet?: TileSetSnapshot;
   id: string;
   players: Player[];
@@ -336,6 +338,7 @@ function createValidatedGame(input: CreateGameInput): GameResult {
     !isRecord(input) ||
     !safeId(input.id) ||
     (input.wordBuddy !== undefined && typeof input.wordBuddy !== "boolean") ||
+    (input.coaching !== undefined && typeof input.coaching !== "boolean") ||
     !Array.isArray(input.players) ||
     input.players.length < 1 ||
     input.players.length > 4 ||
@@ -411,6 +414,7 @@ function createValidatedGame(input: CreateGameInput): GameResult {
     return fail("INVALID_DATE", "The game start date is invalid.");
   const definition = {
     ...(input.wordBuddy !== undefined ? { wordBuddy: input.wordBuddy } : {}),
+    ...(input.coaching !== undefined ? { coaching: input.coaching } : {}),
     ...(input.tileSet ? { tileSet: copy(input.tileSet) } : {}),
     id: input.id,
     players: input.players.map((player) => ({

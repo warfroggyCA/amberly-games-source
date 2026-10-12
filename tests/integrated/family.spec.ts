@@ -500,3 +500,141 @@ test("Word Buddy compiled availability protects creation and normal private prom
     path: info.outputPath("real-word-buddy-recorded.png"),
   });
 });
+
+test("real guest coaching uses authorized original positions and never uploads racks", async ({
+  browser,
+  page,
+}) => {
+  await signIn(page, identities.owner.email);
+  await expect(
+    page.getByRole("heading", { name: "What are we playing?" }),
+  ).toBeVisible();
+  const firstId = randomUUID(),
+    secondId = randomUUID(),
+    gameId = randomUUID();
+  await mutate(page.request, {
+    type: "create-player",
+    id: firstId,
+    profile: { name: "Coaching Ada" },
+  });
+  await mutate(page.request, {
+    type: "create-player",
+    id: secondId,
+    profile: { name: "Coaching Ben" },
+  });
+  const operation: SharedOperation = {
+    type: "create-game",
+    id: gameId,
+    coaching: true,
+    mode: "confirmed",
+    players: [
+      { id: firstId, seat: 0 },
+      { id: secondId, seat: 2 },
+    ],
+    firstPlayerId: firstId,
+    direction: "clockwise",
+    deviceId: "integration",
+  };
+  if (process.env.NEXT_PUBLIC_AMBERLY_COACHING_ENABLED === "false") {
+    const rejected = await page.request.post("/api/family", {
+      headers: ownerHeaders,
+      data: { requestId: randomUUID(), operation },
+    });
+    expect(rejected.status()).toBe(409);
+    expect(await rejected.json()).toMatchObject({
+      code: "COACHING_UNAVAILABLE",
+    });
+    const state = await (
+      await page.request.get("/api/family", { headers: ownerHeaders })
+    ).json();
+    expect(state.games.some((g: { id: string }) => g.id === gameId)).toBe(
+      false,
+    );
+    const denied = await page.request.get(
+      "/api/watch/coaching?turnId=cached-turn",
+      {
+        headers: { Authorization: `Bearer ${"a".repeat(64)}` },
+      },
+    );
+    expect(denied.status()).toBe(404);
+    expect(await denied.json()).not.toHaveProperty("position");
+    const classic = await mutate(page.request, {
+      ...operation,
+      coaching: false,
+    });
+    expect(classic.game.definition.coaching).toBe(false);
+    return;
+  }
+  const created = await mutate(page.request, operation);
+  const turnId = "coaching:original.turn";
+  const recorded = await mutate(page.request, {
+    type: "game-commands",
+    gameId,
+    deviceId: "integration",
+    generation: created.gameAccess.generation,
+    commands: [
+      {
+        type: "play",
+        id: turnId,
+        expectedRevision: created.game.revision,
+        placements: [..."CAT"].map((letter, i) => ({
+          row: 7,
+          col: 7 + i,
+          tile: { letter: letter as "C" | "A" | "T", blank: false },
+        })),
+      },
+    ],
+  });
+  const token =
+    randomUUID().replaceAll("-", "") + randomUUID().replaceAll("-", "");
+  await mutate(page.request, { type: "create-watch-link", gameId, token });
+  const context = await browser.newContext({ baseURL: origin });
+  const guest = await context.newPage();
+  const traffic: string[] = [];
+  guest.on("request", (r) =>
+    traffic.push(r.method() + " " + r.url() + " " + (r.postData() ?? "")),
+  );
+  try {
+    const direct = await context.request.get(
+      `/api/watch/coaching?turnId=${encodeURIComponent(turnId)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(direct.status()).toBe(200);
+    const { position } = await direct.json();
+    expect(position.board.flat().every((tile: unknown) => tile === null)).toBe(
+      true,
+    );
+    expect(position.turn).toEqual(recorded.game.turns[0]);
+    expect(position).not.toHaveProperty("events");
+    expect(position).not.toHaveProperty("racks");
+    await guest.goto(`/watch#${token}`);
+    await guest
+      .getByRole("button", { name: "Post-turn coaching", exact: true })
+      .click();
+    await guest.getByLabel("Your seat").selectOption(firstId);
+    await guest.getByLabel("Registered turn").selectOption(turnId);
+    await guest.getByLabel(/^Full rack before/).fill("CATEIRS");
+    await guest
+      .getByRole("button", { name: "Review this turn", exact: true })
+      .click();
+    await expect(guest.getByRole("button", { name: /^gold ·/i })).toBeVisible({
+      timeout: 35000,
+    });
+    expect(traffic.some((entry) => entry.includes("CATEIRS"))).toBe(false);
+    expect(
+      traffic.some(
+        (entry) =>
+          entry.startsWith("POST") && /\/api\/(family|watch)/.test(entry),
+      ),
+    ).toBe(false);
+    await mutate(page.request, { type: "revoke-watch-link", gameId });
+    const denied = await context.request.get(
+      `/api/watch/coaching?turnId=${encodeURIComponent(turnId)}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(denied.status()).toBe(404);
+    await expect(guest.getByRole("dialog")).toHaveCount(0, { timeout: 12000 });
+  } finally {
+    await context.close();
+  }
+});

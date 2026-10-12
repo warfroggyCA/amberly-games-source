@@ -236,6 +236,91 @@ suite("isolated real PostgreSQL shared family repository", () => {
     });
     expect(Object.hasOwn(classic.game!.definition, "wordBuddy")).toBe(false);
   });
+  it("coaching fallback preserves modes across old-shaped commands, retries and re-upgrade", async () => {
+    const fallback = createSharedRepository(runtime, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+      coachingEnabled: false,
+    });
+    const f = await fixture();
+    const setup = {
+      type: "create-game" as const,
+      mode: "confirmed" as const,
+      players: [
+        { id: "ada", seat: 0 as const },
+        { id: "ben", seat: 2 as const },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise" as const,
+      deviceId: "device-a",
+    };
+    for (const mode of [undefined, false, true]) {
+      const id = `compat-${String(mode)}`;
+      const createRequest = randomUUID();
+      const operation = {
+        ...setup,
+        id,
+        ...(mode === undefined ? {} : { coaching: mode }),
+      };
+      const created = await f.mutate(operation, f.admin, createRequest);
+      const mutate = (operation: SharedOperation, requestId = randomUUID()) =>
+        fallback.mutate(f.admin, f.familyId, { requestId, operation });
+      // A committed creation retry must still recover its receipt when tools are off.
+      const retriedCreate = await mutate(operation, createRequest);
+      expect(retriedCreate.game!.definition).toEqual(created.game!.definition);
+      const requestId = randomUUID();
+      const oldCommand = pass(id); // PR53 shape: commands, no client game snapshot or mode.
+      const changed = await mutate(oldCommand, requestId);
+      expect(changed.game!.definition).toEqual(created.game!.definition);
+      expect((await mutate(oldCommand, requestId)).game).toEqual(changed.game);
+      const read = await fallback.readState(f.admin, f.familyId, {
+        gameId: id,
+      });
+      expect(read.games.find((g) => g.id === id)!.definition).toEqual(
+        created.game!.definition,
+      );
+      const upgraded = await f.mutate(pass(id, changed.game!.revision));
+      expect(upgraded.game!.definition).toEqual(created.game!.definition);
+      const [stored] =
+        await owner`select d.definition,h.state from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id) where d.family_id=${f.familyId}::uuid and d.game_id=${id}`;
+      expect(stored.definition).toEqual(created.game!.definition);
+      expect(stored.state.definition).toEqual(stored.definition);
+      expect(Object.hasOwn(stored.definition, "coaching")).toBe(
+        mode !== undefined,
+      );
+      const token =
+        randomUUID().replaceAll("-", "") + randomUUID().replaceAll("-", "");
+      await f.mutate({ type: "create-watch-link", gameId: id, token });
+      expect((await fallback.readWatch(token)).coaching).toBe(mode === true);
+      await code(
+        fallback.readWatchCoaching(token, changed.game!.turns[0].id),
+        "COACHING_UNAVAILABLE",
+      );
+      // Payloads trying to replace/erase definitions are rejected, never interpreted as commands.
+      await code(
+        mutate({
+          ...pass(id, upgraded.game!.revision),
+          definition: { ...created.game!.definition, coaching: false },
+        } as SharedOperation),
+        "INVALID_REQUEST",
+      );
+    }
+    await code(
+      fallback.mutate(f.admin, f.familyId, {
+        requestId: randomUUID(),
+        operation: { ...setup, id: "stale-new-coaching", coaching: true },
+      }),
+      "COACHING_UNAVAILABLE",
+    );
+    const [count] =
+      await owner`select count(*)::int count from scrabble.game_definitions where family_id=${f.familyId}::uuid and game_id='stale-new-coaching'`;
+    expect(count.count).toBe(0);
+    const classic = await fallback.mutate(f.admin, f.familyId, {
+      requestId: randomUUID(),
+      operation: { ...setup, id: "fallback-classic" },
+    });
+    expect(Object.hasOwn(classic.game!.definition, "coaching")).toBe(false);
+  });
   it("preserves Word Buddy setup and authorizes conditional guest dictionary reads", async () => {
     const f = await fixture();
     const created = await f.mutate({
@@ -299,6 +384,131 @@ suite("isolated real PostgreSQL shared family repository", () => {
         deviceId: "device-a",
       } as unknown as SharedOperation),
     ).rejects.toMatchObject({ code: "INVALID_GAME" });
+  });
+
+  it("coaching guest access stays scoped, read-only and separate from polling", async () => {
+    const f = await fixture();
+    const created = await f.mutate({
+      type: "create-game",
+      id: "coaching",
+      coaching: true,
+      mode: "confirmed",
+      players: [
+        { id: "ada", seat: 0 },
+        { id: "ben", seat: 2 },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    expect(created.game!.definition.coaching).toBe(true);
+    const recorded = await f.mutate({
+      type: "game-commands",
+      gameId: "coaching",
+      deviceId: "device-a",
+      generation: 1,
+      commands: [
+        {
+          type: "play",
+          id: "turn:one.1",
+          expectedRevision: 0,
+          placements: [..."CAT"].map((letter, i) => ({
+            row: 7,
+            col: 7 + i,
+            tile: { letter: letter as "C" | "A" | "T", blank: false },
+          })),
+        },
+      ],
+    });
+    const token = randomBytes(32).toString("hex");
+    await f.mutate({ type: "create-watch-link", gameId: "coaching", token });
+    const first = await repository.readWatchRefresh(token);
+    expect(first.game!.coaching).toBe(true);
+    expect(first.game).not.toHaveProperty("events");
+    expect(first.game).not.toHaveProperty("definition");
+    const position = await repository.readWatchCoaching(token, "turn:one.1");
+    expect(position.board.flat().every((t) => t === null)).toBe(true);
+    expect(position.turn.score).toBe(recorded.game!.turns[0].score);
+    expect(Object.keys(position).sort()).toEqual(
+      [
+        "gameId",
+        "revision",
+        "sequence",
+        "board",
+        "turn",
+        "rackCount",
+        "lexicon",
+        "verifiedWords",
+        "tileSupply",
+        "corrected",
+      ].sort(),
+    );
+    expect(JSON.stringify(position)).not.toMatch(
+      /initialRacks|fingerprint|commands|recordedBy|scorer_user_id/,
+    );
+    expect(
+      (await repository.readWatchRefresh(token, first.version)).game,
+    ).toBeNull();
+    await expect(
+      repository.readWatchCoaching(token, "other-game-turn"),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      repository.readWatchCoaching("bad", "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.watch_links set expires_at=now()-interval '1 second' where family_id=${f.familyId}::uuid`;
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.watch_links set expires_at=now()+interval '1 day' where family_id=${f.familyId}::uuid`;
+    await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.memberships set active=true where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+    const privateGame = await f.mutate({
+      type: "create-game",
+      id: "private-coaching",
+      coaching: true,
+      mode: "practice",
+      players: [{ id: "ada", seat: 0 }],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    const privateToken = randomBytes(32).toString("hex");
+    await owner`insert into scrabble.watch_links(family_id,game_id,token_hash,created_by,expires_at) values(${f.familyId}::uuid,${privateGame.game!.id},${createHash("sha256").update(privateToken).digest("hex")},${f.admin.userId}::uuid,now()+interval '1 day')`;
+    await expect(
+      repository.readWatchCoaching(privateToken, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await f.mutate({ type: "revoke-watch-link", gameId: "coaching" });
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      const [priv] =
+        await owner`select has_function_privilege(${role},'scrabble.read_watch_coaching_source(text)','execute') allowed`;
+      expect(priv.allowed).toBe(false);
+    }
+    expect(
+      (await repository.readState(f.admin, f.familyId)).games.find(
+        (g) => g.id === "coaching",
+      ),
+    ).toEqual(recorded.game);
+    const replacementToken = randomBytes(32).toString("hex");
+    await f.mutate({
+      type: "create-watch-link",
+      gameId: "coaching",
+      token: replacementToken,
+    });
+    await f.mutate({
+      type: "remove-game",
+      gameId: "coaching",
+      expectedRevision: recorded.game!.revision,
+      reason: "Synthetic removal test",
+    });
+    await expect(
+      repository.readWatchCoaching(replacementToken, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
   });
 
   it("measures database wire and response bytes for representative refresh workloads", async () => {
@@ -3412,6 +3622,8 @@ suite("isolated real PostgreSQL shared family repository", () => {
         "scorerGeneration",
         "liveDraft",
         "wordBuddy",
+        "coaching",
+        "coachingEpoch",
         "lexicon",
         "verifiedWords",
       ].sort(),
