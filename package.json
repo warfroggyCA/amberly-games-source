@@ -27,6 +27,7 @@
     "release:check": "node scripts/release-check.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "test:integrated": "node scripts/test-integrated.mjs",
+    "test:word-buddy:rollback": "node scripts/test-word-buddy-rollback.mjs",
     "sounds:prepare": "node scripts/prepare-sounds.mjs"
   },
   "dependencies": {

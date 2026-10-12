@@ -49,3 +49,34 @@ describe("family standings", () => {
     ).toBe(0);
   });
 });
+
+it("filters mode before weighted totals, keeps legacy Classic and leaves Crokinole intact", () => {
+  const mixed: Standing[] = [
+    ...rows,
+    {
+      playerId: "a",
+      gameType: "scrabble",
+      wordBuddy: true,
+      played: 2,
+      wins: 2,
+      ties: 0,
+    },
+  ];
+  expect(rankStandings(mixed, "scrabble")[0]).toMatchObject({
+    played: 12,
+    wins: 6,
+    winRate: 0.5,
+  });
+  expect(rankStandings(mixed, "scrabble", "classic")).toEqual(
+    rankStandings(rows, "scrabble"),
+  );
+  expect(rankStandings(mixed, "scrabble", "word-buddy")).toMatchObject([
+    { playerId: "a", played: 2, wins: 2, winRate: 1 },
+  ]);
+  expect(
+    rankStandings(mixed, "overall", "word-buddy").find(
+      (r) => r.playerId === "a",
+    ),
+  ).toMatchObject({ played: 7, wins: 5, winRate: 5 / 7 });
+  expect(rankStandings(rows, "scrabble", "word-buddy")).toEqual([]);
+});

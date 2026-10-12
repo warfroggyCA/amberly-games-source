@@ -132,7 +132,10 @@ export function GameReplay({
     <main className="game-replay">
       <header className="replay-heading">
         <div>
-          <span className="eyebrow">Scrabble history</span>
+          <span className="eyebrow">
+            Scrabble history ·{" "}
+            {record.definition.wordBuddy ? "Word Buddy" : "Classic"}
+          </span>
           <h1>Game replay</h1>
         </div>
         <button className="button light" onClick={onClose}>

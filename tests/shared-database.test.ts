@@ -159,6 +159,148 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   usageDatabaseCases(owner, runtime);
+  it("compatible fallback preserves modes across old-shaped commands, retries and re-upgrade", async () => {
+    const fallback = createSharedRepository(runtime, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+      wordBuddyEnabled: false,
+    });
+    const f = await fixture();
+    const setup = {
+      type: "create-game" as const,
+      mode: "confirmed" as const,
+      players: [
+        { id: "ada", seat: 0 as const },
+        { id: "ben", seat: 2 as const },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise" as const,
+      deviceId: "device-a",
+    };
+    for (const mode of [undefined, false, true]) {
+      const id = `compat-${String(mode)}`;
+      const createRequest = randomUUID();
+      const operation = {
+        ...setup,
+        id,
+        ...(mode === undefined ? {} : { wordBuddy: mode }),
+      };
+      const created = await f.mutate(operation, f.admin, createRequest);
+      const mutate = (operation: SharedOperation, requestId = randomUUID()) =>
+        fallback.mutate(f.admin, f.familyId, { requestId, operation });
+      // A committed creation retry must still recover its receipt when tools are off.
+      const retriedCreate = await mutate(operation, createRequest);
+      expect(retriedCreate.game!.definition).toEqual(created.game!.definition);
+      const requestId = randomUUID();
+      const oldCommand = pass(id); // PR53 shape: commands, no client game snapshot or mode.
+      const changed = await mutate(oldCommand, requestId);
+      expect(changed.game!.definition).toEqual(created.game!.definition);
+      expect((await mutate(oldCommand, requestId)).game).toEqual(changed.game);
+      const read = await fallback.readState(f.admin, f.familyId, {
+        gameId: id,
+      });
+      expect(read.games.find((g) => g.id === id)!.definition).toEqual(
+        created.game!.definition,
+      );
+      const upgraded = await f.mutate(pass(id, changed.game!.revision));
+      expect(upgraded.game!.definition).toEqual(created.game!.definition);
+      const [stored] =
+        await owner`select d.definition,h.state from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id) where d.family_id=${f.familyId}::uuid and d.game_id=${id}`;
+      expect(stored.definition).toEqual(created.game!.definition);
+      expect(stored.state.definition).toEqual(stored.definition);
+      expect(Object.hasOwn(stored.definition, "wordBuddy")).toBe(
+        mode !== undefined,
+      );
+      // Payloads trying to replace/erase definitions are rejected, never interpreted as commands.
+      await code(
+        mutate({
+          ...pass(id, upgraded.game!.revision),
+          definition: { ...created.game!.definition, wordBuddy: false },
+        } as SharedOperation),
+        "INVALID_REQUEST",
+      );
+    }
+    await code(
+      fallback.mutate(f.admin, f.familyId, {
+        requestId: randomUUID(),
+        operation: { ...setup, id: "stale-new-buddy", wordBuddy: true },
+      }),
+      "WORD_BUDDY_UNAVAILABLE",
+    );
+    const [count] =
+      await owner`select count(*)::int count from scrabble.game_definitions where family_id=${f.familyId}::uuid and game_id='stale-new-buddy'`;
+    expect(count.count).toBe(0);
+    const classic = await fallback.mutate(f.admin, f.familyId, {
+      requestId: randomUUID(),
+      operation: { ...setup, id: "fallback-classic" },
+    });
+    expect(Object.hasOwn(classic.game!.definition, "wordBuddy")).toBe(false);
+  });
+  it("preserves Word Buddy setup and authorizes conditional guest dictionary reads", async () => {
+    const f = await fixture();
+    const created = await f.mutate({
+      type: "create-game",
+      id: "buddy",
+      wordBuddy: true,
+      mode: "confirmed",
+      players: [
+        { id: "ada", seat: 0 },
+        { id: "ben", seat: 2 },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    expect(created.game!.definition.wordBuddy).toBe(true);
+    const token = randomBytes(32).toString("hex");
+    await f.mutate({ type: "create-watch-link", gameId: "buddy", token });
+    const initial = await repository.readWatchRefresh(token);
+    expect(initial.game).toMatchObject({
+      wordBuddy: true,
+      lexicon: {
+        id: testLexicon.id,
+        edition: testLexicon.edition,
+        status: testLexicon.status,
+      },
+      verifiedWords: [],
+    });
+    expect(initial.game).not.toHaveProperty("definition");
+    expect(initial.game).not.toHaveProperty("events");
+    expect(
+      (await repository.readWatchRefresh(token, initial.version)).game,
+    ).toBeNull();
+    await f.mutate({
+      type: "verify-words",
+      gameId: "buddy",
+      words: ["ZZTEST"],
+      expectedRevision: 0,
+      deviceId: "device-a",
+      generation: 1,
+    });
+    const changed = await repository.readWatchRefresh(token, initial.version);
+    expect(changed.version).not.toBe(initial.version);
+    expect(changed.game!.verifiedWords?.map((v) => v.word)).toContain("ZZTEST");
+    expect(
+      (await repository.readWatchRefresh(token, changed.version)).game,
+    ).toBeNull();
+    await f.mutate({ type: "revoke-watch-link", gameId: "buddy" });
+    await expect(
+      repository.readWatchRefresh(token, initial.version),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      f.mutate({
+        type: "create-game",
+        id: "invalid-buddy",
+        wordBuddy: "yes",
+        mode: "confirmed",
+        players: [{ id: "ada", seat: 0 }],
+        firstPlayerId: "ada",
+        direction: "clockwise",
+        deviceId: "device-a",
+      } as unknown as SharedOperation),
+    ).rejects.toMatchObject({ code: "INVALID_GAME" });
+  });
+
   it("measures database wire and response bytes for representative refresh workloads", async () => {
     const f = await fixture();
     for (let i = 2; i < 8; i++)
@@ -3245,6 +3387,9 @@ suite("isolated real PostgreSQL shared family repository", () => {
       expectedBagCount: 86,
       tileSupply: null,
       assisted: false,
+      wordBuddy: false,
+      lexicon: null,
+      verifiedWords: null,
     });
     expect(Object.keys(view).sort()).toEqual(
       [
@@ -3266,6 +3411,9 @@ suite("isolated real PostgreSQL shared family repository", () => {
         "revision",
         "scorerGeneration",
         "liveDraft",
+        "wordBuddy",
+        "lexicon",
+        "verifiedWords",
       ].sort(),
     );
     const stored =

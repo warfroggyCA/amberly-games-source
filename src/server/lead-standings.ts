@@ -1,3 +1,4 @@
+import { matchesScrabbleMode, type ScrabbleMode } from "../lib/scrabble-mode";
 import { SharedRepositoryError } from "./shared-repository";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -272,17 +273,21 @@ export async function readLeadStandings(
   tx: postgres.TransactionSql,
   familyId: string,
   signal?: AbortSignal,
+  mode: ScrabbleMode = "all",
 ) {
   signal?.throwIfAborted();
-  const candidates = await tx`
-    select d.game_id
+  const available = await tx`
+    select d.game_id, coalesce(d.definition->>'wordBuddy','false')='true' word_buddy
     from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
     where d.family_id=${familyId}::uuid and d.mode='confirmed'
       and h.state->>'status'='finalized' and h.state->>'mode'='multiplayer'
       and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
     order by d.game_id limit 5001`;
-  if (candidates.length > MAX_LEAD_GAMES) throw capacityError();
-  assess.retain(familyId, new Set(candidates.map((h) => h.game_id)));
+  if (available.length > MAX_LEAD_GAMES) throw capacityError();
+  assess.retain(familyId, new Set(available.map((h) => h.game_id)));
+  const candidates = available.filter((h) =>
+    matchesScrabbleMode(h.word_buddy, mode),
+  );
   const loadHeads = async (ids: string[]): Promise<LeadHead[]> => {
     signal?.throwIfAborted();
     const rows = await tx`

@@ -49,6 +49,8 @@ export type GameTurn = {
   exchangeCount?: number;
 };
 export type CreateGameInput = {
+  /** Chosen before play; word checks do not alter scoring or eligibility. */
+  wordBuddy?: boolean;
   tileSet?: TileSetSnapshot;
   id: string;
   players: Player[];
@@ -333,6 +335,7 @@ function createValidatedGame(input: CreateGameInput): GameResult {
   if (
     !isRecord(input) ||
     !safeId(input.id) ||
+    (input.wordBuddy !== undefined && typeof input.wordBuddy !== "boolean") ||
     !Array.isArray(input.players) ||
     input.players.length < 1 ||
     input.players.length > 4 ||
@@ -407,6 +410,7 @@ function createValidatedGame(input: CreateGameInput): GameResult {
   if (typeof createdAt !== "string" || Number.isNaN(Date.parse(createdAt)))
     return fail("INVALID_DATE", "The game start date is invalid.");
   const definition = {
+    ...(input.wordBuddy !== undefined ? { wordBuddy: input.wordBuddy } : {}),
     ...(input.tileSet ? { tileSet: copy(input.tileSet) } : {}),
     id: input.id,
     players: input.players.map((player) => ({

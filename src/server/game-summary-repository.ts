@@ -1,3 +1,4 @@
+import type { ScrabbleMode } from "../lib/scrabble-mode";
 import { readLeadStandings } from "./lead-standings";
 import type { Standing } from "../lib/standings";
 import { checkedCrokinoleState } from "./crokinole-integrity";
@@ -39,6 +40,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
         gameType?: string;
         playerId?: string;
         leadCounts?: boolean;
+        scrabbleMode?: string;
         signal?: AbortSignal;
       } = {},
     ): Promise<GameSummaryPage> {
@@ -66,6 +68,15 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
         throw new SharedRepositoryError(
           "INVALID_FILTER",
           "Choose a player.",
+          400,
+        );
+      if (
+        query.scrabbleMode &&
+        !["all", "classic", "word-buddy"].includes(query.scrabbleMode)
+      )
+        throw new SharedRepositoryError(
+          "INVALID_FILTER",
+          "Choose a supported Scrabble mode.",
           400,
         );
       let cursor: { date: string; type: string; id: string } | null = null;
@@ -110,13 +121,18 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
             return {
               games: [],
               nextCursor: null,
-              leadCounts: await readLeadStandings(tx, familyId, query.signal),
+              leadCounts: await readLeadStandings(
+                tx,
+                familyId,
+                query.signal,
+                (query.scrabbleMode ?? "all") as ScrabbleMode,
+              ),
             };
           // Full-history aggregate in the same RLS-protected snapshot; never page-based totals.
           const standingsRows = !query.cursor
             ? await tx`
             with eligible as (
-              select 'scrabble'::text game_type, h.state->'players' participants, h.state->'result'->'winnerIds' winners
+              select 'scrabble'::text game_type, coalesce(d.definition->>'wordBuddy','false')='true' word_buddy, h.state->'players' participants, h.state->'result'->'winnerIds' winners
               from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
               where d.family_id=${familyId}::uuid and d.mode='confirmed'
                 and h.state->>'status'='finalized' and h.state->>'mode'='multiplayer'
@@ -133,20 +149,21 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
                 and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
                 and not exists(select 1 from scrabble.game_protests p left join scrabble.game_protest_resolutions r on r.family_id=p.family_id and r.game_id=p.game_id and r.protest_id=p.id where p.family_id=d.family_id and p.game_id=d.game_id and (r.outcome is null or r.outcome='upheld'))
               union all
-              select 'crokinole',definition->'participants',state->'result'->'winnerIds'
+              select 'crokinole',false,definition->'participants',state->'result'->'winnerIds'
               from scrabble.crokinole_games g where family_id=${familyId}::uuid and mode='confirmed' and not removed and state->>'status'='completed'
                 and not exists(select 1 from scrabble.crokinole_concerns c where c.family_id=g.family_id and c.game_id=g.game_id and coalesce(c.concern->'resolution'->>'outcome','open')<>'dismissed')
             ), participants as (
-              select game_type,p->>'id' side_id,coalesce(p->'playerIds',jsonb_build_array(p->>'id')) player_ids,winners from eligible cross join lateral jsonb_array_elements(participants) p
-            ) select game_type,player_id,count(*)::int played,
+              select game_type,word_buddy,p->>'id' side_id,coalesce(p->'playerIds',jsonb_build_array(p->>'id')) player_ids,winners from eligible cross join lateral jsonb_array_elements(participants) p
+            ) select game_type,word_buddy,player_id,count(*)::int played,
               count(*) filter(where winners ? side_id and jsonb_array_length(winners)=1)::int wins,
               count(*) filter(where winners ? side_id and jsonb_array_length(winners)>1)::int ties
               from participants cross join lateral jsonb_array_elements_text(player_ids) player_id
-              group by game_type,player_id order by game_type,player_id
+              group by game_type,word_buddy,player_id order by game_type,word_buddy,player_id
           `
             : null;
           const standings: Standing[] | undefined = standingsRows?.map((r) => ({
             gameType: r.game_type,
+            ...(r.word_buddy ? { wordBuddy: true } : {}),
             playerId: r.player_id,
             played: r.played,
             wins: r.wins,
@@ -159,12 +176,12 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
               h.state->'players' participants,
               case when h.state->>'status'='finalized' then h.state->'result'->'scores' else h.state->'scores' end totals,
               coalesce(h.state->'result'->'winnerIds','[]'::jsonb) winner_ids,
-              d.mode,h.scorer_user_id,h.revision
+              d.mode,h.scorer_user_id,h.revision,coalesce(d.definition->>'wordBuddy','false')='true' word_buddy
             from scrabble.game_definitions d join scrabble.game_heads h using(family_id,game_id)
             where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
             union all
             select 'crokinole',game_id,created_at,state->>'status',definition->'participants',state->'totals',
-              coalesce(state->'result'->'winnerIds','[]'::jsonb),mode,scorer_user_id,revision
+              coalesce(state->'result'->'winnerIds','[]'::jsonb),mode,scorer_user_id,revision,false
             from scrabble.crokinole_games where family_id=${familyId}::uuid and not removed
           ) select *,created_at::text cursor_date from games
           where true
@@ -199,6 +216,7 @@ export function createGameSummaryRepository(sql: postgres.Sql) {
           }
           const games: GameSummary[] = rows.slice(0, 30).map((row) => ({
             gameType: row.game_type,
+            ...(row.word_buddy ? { wordBuddy: true } : {}),
             id: row.game_id,
             createdAt: new Date(row.created_at).toISOString(),
             status: row.status,

@@ -77,7 +77,7 @@ function transaction(count: number) {
     if (query.includes("limit 5001")) {
       selections++;
       expect(query.split("from scrabble.game_definitions")[0].trim()).toBe(
-        "select d.game_id",
+        "select d.game_id, coalesce(d.definition->>'wordBuddy','false')='true' word_buddy",
       );
       return ids.map((game_id) => ({ game_id }));
     }

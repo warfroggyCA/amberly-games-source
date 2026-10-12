@@ -47,6 +47,10 @@ import { solverContext, type PreviewData } from "../lib/preview-store";
 import { localScorerStore, type ScorerStore } from "../lib/scorer-store";
 import { searchMoves, SOLVER_VERSION } from "../lib/solver-client";
 import type { ScoredMove } from "../domain/solver";
+import { readWordBuddyHolds, writeWordBuddyHold } from "../lib/word-buddy-hold";
+import { WordBuddyScorer } from "./WordBuddyScorer";
+import { canPromoteWordBuddy } from "../lib/word-buddy";
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import { AnimatedBoardEditor } from "./AnimatedBoardEditor";
 import { Modal } from "./Modal";
 import { EMPTY_EQUIPMENT, snapshotTileSet } from "../domain/equipment";
@@ -200,6 +204,9 @@ export function ScorerApp({
   const [editingPlayer, setEditingPlayer] = useState<SavedPlayer | null>(null);
   const [selectedTurn, setSelectedTurn] = useState<GameTurn | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [buddyHold, setBuddyHold] = useState<string[] | null>(
+    readWordBuddyHolds,
+  );
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [running, setRunning] = useState(false);
@@ -374,7 +381,14 @@ export function ScorerApp({
     direction: "clockwise" | "counterclockwise",
     tileSetId: string | null,
     equipmentRevision: number,
+    wordBuddy: boolean,
   ) {
+    if (wordBuddy && !wordBuddyAvailable) {
+      setError(
+        "Word Buddy is temporarily unavailable. Start a Classic game instead.",
+      );
+      return;
+    }
     store.setCreationMode?.(
       state.shared?.member.role === "superadmin" ? creationMode : "confirmed",
     );
@@ -398,6 +412,7 @@ export function ScorerApp({
         );
       const tileSet = snapshotTileSet(equipment, tileSetId);
       const result = createGame({
+        ...(wordBuddy ? { wordBuddy: true } : {}),
         ...(tileSet ? { tileSet } : {}),
         id: id(),
         players,
@@ -521,8 +536,16 @@ export function ScorerApp({
     ? !!state.data.drafts[game.id]?.placements.length
     : false;
   const readOnly = !!game && shared && !store.canScore?.(game.id);
+  const buddyKey = `${game?.id}:${game?.revision}:${liveContext?.generation}:${liveContext?.userId}:${view}:${readOnly}`;
+  const buddyScope = `${state.shared?.member.userId ?? "local"}:${game?.id}`;
+  const buddyHeld =
+    !!game?.definition.wordBuddy &&
+    (buddyHold === null || buddyHold.includes(buddyScope));
+  const Editor = game?.definition.wordBuddy
+    ? WordBuddyScorer
+    : AnimatedBoardEditor;
   const livePreview = useLiveDraft(
-    view === "Play" && shared && !replayGameId ? game : null,
+    view === "Play" && shared && !replayGameId && !buddyHeld ? game : null,
     game ? state.data.drafts[game.id] : undefined,
     !readOnly,
     liveContext,
@@ -561,7 +584,7 @@ export function ScorerApp({
     unlockSounds();
     void execute({ type: "start-clock" });
   }
-  const turnActions = game && (
+  const turnActions = game && !buddyHeld && (
     <div className="turn-actions">
       <TurnClock
         game={game}
@@ -1537,8 +1560,61 @@ export function ScorerApp({
                   <div className="play-layout resizable-play panel-hidden">
                     <div className="table-area">
                       {fitGame && turnActions}
-                      <AnimatedBoardEditor
-                        key={game.id}
+                      <Editor
+                        key={game.definition.wordBuddy ? buddyKey : game.id}
+                        initiallyParked={buddyHeld}
+                        onHold={(hold: boolean) => {
+                          setBuddyHold(writeWordBuddyHold(buddyScope, hold));
+                        }}
+                        onPromote={async (
+                          draft: import("../lib/preview-store").Draft,
+                        ) => {
+                          const authority = state.shared?.gameAccess[game.id];
+                          try {
+                            await updatePreview((data) => {
+                              const latest = getSnapshot();
+                              const current = data.games.find(
+                                (g) => g.id === game.id,
+                              );
+                              const access = latest.shared?.gameAccess[game.id];
+                              const authorized =
+                                !shared ||
+                                (!!store.canScore?.(game.id) &&
+                                  access?.generation ===
+                                    authority?.generation &&
+                                  access?.scorerUserId ===
+                                    authority?.scorerUserId);
+                              if (
+                                !current ||
+                                data.activeGameId !== game.id ||
+                                busyRef.current ||
+                                runningRef.current ||
+                                latest.unresolved ||
+                                latest.pending > 0 ||
+                                latest.scoringElsewhere ||
+                                latest.draftConflicts?.includes(game.id) ||
+                                !canPromoteWordBuddy(
+                                  current,
+                                  game,
+                                  draft,
+                                  data.drafts[game.id],
+                                  authorized,
+                                )
+                              )
+                                throw new Error("Test play unavailable");
+                              return {
+                                ...data,
+                                drafts: {
+                                  ...data.drafts,
+                                  [game.id]: structuredClone(draft),
+                                },
+                              };
+                            });
+                            return true;
+                          } catch {
+                            return false;
+                          }
+                        }}
                         game={game}
                         fitScreen={fitGame}
                         viewerPlayerId={state.shared?.member.playerId}
@@ -2201,6 +2277,7 @@ function GameList({
                   {gameAccess?.[g.id]?.mode === "practice"
                     ? "Private test · "
                     : ""}
+                  {g.definition.wordBuddy ? "Word Buddy" : "Classic"} ·{" "}
                   {g.turns.length} turns · {g.assistance ? "Assisted · " : ""}
                   {g.status === "finalized"
                     ? g.result?.reason === "early"

@@ -1,3 +1,4 @@
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import type {
   RefreshVersions,
   SharedRefresh,
@@ -105,6 +106,7 @@ async function readPlayerRows(
   }
 }
 type Options = {
+  wordBuddyEnabled?: boolean;
   resolveLexicon?: (reference: unknown) => EnumerableLexicon;
   defaultLexicon?: EnumerableLexicon;
   verifyWord?: (word: string) => Promise<OfficialWordResult>;
@@ -208,6 +210,7 @@ function validateMutation(input: SharedMutation) {
       "deviceId",
       "mode",
       ...(Object.hasOwn(op, "tileSet") ? ["tileSet"] : []),
+      ...(Object.hasOwn(op, "wordBuddy") ? ["wordBuddy"] : []),
     ],
     "game-commands": ["gameId", "commands", "deviceId", "generation"],
     "verify-words": [
@@ -303,6 +306,8 @@ function validateMutation(input: SharedMutation) {
         "Enter a name of 1–60 characters, a bio up to 240 characters, and a supported small JPEG photo.",
       );
   } else if (op.type === "create-game") {
+    if (op.wordBuddy !== undefined && typeof op.wordBuddy !== "boolean")
+      reject("INVALID_GAME", "Choose whether Word Buddy is enabled.");
     if (
       op.tileSet !== undefined &&
       (!record(op.tileSet) ||
@@ -488,6 +493,7 @@ export function createSharedRepository(
   sql: postgres.Sql,
   options: Options = {},
 ) {
+  const allowWordBuddy = options.wordBuddyEnabled ?? wordBuddyAvailable;
   const resolve = options.resolveLexicon ?? resolveLexicon;
   const lexiconDefault = options.defaultLexicon ?? defaultLexicon;
   const verifyWord = options.verifyWord ?? lookupOfficialWordCached;
@@ -994,6 +1000,12 @@ export function createSharedRepository(
       if (op.mode === "practice") requireAdmin(who);
       requirePermission(who, "startGames");
       requirePermission(who, "scoreGames");
+      if (op.wordBuddy === true && !allowWordBuddy)
+        reject(
+          "WORD_BUDDY_UNAVAILABLE",
+          "Word Buddy is temporarily unavailable. Reload and start a Classic game instead.",
+          409,
+        );
       if (!actor.deviceHash || !/^[a-f0-9]{64}$/.test(actor.deviceHash))
         reject(
           "DEVICE_REQUIRED",
@@ -1032,6 +1044,7 @@ export function createSharedRepository(
         }
       }
       const created = createGame({
+        ...(op.wordBuddy !== undefined ? { wordBuddy: op.wordBuddy } : {}),
         ...(tileSet ? { tileSet } : {}),
         id: op.id,
         players: op.players.map((p) => ({

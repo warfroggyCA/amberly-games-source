@@ -396,3 +396,107 @@ test("real invitation/profile, persisted scoring, final history, and reduced per
     await memberContext.close();
   }
 });
+
+test("Word Buddy compiled availability protects creation and normal private promotion through real routes", async ({
+  page,
+}, info) => {
+  await signIn(page, identities.owner.email);
+  await expect(
+    page.getByRole("heading", { name: "What are we playing?" }),
+  ).toBeVisible();
+  const family = await (
+    await page.request.get("/api/family", { headers: ownerHeaders })
+  ).json();
+  const deviceId = await page.evaluate(
+    ({ familyId, userId }) =>
+      localStorage.getItem(`scrabble-device:${familyId}:${userId}`),
+    { familyId: family.family.id, userId: identities.owner.id },
+  );
+  expect(deviceId).toBeTruthy();
+  const bob = family.players.find((p: { id: string }) => p.id !== "alice");
+  const operation: SharedOperation = {
+    type: "create-game",
+    id: randomUUID(),
+    mode: "confirmed",
+    wordBuddy: true,
+    players: [
+      { id: "alice", seat: 0 },
+      { id: bob.id, seat: 2 },
+    ],
+    firstPlayerId: "alice",
+    direction: "clockwise",
+    deviceId: deviceId!,
+  };
+  if (process.env.NEXT_PUBLIC_AMBERLY_WORD_BUDDY_ENABLED === "false") {
+    const rejected = await page.request.post("/api/family", {
+      headers: ownerHeaders,
+      data: { requestId: randomUUID(), operation },
+    });
+    expect(rejected.status()).toBe(409);
+    expect(await rejected.json()).toMatchObject({
+      code: "WORD_BUDDY_UNAVAILABLE",
+    });
+    const state = await (
+      await page.request.get("/api/family", { headers: ownerHeaders })
+    ).json();
+    expect(state.games.some((g: { id: string }) => g.id === operation.id)).toBe(
+      false,
+    );
+    const classic = await mutate(page.request, {
+      ...operation,
+      wordBuddy: false,
+    });
+    expect(classic.game.definition.wordBuddy).toBe(false);
+    return;
+  }
+  const created = await mutate(page.request, operation);
+  const gameId = created.game.id;
+  await mutate(page.request, {
+    type: "game-commands",
+    gameId,
+    deviceId: deviceId!,
+    generation: 1,
+    commands: [
+      {
+        type: "start-clock",
+        id: randomUUID(),
+        expectedRevision: 0,
+        timedAt: new Date().toISOString(),
+      },
+    ],
+  });
+  await page.goto("/family/scrabble");
+  await page.locator(".game-list button").first().click();
+  await page.getByRole("button", { name: "Test words", exact: true }).click();
+  await page.getByTestId("cell-H8").click();
+  await page.locator(".board-input").fill("CAT");
+  const read = async () =>
+    (
+      await (
+        await page.request.get(`/api/family?gameId=${gameId}`, {
+          headers: ownerHeaders,
+        })
+      ).json()
+    ).games.find((g: { id: string }) => g.id === gameId);
+  expect((await read()).turns).toHaveLength(0);
+  await page
+    .getByRole("button", { name: "Use this play", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Share as live draft", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Review turn", exact: true }).click();
+  await page.getByRole("button", { name: /^Record \d+ points$/ }).click();
+  await expect.poll(async () => (await read()).turns.length).toBe(1);
+  const saved = await read();
+  expect(saved.turns[0].placements).toHaveLength(3);
+  expect(
+    saved.events.filter(
+      (e: { command: { type: string } }) => e.command.type === "play",
+    ),
+  ).toHaveLength(1);
+  expect(saved.definition.wordBuddy).toBe(true);
+  await page.screenshot({
+    path: info.outputPath("real-word-buddy-recorded.png"),
+  });
+});

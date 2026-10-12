@@ -103,6 +103,7 @@ export type SharedOperation =
     }
   | {
       type: "create-game";
+      wordBuddy?: boolean;
       tileSet?: { id: string; revision: number };
       id: string;
       players: { id: string; seat: 0 | 1 | 2 | 3 }[];
@@ -201,6 +202,9 @@ export type SpectatorState = Pick<
   | "currentPlayerId"
   | "expectedBagCount"
 > & {
+  wordBuddy?: boolean;
+  lexicon?: GameState["lexicon"];
+  verifiedWords?: GameState["verifiedWords"];
   revision?: number;
   scorerGeneration?: number;
   expectedRackCounts?: GameState["expectedRackCounts"];

@@ -35,6 +35,7 @@ for (const withPhoto of [false, true])
     ]) {
       const made = createGame({
         id: `book-${index}`,
+        ...(index === 1 ? { wordBuddy: true } : {}),
         players: [
           { id: "doug", name: "Doug", seat: 0 },
           { id: "erin", name: "Erin", seat: 2 },
@@ -83,6 +84,16 @@ for (const withPhoto of [false, true])
       page.getByRole("heading", { name: "A game worth remembering" }),
     ).toBeVisible();
     await expect(page.locator(".book-score")).toHaveText("412");
+    const mode = page.getByRole("combobox", {
+      name: "Scrabble mode",
+      exact: true,
+    });
+    await expect(mode).toHaveValue("all");
+    await mode.selectOption("word-buddy");
+    await expect(page.locator(".book-score")).toHaveText("398");
+    await mode.selectOption("classic");
+    await expect(page.locator(".book-score")).toHaveText("412");
+    await mode.selectOption("all");
     if (withPhoto) {
       const portrait = page.locator(".book-hero .winner-portrait-photo");
       await expect(portrait).toBeVisible();

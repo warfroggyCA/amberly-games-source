@@ -133,3 +133,73 @@ test("family standings combine games, share ranks and sort by nicknames and win 
     path: info.outputPath("family-overall-standings.png"),
   });
 });
+
+test("mode filters recompute denominators and default to combining Classic and Word Buddy", async ({
+  page,
+}, info) => {
+  await installFixture(page);
+  let reads = 0;
+  await page.route("**/api/family/games?*", (route) => {
+    reads++;
+    return route.fulfill({
+      json: {
+        games: [],
+        nextCursor: null,
+        standings: [
+          {
+            playerId: "doug",
+            gameType: "scrabble",
+            played: 4,
+            wins: 1,
+            ties: 1,
+          },
+          {
+            playerId: "doug",
+            gameType: "scrabble",
+            wordBuddy: true,
+            played: 2,
+            wins: 2,
+            ties: 0,
+          },
+        ],
+      },
+    });
+  });
+  await page.goto("/family/history?standings=scrabble");
+  const table = page.getByRole("region", {
+    name: "Scrabble standings table",
+    exact: true,
+  });
+  const mode = page
+    .locator(".family-standings")
+    .filter({ has: table })
+    .getByLabel("Scrabble mode");
+  await expect(mode).toHaveValue("all");
+  await expect(table.locator("tbody td")).toHaveText([
+    "1",
+    "6",
+    "3",
+    "1",
+    "50.0%",
+  ]);
+  const before = reads;
+  await mode.selectOption("classic");
+  await expect(table.locator("tbody td")).toHaveText([
+    "1",
+    "4",
+    "1",
+    "1",
+    "25.0%",
+  ]);
+  await mode.selectOption("word-buddy");
+  await expect(table.locator("tbody td")).toHaveText([
+    "1",
+    "2",
+    "2",
+    "0",
+    "100.0%",
+  ]);
+  expect(reads).toBe(before);
+  await fitsWidth(page);
+  await page.screenshot({ path: info.outputPath("word-buddy-standings.png") });
+});
