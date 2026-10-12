@@ -397,7 +397,7 @@ test("real invitation/profile, persisted scoring, final history, and reduced per
   }
 });
 
-test("Word Buddy private placement promotes to an ordinary draft and records exactly once through real routes", async ({
+test("Word Buddy compiled availability protects creation and normal private promotion through real routes", async ({
   page,
 }, info) => {
   await signIn(page, identities.owner.email);
@@ -414,7 +414,7 @@ test("Word Buddy private placement promotes to an ordinary draft and records exa
   );
   expect(deviceId).toBeTruthy();
   const bob = family.players.find((p: { id: string }) => p.id !== "alice");
-  const created = await mutate(page.request, {
+  const operation: SharedOperation = {
     type: "create-game",
     id: randomUUID(),
     mode: "confirmed",
@@ -426,7 +426,30 @@ test("Word Buddy private placement promotes to an ordinary draft and records exa
     firstPlayerId: "alice",
     direction: "clockwise",
     deviceId: deviceId!,
-  });
+  };
+  if (process.env.NEXT_PUBLIC_AMBERLY_WORD_BUDDY_ENABLED === "false") {
+    const rejected = await page.request.post("/api/family", {
+      headers: ownerHeaders,
+      data: { requestId: randomUUID(), operation },
+    });
+    expect(rejected.status()).toBe(409);
+    expect(await rejected.json()).toMatchObject({
+      code: "WORD_BUDDY_UNAVAILABLE",
+    });
+    const state = await (
+      await page.request.get("/api/family", { headers: ownerHeaders })
+    ).json();
+    expect(state.games.some((g: { id: string }) => g.id === operation.id)).toBe(
+      false,
+    );
+    const classic = await mutate(page.request, {
+      ...operation,
+      wordBuddy: false,
+    });
+    expect(classic.game.definition.wordBuddy).toBe(false);
+    return;
+  }
+  const created = await mutate(page.request, operation);
   const gameId = created.game.id;
   await mutate(page.request, {
     type: "game-commands",

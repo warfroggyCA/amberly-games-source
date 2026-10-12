@@ -104,6 +104,17 @@ jobs:
         run: |
           export SCRABBLE_PG_BIN="$(pg_config --bindir)"
           npm run test:integrated
+      - name: Compatible Word Buddy fallback build and recovery
+        run: |
+          export SCRABBLE_PG_BIN="$(pg_config --bindir)"
+          npm run test:word-buddy:rollback
+      - name: Retain compatible fallback build receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: word-buddy-compatible-fallback-receipt
+          path: .next/word-buddy-rollback-receipt.json
+          include-hidden-files: true
+          retention-days: 14
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

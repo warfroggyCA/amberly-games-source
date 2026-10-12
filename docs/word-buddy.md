@@ -41,3 +41,5 @@ conditional hash changes when verified additions change.
 Release requires separate approval and the projection migration documented in
 [releasing.md](releasing.md). Once Word Buddy definitions exist, an older reader
 that drops the new field is not a safe rollback target.
+Use the tested [compatible fallback build and staged release plan](word-buddy-rollback.md)
+instead; disabling tools never disables mode preservation or recovery holds.

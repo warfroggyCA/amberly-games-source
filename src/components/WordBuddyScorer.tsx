@@ -5,6 +5,7 @@ import { BoardEditor } from "./BoardEditor";
 import { Modal } from "./Modal";
 import { WordBuddy } from "./WordBuddy";
 import type { Draft } from "../lib/preview-store";
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 
 /** A private editor never receives a persistence, recording, or publishing callback. */
 export function WordBuddyScorer({
@@ -34,7 +35,7 @@ export function WordBuddyScorer({
   }, []);
   const occupied = !!props.savedDraft?.placements.length;
   function toggle() {
-    if (working.current || props.locked) return;
+    if (!wordBuddyAvailable || working.current || props.locked) return;
     try {
       onHold(testing ? occupied : true);
     } catch {
@@ -111,14 +112,23 @@ export function WordBuddyScorer({
   return (
     <>
       <div className="word-buddy-controls">
-        <button
-          className="button light"
-          disabled={props.locked || recording}
-          aria-pressed={testing}
-          onClick={toggle}
-        >
-          {testing ? "Score game" : "Test words"}
-        </button>
+        {wordBuddyAvailable ? (
+          <button
+            className="button light"
+            disabled={props.locked || recording}
+            aria-pressed={testing}
+            onClick={toggle}
+          >
+            {testing ? "Score game" : "Test words"}
+          </button>
+        ) : (
+          <span
+            className="word-buddy-mode"
+            title="This game keeps its Word Buddy mode and can be scored normally."
+          >
+            Word Buddy tools paused
+          </span>
+        )}
         {!testing && !parked && (
           <span
             className="word-buddy-mode"
@@ -182,9 +192,11 @@ export function WordBuddyScorer({
             </button>
           </>
         )}
-        <button className="button light" onClick={() => setHelp(true)}>
-          About
-        </button>
+        {wordBuddyAvailable && (
+          <button className="button light" onClick={() => setHelp(true)}>
+            About
+          </button>
+        )}
         {help && (
           <Modal title="About Word Buddy" onClose={() => setHelp(false)}>
             <p>

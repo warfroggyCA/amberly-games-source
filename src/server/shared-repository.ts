@@ -1,3 +1,4 @@
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import type {
   RefreshVersions,
   SharedRefresh,
@@ -105,6 +106,7 @@ async function readPlayerRows(
   }
 }
 type Options = {
+  wordBuddyEnabled?: boolean;
   resolveLexicon?: (reference: unknown) => EnumerableLexicon;
   defaultLexicon?: EnumerableLexicon;
   verifyWord?: (word: string) => Promise<OfficialWordResult>;
@@ -491,6 +493,7 @@ export function createSharedRepository(
   sql: postgres.Sql,
   options: Options = {},
 ) {
+  const allowWordBuddy = options.wordBuddyEnabled ?? wordBuddyAvailable;
   const resolve = options.resolveLexicon ?? resolveLexicon;
   const lexiconDefault = options.defaultLexicon ?? defaultLexicon;
   const verifyWord = options.verifyWord ?? lookupOfficialWordCached;
@@ -997,6 +1000,12 @@ export function createSharedRepository(
       if (op.mode === "practice") requireAdmin(who);
       requirePermission(who, "startGames");
       requirePermission(who, "scoreGames");
+      if (op.wordBuddy === true && !allowWordBuddy)
+        reject(
+          "WORD_BUDDY_UNAVAILABLE",
+          "Word Buddy is temporarily unavailable. Reload and start a Classic game instead.",
+          409,
+        );
       if (!actor.deviceHash || !/^[a-f0-9]{64}$/.test(actor.deviceHash))
         reject(
           "DEVICE_REQUIRED",

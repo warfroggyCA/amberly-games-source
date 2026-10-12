@@ -1,4 +1,5 @@
 "use client";
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import { playerDisplayName } from "../lib/player-profile";
 import { PlayerName } from "./PlayerName";
 import { useRef, useState, type PointerEvent } from "react";
@@ -544,21 +545,23 @@ export function PlayerSetup({
             </small>
           </label>
         )}
-        <label className="field">
-          <span>
-            <input
-              type="checkbox"
-              checked={wordBuddy}
-              disabled={disabled}
-              onChange={(event) => setWordBuddy(event.target.checked)}
-            />{" "}
-            Word Buddy
-          </span>
-          <small>
-            Private unlimited word checks for everyone. Choose before play;
-            scores and records count normally.
-          </small>
-        </label>
+        {wordBuddyAvailable && (
+          <label className="field">
+            <span>
+              <input
+                type="checkbox"
+                checked={wordBuddy}
+                disabled={disabled}
+                onChange={(event) => setWordBuddy(event.target.checked)}
+              />{" "}
+              Word Buddy
+            </span>
+            <small>
+              Private unlimited word checks for everyone. Choose before play;
+              scores and records count normally.
+            </small>
+          </label>
+        )}
         <p className="muted">
           {lexiconDetails(defaultLexicon).shortLabel} ·{" "}
           {defaultLexicon.words.length.toLocaleString("en-US")} words ·{" "}

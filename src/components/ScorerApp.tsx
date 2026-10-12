@@ -50,6 +50,7 @@ import type { ScoredMove } from "../domain/solver";
 import { readWordBuddyHolds, writeWordBuddyHold } from "../lib/word-buddy-hold";
 import { WordBuddyScorer } from "./WordBuddyScorer";
 import { canPromoteWordBuddy } from "../lib/word-buddy";
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import { AnimatedBoardEditor } from "./AnimatedBoardEditor";
 import { Modal } from "./Modal";
 import { EMPTY_EQUIPMENT, snapshotTileSet } from "../domain/equipment";
@@ -382,6 +383,12 @@ export function ScorerApp({
     equipmentRevision: number,
     wordBuddy: boolean,
   ) {
+    if (wordBuddy && !wordBuddyAvailable) {
+      setError(
+        "Word Buddy is temporarily unavailable. Start a Classic game instead.",
+      );
+      return;
+    }
     store.setCreationMode?.(
       state.shared?.member.role === "superadmin" ? creationMode : "confirmed",
     );

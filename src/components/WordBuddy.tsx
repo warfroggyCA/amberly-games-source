@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { resolveLexicon, type LexiconReference } from "../lib/lexicons";
 import { extendLexicon, type VerifiedWord } from "../domain/verified-words";
 import "./word-buddy.css";
+import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 
 /** Queries never leave this component: no network, storage, or game commands. */
 export function WordBuddy({
@@ -19,6 +20,7 @@ export function WordBuddy({
   const word = query.trim().toUpperCase();
   const valid = /^[A-Z]{2,15}$/.test(word);
   const lexicon = extendLexicon(resolveLexicon(reference), verifiedWords);
+  if (!wordBuddyAvailable) return null;
   return (
     <section className="word-buddy" aria-label="Word Buddy">
       <button
