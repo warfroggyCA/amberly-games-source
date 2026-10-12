@@ -2,6 +2,7 @@ import { isLeadStandings, type LeadStandings } from "./lead-standings";
 import { isStandings, type Standing } from "./standings";
 export type GameSummary = {
   gameType: "scrabble" | "crokinole";
+  wordBuddy?: boolean;
   id: string;
   createdAt: string;
   status: string;
@@ -43,6 +44,7 @@ export function isGameSummaryPage(value: unknown): value is GameSummaryPage {
     if (
       !record(g) ||
       !["scrabble", "crokinole"].includes(String(g.gameType)) ||
+      (g.wordBuddy !== undefined && typeof g.wordBuddy !== "boolean") ||
       !safeId(g.id) ||
       !safeId(g.scorerUserId) ||
       !Number.isSafeInteger(g.revision) ||

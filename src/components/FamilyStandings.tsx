@@ -1,4 +1,6 @@
 "use client";
+import { ScrabbleModeFilter } from "./ScrabbleModeFilter";
+import type { ScrabbleMode } from "../lib/scrabble-mode";
 import { useState } from "react";
 import { PlayerPortrait } from "./PlayerPortrait";
 import {
@@ -37,10 +39,11 @@ export function FamilyStandings({
       : gameFilter === "scrabble" || gameFilter === "crokinole"
         ? gameFilter
         : "overall";
+  const [mode, setMode] = useState<ScrabbleMode>("all");
   const [sort, setSort] = useState<Sort>("rank");
   const [ascending, setAscending] = useState(true);
   const profiles = new Map(players.map((player) => [player.id, player]));
-  const entries = rankStandings(rows, view).map((row) => ({
+  const entries = rankStandings(rows, view, mode).map((row) => ({
     ...row,
     name: profiles.has(row.playerId)
       ? playerDisplayName(profiles.get(row.playerId)!)
@@ -69,9 +72,12 @@ export function FamilyStandings({
           </button>
         ))}
       </div>
+      {view !== "crokinole" && (
+        <ScrabbleModeFilter value={mode} onChange={setMode} />
+      )}
       <p>
         {view === "overall"
-          ? "Total wins across all games. "
+          ? "Total wins across the selected Scrabble mode and all Crokinole games. "
           : "Ranked by wins. "}
         Equal wins share a rank.
       </p>

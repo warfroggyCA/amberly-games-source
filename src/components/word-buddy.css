@@ -1,0 +1,58 @@
+.word-buddy-controls,
+.word-buddy {
+  padding: 0.6rem;
+  border-radius: 0.65rem;
+  background: #f3f8f0;
+  color: #173923;
+}
+.word-buddy-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.word-buddy-controls p {
+  flex-basis: 100%;
+  margin: 0.2rem 0;
+}
+.word-buddy input {
+  font-size: 1rem;
+  max-width: 100%;
+}
+.word-buddy small {
+  display: block;
+}
+.word-buddy-private .square.fresh {
+  background: #bfe7b8 !important;
+  color: #142e16 !important;
+  border: 2px solid #24642c;
+}
+.word-buddy-private .score-bubble,
+.word-buddy-private .entry-docked-score {
+  display: none;
+}
+
+.word-buddy-controls {
+  flex: none;
+  padding: 0.2rem 0.4rem;
+  gap: 0.25rem;
+}
+.word-buddy-controls > .word-buddy {
+  padding: 0;
+}
+.word-buddy-controls .button {
+  padding: 0.35rem 0.6rem;
+  min-height: 44px;
+  font-size: 0.85rem;
+}
+.word-buddy-mode {
+  font-size: 0.8rem;
+}
+.word-buddy-private-label {
+  flex: none;
+  padding: 0.2rem 0.5rem;
+  margin: 0;
+  color: #173923;
+  background: #e7f5e3;
+  font-size: 0.8rem;
+}

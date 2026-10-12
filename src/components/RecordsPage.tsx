@@ -1,4 +1,6 @@
 "use client";
+import { ScrabbleModeFilter } from "./ScrabbleModeFilter";
+import { matchesScrabbleMode, type ScrabbleMode } from "../lib/scrabble-mode";
 import { useState } from "react";
 import type { GameState } from "../domain/game";
 import type { CrokinoleGame } from "../domain/crokinole";
@@ -101,10 +103,16 @@ export function RecordsPage({
       setGroup("");
     }
   };
+  const [mode, setMode] = useState<ScrabbleMode>("all");
   const [group, setGroup] = useState("");
   const [pair, setPair] = useState<[string, string]>(["", ""]);
   const all = recordBookGames(games, access, crokinole, crokinoleAccess);
-  const filtered = all.filter((g) => kind === "all" || g.kind === kind);
+  const filtered = all.filter(
+    (g) =>
+      (kind === "all" || g.kind === kind) &&
+      (g.kind !== "scrabble" ||
+        matchesScrabbleMode(g.source?.definition.wordBuddy, mode)),
+  );
   const groups = [
     ...new Map(filtered.map((g) => [g.group, g.context])).entries(),
   ];
@@ -198,6 +206,9 @@ export function RecordsPage({
           ))}
         </div>
       </div>
+      {kind !== "crokinole" && (
+        <ScrabbleModeFilter value={mode} onChange={setMode} />
+      )}
       {tab !== "Journal" && groups.length > 0 && (
         <label className="book-context">
           Compare like games

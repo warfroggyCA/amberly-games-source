@@ -159,6 +159,71 @@ const code = (value: Promise<unknown>, expected: string) =>
 
 suite("isolated real PostgreSQL shared family repository", () => {
   usageDatabaseCases(owner, runtime);
+  it("preserves Word Buddy setup and authorizes conditional guest dictionary reads", async () => {
+    const f = await fixture();
+    const created = await f.mutate({
+      type: "create-game",
+      id: "buddy",
+      wordBuddy: true,
+      mode: "confirmed",
+      players: [
+        { id: "ada", seat: 0 },
+        { id: "ben", seat: 2 },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    expect(created.game!.definition.wordBuddy).toBe(true);
+    const token = randomBytes(32).toString("hex");
+    await f.mutate({ type: "create-watch-link", gameId: "buddy", token });
+    const initial = await repository.readWatchRefresh(token);
+    expect(initial.game).toMatchObject({
+      wordBuddy: true,
+      lexicon: {
+        id: testLexicon.id,
+        edition: testLexicon.edition,
+        status: testLexicon.status,
+      },
+      verifiedWords: [],
+    });
+    expect(initial.game).not.toHaveProperty("definition");
+    expect(initial.game).not.toHaveProperty("events");
+    expect(
+      (await repository.readWatchRefresh(token, initial.version)).game,
+    ).toBeNull();
+    await f.mutate({
+      type: "verify-words",
+      gameId: "buddy",
+      words: ["ZZTEST"],
+      expectedRevision: 0,
+      deviceId: "device-a",
+      generation: 1,
+    });
+    const changed = await repository.readWatchRefresh(token, initial.version);
+    expect(changed.version).not.toBe(initial.version);
+    expect(changed.game!.verifiedWords?.map((v) => v.word)).toContain("ZZTEST");
+    expect(
+      (await repository.readWatchRefresh(token, changed.version)).game,
+    ).toBeNull();
+    await f.mutate({ type: "revoke-watch-link", gameId: "buddy" });
+    await expect(
+      repository.readWatchRefresh(token, initial.version),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      f.mutate({
+        type: "create-game",
+        id: "invalid-buddy",
+        wordBuddy: "yes",
+        mode: "confirmed",
+        players: [{ id: "ada", seat: 0 }],
+        firstPlayerId: "ada",
+        direction: "clockwise",
+        deviceId: "device-a",
+      } as unknown as SharedOperation),
+    ).rejects.toMatchObject({ code: "INVALID_GAME" });
+  });
+
   it("measures database wire and response bytes for representative refresh workloads", async () => {
     const f = await fixture();
     for (let i = 2; i < 8; i++)
@@ -3245,6 +3310,9 @@ suite("isolated real PostgreSQL shared family repository", () => {
       expectedBagCount: 86,
       tileSupply: null,
       assisted: false,
+      wordBuddy: false,
+      lexicon: null,
+      verifiedWords: null,
     });
     expect(Object.keys(view).sort()).toEqual(
       [
@@ -3266,6 +3334,9 @@ suite("isolated real PostgreSQL shared family repository", () => {
         "revision",
         "scorerGeneration",
         "liveDraft",
+        "wordBuddy",
+        "lexicon",
+        "verifiedWords",
       ].sort(),
     );
     const stored =

@@ -1,6 +1,8 @@
+import { matchesScrabbleMode, type ScrabbleMode } from "./scrabble-mode";
 export type Standing = {
   playerId: string;
   gameType: "scrabble" | "crokinole";
+  wordBuddy?: boolean;
   played: number;
   wins: number;
   ties: number;
@@ -12,6 +14,7 @@ export function isStandings(value: unknown): value is Standing[] {
       (r) =>
         r &&
         typeof r === "object" &&
+        (r.wordBuddy === undefined || typeof r.wordBuddy === "boolean") &&
         typeof r.playerId === "string" &&
         ["scrabble", "crokinole"].includes(r.gameType) &&
         [r.played, r.wins, r.ties].every(
@@ -35,9 +38,15 @@ export type RankedStanding = Omit<Standing, "gameType"> & {
 export function rankStandings(
   rows: Standing[],
   view: StandingsView,
+  mode: ScrabbleMode = "all",
 ): RankedStanding[] {
   const totals = new Map<string, RankedStanding>();
   for (const row of rows) {
+    if (
+      row.gameType === "scrabble" &&
+      !matchesScrabbleMode(row.wordBuddy, mode)
+    )
+      continue;
     if (view !== "overall" && row.gameType !== view) continue;
     const entry = totals.get(row.playerId) ?? {
       playerId: row.playerId,

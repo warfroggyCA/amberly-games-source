@@ -90,6 +90,7 @@ function revealEntry(
 
 export function BoardEditor({
   game,
+  privateTesting = false,
   savedDraft,
   onDraft,
   onRecord,
@@ -106,6 +107,7 @@ export function BoardEditor({
   displayCurrentPlayerId = game.currentPlayerId,
 }: {
   game: GameState;
+  privateTesting?: boolean;
   displayScores?: Record<string, number>;
   displayTurns?: readonly GameTurn[];
   displayCurrentPlayerId?: string;
@@ -123,7 +125,7 @@ export function BoardEditor({
 }) {
   const perspective = boardPerspective(game.players, viewerPlayerId);
   const [directionPreference] = useState(() =>
-    readDirectionPreference(game.id),
+    privateTesting ? "auto" : readDirectionPreference(game.id),
   );
   const initial: Draft =
     savedDraft?.revision === game.revision
@@ -438,6 +440,7 @@ export function BoardEditor({
   ]);
 
   function openOfficial(query: string) {
+    if (privateTesting) return;
     setReview(false);
     exitFocus();
     onOfficialSearch(query);
@@ -593,6 +596,19 @@ export function BoardEditor({
   }
   function finishEntry() {
     if (disabled) return;
+    if (privateTesting) {
+      setMessage(
+        formedWords.length
+          ? formedWords
+              .map(
+                (w) =>
+                  `${w.word}: ${lexicon.has(w.word) ? "accepted" : "not in this game’s word list"}`,
+              )
+              .join(" · ")
+          : "Enter letters to check a word.",
+      );
+      return;
+    }
     input.current?.blur();
     if (preview) {
       setRecordError(false);
@@ -604,7 +620,7 @@ export function BoardEditor({
   function direction(value: Draft["direction"] | "auto") {
     const d = current.current;
     setManualDirection(value !== "auto");
-    saveDirectionPreference(game.id, value);
+    if (!privateTesting) saveDirectionPreference(game.id, value);
     change({
       ...d,
       atEdge: false,
@@ -620,7 +636,8 @@ export function BoardEditor({
     requestAnimationFrame(focusInput);
   }
   async function recordTurn() {
-    if (recordingRef.current || disabled || !preview?.ok) return;
+    if (privateTesting || recordingRef.current || disabled || !preview?.ok)
+      return;
     recordingRef.current = true;
     setRecording(true);
     setRecordError(false);
@@ -690,7 +707,7 @@ export function BoardEditor({
 
   return (
     <section
-      className="board-editor board-perspective"
+      className={`board-editor board-perspective ${privateTesting ? "word-buddy-private" : ""}`}
       aria-label="Scrabble board and entry"
       data-board-perspective={perspective}
       style={
@@ -714,11 +731,21 @@ export function BoardEditor({
           if (!recordingRef.current) exitFocus();
         }}
       >
+        {privateTesting && (
+          <p className="word-buddy-private-label" role="status">
+            <strong>Private test — only on this device.</strong> Green tiles are
+            not shared or recorded.
+          </p>
+        )}
         {focused && !fitScreen && (
           <header className="entry-focus-header">
             <div>
               <span className="eyebrow">
-                {game.assistance ? "Assisted play" : "Enter this turn"}
+                {privateTesting
+                  ? "Private test"
+                  : game.assistance
+                    ? "Assisted play"
+                    : "Enter this turn"}
               </span>
               <h2 id={titleId}>{player.name}’s letters</h2>
             </div>
@@ -1048,47 +1075,52 @@ export function BoardEditor({
             </div>
           </div>
         </div>
-        {focused && lastPlacement && !review && !blank && !inspectCell && (
-          <div
-            ref={scoreBubble}
-            className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
-            aria-label={
-              shortageLabel ??
-              `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
-            }
-            role="status"
-            aria-live="polite"
-          >
-            {exhaustedTile ? (
-              <>
-                <strong>{shortageLabel}</strong>
-                <div className="tile-inventory-actions">
-                  {canUseBlank && (
+        {!privateTesting &&
+          focused &&
+          lastPlacement &&
+          !review &&
+          !blank &&
+          !inspectCell && (
+            <div
+              ref={scoreBubble}
+              className={`tile-score-bubble ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "tile-inventory-bubble" : ""}`}
+              aria-label={
+                shortageLabel ??
+                `${potentialScore ?? "Unknown"} potential points${preview?.ok ? ", valid turn" : ", turn not yet valid"}`
+              }
+              role="status"
+              aria-live="polite"
+            >
+              {exhaustedTile ? (
+                <>
+                  <strong>{shortageLabel}</strong>
+                  <div className="tile-inventory-actions">
+                    {canUseBlank && (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={useBlankForExhaustedTile}
+                      >
+                        Use a blank
+                      </button>
+                    )}
                     <button
                       type="button"
                       disabled={disabled}
-                      onClick={useBlankForExhaustedTile}
+                      onClick={finishEntry}
                     >
-                      Use a blank
+                      Check tiles
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={finishEntry}
-                  >
-                    Check tiles
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <strong>{potentialScore ?? "—"}</strong>
-                <span>{preview?.ok ? "pts" : "pts · check"}</span>
-              </>
-            )}
-          </div>
-        )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <strong>{potentialScore ?? "—"}</strong>
+                  <span>{preview?.ok ? "pts" : "pts · check"}</span>
+                </>
+              )}
+            </div>
+          )}
         {fitScreen ? (
           <footer className="persistent-entry-bar">
             <span
@@ -1201,13 +1233,21 @@ export function BoardEditor({
             <button
               className={`button primary entry-review-button ${preview?.ok ? "" : "needs-check"} ${exhaustedTile ? "inventory-review" : ""}`}
               aria-label={
-                shortageLabel ? `${shortageLabel}. Check tiles` : "Review turn"
+                privateTesting
+                  ? "Check test words"
+                  : shortageLabel
+                    ? `${shortageLabel}. Check tiles`
+                    : "Review turn"
               }
               disabled={disabled || !draft.placements.length}
               onClick={finishEntry}
             >
               <span className="entry-review-label">
-                {exhaustedTile ? "Check tiles" : "Review"}
+                {privateTesting
+                  ? "Check words"
+                  : exhaustedTile
+                    ? "Check tiles"
+                    : "Review"}
               </span>
               <span className="entry-docked-score" aria-hidden="true">
                 {potentialScore ?? "—"} pts
@@ -1238,7 +1278,7 @@ export function BoardEditor({
               </div>
             )}
             {tools}
-            {!game.assistance && (
+            {!privateTesting && !game.assistance && (
               <form
                 className="official-board-search"
                 onSubmit={(event) => {
@@ -1302,7 +1342,9 @@ export function BoardEditor({
                     disabled={disabled || !draft.placements.length}
                     onClick={finishEntry}
                   >
-                    Review {preview?.ok ? `${preview.score} points` : "turn"} →
+                    {privateTesting
+                      ? "Check test words"
+                      : `Review ${preview?.ok ? `${preview.score} points` : "turn"} →`}
                   </button>
                 )}
               </div>
@@ -1323,19 +1365,24 @@ export function BoardEditor({
             >
               {zoom ? "Fit board" : "Enlarge board"}
             </button>
-            <button
-              className="button light"
-              onClick={() => {
-                setEntryOptions(false);
-                openOfficial("");
-              }}
-            >
-              Search official site ↗
-            </button>
+            {!privateTesting && (
+              <button
+                className="button light"
+                onClick={() => {
+                  setEntryOptions(false);
+                  openOfficial("");
+                }}
+              >
+                Search official site ↗
+              </button>
+            )}
           </div>
           <p className="muted">
             Tap a square and type. Space chooses a blank; Backspace erases a
-            letter; Enter reviews the turn.
+            letter;{" "}
+            {privateTesting
+              ? "Enter checks words privately."
+              : "Enter reviews the turn."}
           </p>
         </Modal>
       )}
@@ -1408,7 +1455,7 @@ export function BoardEditor({
           )}
         </Modal>
       )}
-      {review && preview && !preview.ok && (
+      {!privateTesting && review && preview && !preview.ok && (
         <Modal
           title="Review this turn"
           className="turn-review-modal"
@@ -1501,7 +1548,7 @@ export function BoardEditor({
           </div>
         </Modal>
       )}
-      {review && preview?.ok && (
+      {!privateTesting && review && preview?.ok && (
         <Modal
           title="Review this turn"
           className="turn-review-modal"

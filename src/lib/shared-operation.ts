@@ -72,6 +72,9 @@ export function describeSharedChange(
     if (!old)
       return {
         type: "create-game",
+        ...(game.definition.wordBuddy !== undefined
+          ? { wordBuddy: game.definition.wordBuddy }
+          : {}),
         ...(game.definition.tileSet
           ? {
               tileSet: {

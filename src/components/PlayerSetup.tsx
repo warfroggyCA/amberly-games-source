@@ -56,10 +56,12 @@ export function PlayerSetup({
     direction: Direction,
     tileSetId: string | null,
     equipmentRevision: number,
+    wordBuddy: boolean,
   ) => Promise<void>;
   onClose: () => void;
   error: string | null;
 }) {
+  const [wordBuddy, setWordBuddy] = useState(false);
   const [tileSetId, setTileSetId] = useState<string | null>(
     equipment.defaultSetId,
   );
@@ -542,6 +544,21 @@ export function PlayerSetup({
             </small>
           </label>
         )}
+        <label className="field">
+          <span>
+            <input
+              type="checkbox"
+              checked={wordBuddy}
+              disabled={disabled}
+              onChange={(event) => setWordBuddy(event.target.checked)}
+            />{" "}
+            Word Buddy
+          </span>
+          <small>
+            Private unlimited word checks for everyone. Choose before play;
+            scores and records count normally.
+          </small>
+        </label>
         <p className="muted">
           {lexiconDetails(defaultLexicon).shortLabel} ·{" "}
           {defaultLexicon.words.length.toLocaleString("en-US")} words ·{" "}
@@ -579,6 +596,7 @@ export function PlayerSetup({
                   direction,
                   tileSetId,
                   equipmentRevision,
+                  wordBuddy,
                 );
               } catch (failure) {
                 setLocalError(

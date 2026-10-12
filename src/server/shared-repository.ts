@@ -208,6 +208,7 @@ function validateMutation(input: SharedMutation) {
       "deviceId",
       "mode",
       ...(Object.hasOwn(op, "tileSet") ? ["tileSet"] : []),
+      ...(Object.hasOwn(op, "wordBuddy") ? ["wordBuddy"] : []),
     ],
     "game-commands": ["gameId", "commands", "deviceId", "generation"],
     "verify-words": [
@@ -303,6 +304,8 @@ function validateMutation(input: SharedMutation) {
         "Enter a name of 1–60 characters, a bio up to 240 characters, and a supported small JPEG photo.",
       );
   } else if (op.type === "create-game") {
+    if (op.wordBuddy !== undefined && typeof op.wordBuddy !== "boolean")
+      reject("INVALID_GAME", "Choose whether Word Buddy is enabled.");
     if (
       op.tileSet !== undefined &&
       (!record(op.tileSet) ||
@@ -1032,6 +1035,7 @@ export function createSharedRepository(
         }
       }
       const created = createGame({
+        ...(op.wordBuddy !== undefined ? { wordBuddy: op.wordBuddy } : {}),
         ...(tileSet ? { tileSet } : {}),
         id: op.id,
         players: op.players.map((p) => ({

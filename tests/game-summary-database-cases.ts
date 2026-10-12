@@ -25,6 +25,7 @@ export function gameSummaryDatabaseCases(
     catalog: string[] = [],
     realLexicon = false,
     mode: "confirmed" | "practice" = "confirmed",
+    wordBuddy?: boolean,
   ) {
     const reference = realLexicon
       ? releasedFamilyLexicon
@@ -92,6 +93,7 @@ export function gameSummaryDatabaseCases(
     }
     const created = await mutate({
       type: "create-game",
+      ...(wordBuddy === undefined ? {} : { wordBuddy }),
       id: randomUUID(),
       mode,
       players: [
@@ -142,6 +144,46 @@ export function gameSummaryDatabaseCases(
       col: 7 + index,
       tile: { letter: letter as Letter, blank: false },
     }));
+
+  it("separates Classic and Word Buddy at the authorized source before stats and lead denominators", async () => {
+    for (const wordBuddy of [undefined, true]) {
+      const f = await fixture(false, true, [], true, "confirmed", wordBuddy);
+      await f.command({ type: "play", placements: placements("CAT") });
+      for (let i = 0; i < 4; i++) await f.command({ type: "pass" });
+      await f.command({
+        type: "finalize",
+        reason: "blocked",
+        racks: { alice: rack("READING"), bob: rack("CATDOG?") },
+      });
+      const rows = (await f.read()).standings!;
+      expect(rows).toHaveLength(2);
+      expect(
+        rows.every((r) => r.wordBuddy === wordBuddy && r.played === 1),
+      ).toBe(true);
+      const all = await summary.read(f.actor, f.familyId, { leadCounts: true });
+      const selected = await summary.read(f.actor, f.familyId, {
+        leadCounts: true,
+        scrabbleMode: wordBuddy ? "word-buddy" : "classic",
+      });
+      expect(selected.leadCounts).toEqual(all.leadCounts);
+      expect(selected.leadCounts!.eligibleGames).toBe(1);
+      const excluded = await summary.read(f.actor, f.familyId, {
+        leadCounts: true,
+        scrabbleMode: wordBuddy ? "classic" : "word-buddy",
+      });
+      expect(excluded.leadCounts).toMatchObject({
+        completedGames: 0,
+        eligibleGames: 0,
+        rows: [],
+      });
+      await expect(
+        summary.read(f.actor, f.familyId, {
+          leadCounts: true,
+          scrabbleMode: "bogus",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_FILTER" });
+    }
+  });
 
   describe("authorized canonical lead standings", () => {
     async function completed(mode: "confirmed" | "practice" = "confirmed") {

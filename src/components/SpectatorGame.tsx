@@ -1,4 +1,5 @@
 "use client";
+import { WordBuddy } from "./WordBuddy";
 import { PlayerElapsedTime } from "./TurnTiming";
 import { TurnClock, TimingSummary } from "./TurnTiming";
 import "./game-feedback.css";
@@ -42,7 +43,7 @@ export function SpectatorGame({
   assisted = game.assisted ?? false,
   replayPlayback,
 }: {
-  game: SpectatorState;
+  game: SpectatorState & { definition?: { wordBuddy?: boolean } };
   profiles?: SavedPlayer[];
   viewerPlayerId?: string | null;
   liveDraft?: LiveDraft | null;
@@ -214,6 +215,13 @@ export function SpectatorGame({
       }
       aria-label={replayPlayback ? "Recorded game replay" : "Live game viewer"}
     >
+      {(game.wordBuddy || game.definition?.wordBuddy) && game.lexicon && (
+        <WordBuddy
+          key={game.id}
+          reference={game.lexicon}
+          verifiedWords={game.verifiedWords ?? []}
+        />
+      )}
       <BingoBanner
         game={game}
         containerRef={stageRef}
@@ -223,6 +231,14 @@ export function SpectatorGame({
         createPortal(tools, toolsTarget)
       ) : (
         <div className="spectator-inline-tools">{tools}</div>
+      )}
+      {game.status === "finalized" && (
+        <p className="muted">
+          {game.wordBuddy || game.definition?.wordBuddy
+            ? "Word Buddy"
+            : "Classic"}{" "}
+          game
+        </p>
       )}
       <ResultBadge
         key={replayPlayback ? `${game.id}:${!!game.result}` : game.id}

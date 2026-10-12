@@ -412,3 +412,33 @@ test("older unseen changes stay labelled as snapshots and manual refresh replace
   await expect(table).not.toContainText("21.7");
   expect(reads).toBe(2);
 });
+
+test("changing Scrabble mode clears lead snapshot and fetches only on demand", async ({
+  page,
+}) => {
+  const f = await setup(page);
+  const section = page.getByRole("region", {
+    name: "Scrabble lead rankings",
+    exact: true,
+  });
+  await page
+    .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
+    .click();
+  const table = page.getByRole("region", {
+    name: "Scrabble lead rankings table",
+    exact: true,
+  });
+  await expect(table).toBeVisible();
+  await section.getByLabel("Scrabble mode").selectOption("word-buddy");
+  await expect(table).toHaveCount(0);
+  expect(f.reads()).toBe(1);
+  const request = page.waitForRequest((r) =>
+    r.url().includes("scrabbleMode=word-buddy"),
+  );
+  await page
+    .getByRole("button", { name: "Load Scrabble lead rankings", exact: true })
+    .click();
+  await request;
+  await expect(table).toBeVisible();
+  expect(f.reads()).toBe(2);
+});

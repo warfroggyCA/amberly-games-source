@@ -1483,14 +1483,18 @@ function HubHistory({
               .map((g) => (
                 <div className="hub-history-row" key={`${g.gameType}:${g.id}`}>
                   <button
-                    aria-label={`${g.gameType} · ${g.mode === "practice" ? "Private test" : g.status.replaceAll("_", " ")} · ${historyLabel(g.participants, g.winnerIds, players, g.totals)}`}
+                    aria-label={`${g.gameType}${g.gameType === "scrabble" ? ` · ${g.wordBuddy ? "Word Buddy" : "Classic"}` : ""} · ${g.mode === "practice" ? "Private test" : g.status.replaceAll("_", " ")} · ${historyLabel(g.participants, g.winnerIds, players, g.totals)}`}
                     className="hub-recent-game"
                     onClick={() =>
                       void onOpen(g).catch((e) => setError(e.message))
                     }
                   >
                     <span className="eyebrow">
-                      {g.gameType} ·{" "}
+                      {g.gameType}
+                      {g.gameType === "scrabble"
+                        ? ` · ${g.wordBuddy ? "Word Buddy" : "Classic"}`
+                        : ""}{" "}
+                      ·{" "}
                       {g.mode === "practice"
                         ? "Private test"
                         : g.status.replaceAll("_", " ")}

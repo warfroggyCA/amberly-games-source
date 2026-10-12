@@ -1,4 +1,6 @@
 "use client";
+import { ScrabbleModeFilter } from "./ScrabbleModeFilter";
+import type { ScrabbleMode } from "../lib/scrabble-mode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { familyRequest, FamilyRequestError } from "../lib/shared-store";
 import { isGameSummaryPage } from "../lib/game-summary";
@@ -28,6 +30,7 @@ export function LeadStandings({
   claimInitialLoad?: () => boolean;
   players: (PlayerProfileFields & { id: string })[];
 }) {
+  const [mode, setMode] = useState<ScrabbleMode>("all");
   const [data, setData] = useState<Totals | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,7 +78,7 @@ export function LeadStandings({
     setLoading(true);
     try {
       const next = await familyRequest<unknown>(
-        "/api/family/games?leadCounts=1",
+        `/api/family/games?leadCounts=1${mode === "all" ? "" : `&scrabbleMode=${mode}`}`,
         undefined,
         { expectedUserId: userId, signal: controller.signal },
       );
@@ -102,7 +105,7 @@ export function LeadStandings({
         setLoading(false);
       }
     }
-  }, [userId]);
+  }, [userId, mode]);
   useEffect(() => {
     let cancelled = false;
     // The lobby tap claims one initial read. Remounts after background refresh
@@ -134,6 +137,13 @@ export function LeadStandings({
   return (
     <section className="family-standings" aria-label="Scrabble lead rankings">
       <h3>Scrabble lead rankings</h3>
+      <ScrabbleModeFilter
+        value={mode}
+        onChange={(next) => {
+          cancelLoad();
+          setMode(next);
+        }}
+      />
       <p>
         Separate measures across qualifying Scrabble games. These do not change
         win ranks or the main rating.

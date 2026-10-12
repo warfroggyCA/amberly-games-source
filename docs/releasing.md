@@ -61,6 +61,14 @@ The required local files, in order, are:
 15. `20260926185952_player_archiving.sql`
 16. `20260927005922_access_usage.sql`
 17. `20260927123000_transparent_profile_photos.sql`
+18. `20261012024030_word_buddy_watch.sql`
+
+Word Buddy rollout requires the matching reader and watch projection. Once a
+Word Buddy game exists, PR53 and older readers cannot canonically hydrate its
+new definition field. Any rollback must retain a compatible reader; otherwise
+use a forward fix. Apply the projection migration only as a separately approved
+release action. Word Buddy private tests never enter the journal; explicitly
+promoted drafts remain ordinary drafts until recorded.
 
 Before deployment, compare the full list with **current hosted schema and migration history**, including changes applied under different provider timestamps. Apply only the reviewed missing changes in order, after an owner-approved backup and isolated restore rehearsal. Do not blindly push local migration history. Defaults, nicknames and invitation onboarding are required even when the Crokinole rollout flag is off.
 
