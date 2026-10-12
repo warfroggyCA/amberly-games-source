@@ -1773,6 +1773,12 @@ export function createSharedRepository(
         (select jsonb_agg(jsonb_build_array(word,created_at) order by word) from scrabble.verified_words where family_id=${familyId}::uuid),
         (select equipment from scrabble.equipment where family_id=${familyId}::uuid)
       )::text) version`;
+        // Replay has a smaller catalog. Separate its version so an older backend
+        // can safely return the full catalog after a rollback (and vice versa).
+        if (replayOnly)
+          catalog.version = createHash("md5")
+            .update(JSON.stringify(["replay", gameId, catalog.version]))
+            .digest("hex");
         const playerHeads = replayOnly
           ? await tx`select id,revision,archived from scrabble.players where family_id=${familyId}::uuid
               and id in (select player_id from scrabble.game_participants where family_id=${familyId}::uuid and game_id=${gameId!})

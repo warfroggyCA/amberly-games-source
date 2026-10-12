@@ -1751,6 +1751,54 @@ describe("player archive acknowledgements", () => {
 });
 
 describe("read-only replay refresh", () => {
+  it("supports old/new backend transitions without reusing the wrong catalog", async () => {
+    const cache: ReplayReadCache = {};
+    const full = state();
+    full.players.push({ id: "other", name: "Other" });
+    full.playerAccess.other = { revision: 0, archived: false, userId: null };
+    const narrow = {
+      ...full,
+      players: full.players.filter((p) => p.id !== "other"),
+      playerAccess: { ...full.playerAccess },
+    };
+    delete narrow.playerAccess.other;
+    const cold = refreshFixture(narrow, {}, "replay:game-1");
+    fetchMock.mockResolvedValueOnce(Response.json(cold));
+    await readGameForReplay(
+      "game-1",
+      userId,
+      familyId,
+      new AbortController().signal,
+      cache,
+    );
+    const legacy = refreshFixture(full, cold.versions, "game-1");
+    fetchMock.mockResolvedValueOnce(Response.json(legacy));
+    expect(
+      (
+        await readGameForReplay(
+          "game-1",
+          userId,
+          familyId,
+          new AbortController().signal,
+          cache,
+        )
+      ).profiles,
+    ).toHaveLength(full.players.length);
+    narrow.players[0] = { ...narrow.players[0], name: "Updated Ada" };
+    const restored = refreshFixture(narrow, legacy.versions, "replay:game-1");
+    fetchMock.mockResolvedValueOnce(Response.json(restored));
+    const final = await readGameForReplay(
+      "game-1",
+      userId,
+      familyId,
+      new AbortController().signal,
+      cache,
+    );
+    expect(final.profiles).toEqual(narrow.players);
+    expect(
+      (cache.current?.cache.values.catalog as SharedState).playerAccess,
+    ).not.toHaveProperty("other");
+  });
   it("reuses only matching scoped resources and discards authorization failures", async () => {
     const cache: ReplayReadCache = {};
     const snapshot = state();

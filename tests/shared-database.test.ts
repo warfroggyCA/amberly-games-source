@@ -608,6 +608,23 @@ suite("isolated real PostgreSQL shared family repository", () => {
     );
     expect(cached.scope).toBe(`replay:${game.id}`);
     expect(cached.gameIds).toEqual([game.id]);
+    const legacy = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      cached.versions,
+      game.id,
+    );
+    expect(legacy.scope).toBe(game.id);
+    expect(legacy.values).toHaveProperty("catalog");
+    const restored = await repository.readRefresh(
+      f.admin,
+      f.familyId,
+      legacy.versions,
+      game.id,
+      true,
+    );
+    expect(restored.values).toHaveProperty("catalog");
+
     await code(
       repository.readRefresh(
         f.guest,

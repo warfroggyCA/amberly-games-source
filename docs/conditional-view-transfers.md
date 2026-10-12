@@ -4,7 +4,9 @@ Replay requests use the existing authorized refresh protocol with a distinct
 `replay:<gameId>` scope. They load only the selected game and its participating
 player profiles. The viewer keeps a memory-only cache scoped to the user, family
 and game, discarding it on failed reads. Existing game removal, practice access,
-profile revision, scoring generation and membership checks still run.
+profile revision, scoring generation and membership checks still run. The client
+also accepts the older backend's game-specific refresh scope during rollback;
+separate catalog versions prevent reuse of the wrong profile-access subset.
 
 Spectators send a memory-only scoreboard version. PostgreSQL evaluates the
 existing authorized `read_watch` function on every request and omits unchanged

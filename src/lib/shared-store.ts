@@ -519,7 +519,7 @@ export async function readGameForReplay(
           prior,
           userId,
           familyId,
-          `replay:${gameId}`,
+          response.scope === gameId ? gameId : `replay:${gameId}`,
         )
       : undefined;
   const shared = validateShared(refreshed?.state ?? response, userId, familyId);
