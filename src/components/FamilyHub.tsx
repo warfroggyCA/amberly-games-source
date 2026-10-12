@@ -113,7 +113,11 @@ export function FamilyHub({
       g.definition.mode !== "practice" || shared.member.role === "superadmin",
   );
   const game = visibleGames.find((g) => g.definition.id === gameId) ?? null;
-  const crokinoleOpened = useRef(false);
+  const usesCrokinole =
+    pathname === "/family" ||
+    isCrokinole ||
+    pathname === "/family/records" ||
+    pathname === "/family/settings";
   const access = gameId ? state.access[gameId] : undefined;
   const draft = gameId ? state.drafts[gameId] : undefined;
   const locked = state.busy || state.pending || state.displaced || working;
@@ -127,14 +131,13 @@ export function FamilyHub({
     };
   }, [store]); // store lifetime spans game routes
   useEffect(() => {
-    if (pathname === "/family/scrabble" || pathname === "/family/players")
-      return;
-    crokinoleOpened.current = true;
+    if (!usesCrokinole) return;
     void store.load(gameId);
-  }, [store, gameId, pathname]);
+  }, [store, gameId, pathname, usesCrokinole]);
   useEffect(() => {
+    if (!usesCrokinole) return;
     const refresh = () => {
-      if (crokinoleOpened.current && document.visibilityState === "visible")
+      if (document.visibilityState === "visible")
         void store.refresh(gameId, undefined, pathname === "/family/records");
     };
     const timer = setInterval(refresh, 5000);
@@ -143,7 +146,7 @@ export function FamilyHub({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [store, gameId, pathname]);
+  }, [store, gameId, pathname, usesCrokinole]);
   useEffect(() => {
     const guard = async () => {
       await store.flush();

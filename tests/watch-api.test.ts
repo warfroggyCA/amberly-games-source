@@ -3,6 +3,7 @@ import { createBoard } from "../src/domain/board";
 
 const repository = vi.hoisted(() => ({
   readWatch: vi.fn(),
+  readWatchRefresh: vi.fn(),
   get: vi.fn(),
 }));
 vi.mock("../src/server/database", () => ({
@@ -53,6 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   repository.get.mockImplementation(() => ({
     readWatch: repository.readWatch,
+    readWatchRefresh: repository.readWatchRefresh,
   }));
   repository.readWatch.mockResolvedValue(game());
 });
@@ -191,4 +193,26 @@ describe("private guest scoreboard HTTP boundary", () => {
     );
     expectPrivate(response);
   });
+});
+
+it("authenticates conditional reads and preserves private headers on unchanged/revoked views", async () => {
+  const version = "1".repeat(32);
+  const req = () =>
+    new Request(endpoint, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "x-scrabble-watch-version": version,
+      },
+    });
+  repository.readWatchRefresh.mockResolvedValueOnce({ version, game: null });
+  const response = await GET(req());
+  expect(await response.json()).toEqual({ version, game: null });
+  expect(repository.readWatchRefresh).toHaveBeenCalledWith(token, version);
+  expectPrivate(response);
+  repository.readWatchRefresh.mockRejectedValueOnce(
+    new SharedRepositoryError("WATCH_LINK_UNAVAILABLE", "Revoked", 404),
+  );
+  const denied = await GET(req());
+  expect(denied.status).toBe(404);
+  expectPrivate(denied);
 });

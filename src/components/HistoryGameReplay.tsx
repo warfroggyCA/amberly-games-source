@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { readGameForReplay } from "../lib/shared-store";
+import { readGameForReplay, type ReplayReadCache } from "../lib/shared-store";
 import { GameReplay } from "./GameReplay";
 
 export function HistoryGameReplay({
@@ -21,6 +21,7 @@ export function HistoryGameReplay({
   useEffect(() => {
     const controller = new AbortController();
     let loading = false;
+    const cache: ReplayReadCache = {};
     async function refresh() {
       if (loading || document.visibilityState !== "visible") return;
       loading = true;
@@ -30,6 +31,7 @@ export function HistoryGameReplay({
           userId,
           familyId,
           controller.signal,
+          cache,
         );
         if (!controller.signal.aborted) {
           setRecord(next);

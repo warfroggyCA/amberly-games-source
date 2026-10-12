@@ -17,6 +17,14 @@ export async function GET(request: Request) {
       401,
     );
   try {
+    const version = request.headers.get("x-scrabble-watch-version");
+    if (version !== null) {
+      if (version !== "" && !/^[a-f0-9]{32}$/.test(version))
+        return privateJson({ error: "Invalid scoreboard version." }, 400);
+      return privateJson(
+        await getSharedRepository().readWatchRefresh(token, version),
+      );
+    }
     return privateJson({ game: await getSharedRepository().readWatch(token) });
   } catch (error) {
     const unavailable =

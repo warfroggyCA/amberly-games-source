@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
 import {
@@ -786,22 +787,34 @@ it("Record Book refresh retains loaded pages and reads new, updated and removed 
   const older = copy("older");
   const newer = copy("newer");
   let pages = [[newer], [older]];
-  request.mockImplementation(async (path: string) => {
-    const cursor = new URL(path, "http://test").searchParams.get("cursor");
-    const index = cursor ? Number(cursor) : 0;
-    const games = pages[index];
-    return {
-      ...state(),
-      games,
-      access: Object.fromEntries(
-        games.map((g) => [g.definition.id, state().access.game]),
-      ),
-      nextCursor: index + 1 < pages.length ? String(index + 1) : null,
-    };
-  });
+  request.mockImplementation(
+    async (path: string, _body: unknown, options: { refresh?: string }) => {
+      const cursor = new URL(path, "http://test").searchParams.get("cursor");
+      const index = cursor ? Number(cursor) : 0;
+      const games = pages[index];
+      const page = {
+        ...state(),
+        games,
+        access: Object.fromEntries(
+          games.map((g) => [g.definition.id, state().access.game]),
+        ),
+        nextCursor: index + 1 < pages.length ? String(index + 1) : null,
+      };
+      const version = createHash("md5")
+        .update(JSON.stringify(page))
+        .digest("hex");
+      return {
+        kind: "crokinole-history-refresh-v1",
+        version,
+        state: options.refresh === version ? null : page,
+      };
+    },
+  );
   const s = store();
   await s.load();
   await s.load(undefined, "1");
+  expect(s.getSnapshot().games).toHaveLength(2);
+  await s.refresh(undefined, undefined, true);
   expect(s.getSnapshot().games).toHaveLength(2);
   const updated = applyCrokinoleCommand(older, {
     id: "record",
@@ -861,4 +874,29 @@ it("Record Book refresh keeps partially loaded history and its advancing cursor"
     "second",
   ]);
   expect(s.getSnapshot().nextCursor).toBe("3");
+});
+
+it("materializes unchanged history pages but clears cached authorization after errors", async () => {
+  const s = store();
+  const snapshot = state();
+  const version = "1".repeat(32);
+  request.mockResolvedValueOnce({
+    kind: "crokinole-history-refresh-v1",
+    version,
+    state: snapshot,
+  });
+  await s.load();
+  request.mockResolvedValueOnce({
+    kind: "crokinole-history-refresh-v1",
+    version,
+    state: null,
+  });
+  await s.refresh();
+  expect(s.getSnapshot().games).toEqual(snapshot.games);
+  expect(request.mock.calls.at(-1)?.[2].refresh).toBe(version);
+  request.mockRejectedValueOnce(new Error("Offline"));
+  await s.refresh();
+  request.mockResolvedValueOnce(snapshot);
+  await s.refresh();
+  expect(request.mock.calls.at(-1)?.[2].refresh).toBe("");
 });

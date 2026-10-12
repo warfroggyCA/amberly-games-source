@@ -195,67 +195,106 @@ export function createCrokinoleRepository(
   ) {
     await tx`insert into scrabble.audit(family_id,id,actor_id,action,subject,before_value,after_value) values(${familyId}::uuid,${randomUUID()}::uuid,${actor.userId}::uuid,${"crokinole:" + action},${subject},${json(tx, before)},${json(tx, after)})`;
   }
+  function historyCursor(raw?: string) {
+    let cursor: { date: string; id: string } | null = null;
+    if (raw) {
+      try {
+        cursor = JSON.parse(Buffer.from(raw, "base64url").toString());
+        if (
+          !cursor ||
+          !id(cursor.id) ||
+          !Number.isFinite(Date.parse(cursor.date))
+        )
+          throw Error();
+      } catch {
+        fail("INVALID_CURSOR", "Invalid history page.");
+      }
+    }
+    return cursor;
+  }
   async function readState(
     actor: VerifiedActor,
     familyId: string,
     query: { gameId?: string; cursor?: string } = {},
   ): Promise<CrokinoleSharedState> {
-    return transaction(actor, familyId, false, async (tx, who) => {
-      const result: CrokinoleSharedState = {
-        games: [],
-        access: {},
-        palette: await palette(tx, familyId),
-        nextCursor: null,
-        creationEnabled: enabled(),
-      };
-      if (query.gameId) {
-        const { row, game } = await checked(tx, familyId, query.gameId);
-        result.games = [game];
-        result.access[query.gameId] = await access(tx, familyId, row, who);
-        if (result.access[query.gameId].canScore)
-          result.draft = await draft(tx, familyId, row);
-        return result;
-      }
-      let cursor: { date: string; id: string } | null = null;
-      if (query.cursor) {
-        try {
-          cursor = JSON.parse(
-            Buffer.from(query.cursor, "base64url").toString(),
-          );
-          if (
-            !cursor ||
-            !id(cursor.id) ||
-            !Number.isFinite(Date.parse(cursor.date))
-          )
-            throw Error();
-        } catch {
-          fail("INVALID_CURSOR", "Invalid history page.");
-        }
-      }
-      const rows =
-        await tx`select game_id,state,scorer_user_id,generation,mode,created_at::text as created_at_cursor from scrabble.crokinole_games where family_id=${familyId}::uuid and not removed ${cursor ? tx`and (created_at,game_id)<(${cursor.date}::text::timestamptz,${cursor.id})` : tx``} order by created_at desc,game_id desc limit 31`;
-      for (const row of rows.slice(0, 30)) {
-        result.games.push(row.state);
-        result.access[row.game_id] = {
-          scorerUserId: row.scorer_user_id,
-          generation: row.generation,
-          mode: row.mode,
-          canScore:
-            row.scorer_user_id === who.userId &&
-            hasPermission(who, "scoreGames"),
-          concerns: [],
-        };
-      }
-      if (rows.length > 30) {
-        const last = rows[29];
-        result.nextCursor = Buffer.from(
-          JSON.stringify({
-            date: last.created_at_cursor,
-            id: last.game_id,
-          }),
-        ).toString("base64url");
-      }
+    return transaction(actor, familyId, false, (tx, who) =>
+      readSnapshot(tx, who, familyId, query),
+    );
+  }
+  async function readSnapshot(
+    tx: Tx,
+    who: FamilyMember,
+    familyId: string,
+    query: { gameId?: string; cursor?: string },
+  ): Promise<CrokinoleSharedState> {
+    const result: CrokinoleSharedState = {
+      games: [],
+      access: {},
+      palette: await palette(tx, familyId),
+      nextCursor: null,
+      creationEnabled: enabled(),
+    };
+    if (query.gameId) {
+      const { row, game } = await checked(tx, familyId, query.gameId);
+      result.games = [game];
+      result.access[query.gameId] = await access(tx, familyId, row, who);
+      if (result.access[query.gameId].canScore)
+        result.draft = await draft(tx, familyId, row);
       return result;
+    }
+    const cursor = historyCursor(query.cursor);
+    const rows =
+      await tx`select game_id,case when row_number() over (order by created_at desc,game_id desc)<=30 then state else null end state,scorer_user_id,generation,mode,created_at::text as created_at_cursor from scrabble.crokinole_games where family_id=${familyId}::uuid and not removed ${cursor ? tx`and (created_at,game_id)<(${cursor.date}::text::timestamptz,${cursor.id})` : tx``} order by created_at desc,game_id desc limit 31`;
+    for (const row of rows.slice(0, 30)) {
+      result.games.push(row.state);
+      result.access[row.game_id] = {
+        scorerUserId: row.scorer_user_id,
+        generation: row.generation,
+        mode: row.mode,
+        canScore:
+          row.scorer_user_id === who.userId && hasPermission(who, "scoreGames"),
+        concerns: [],
+      };
+    }
+    if (rows.length > 30) {
+      const last = rows[29];
+      result.nextCursor = Buffer.from(
+        JSON.stringify({
+          date: last.created_at_cursor,
+          id: last.game_id,
+        }),
+      ).toString("base64url");
+    }
+    return result;
+  }
+  async function readHistoryRefresh(
+    actor: VerifiedActor,
+    familyId: string,
+    known: string,
+    rawCursor?: string,
+  ) {
+    const cursor = historyCursor(rawCursor);
+    return transaction(actor, familyId, false, async (tx, who) => {
+      const colours = await palette(tx, familyId);
+      // Hash the authorized page in PostgreSQL, including its boundary sentinel.
+      // No journals or photos cross the wire for an unchanged page.
+      const [head] = await tx`select md5(jsonb_build_array(
+        ${JSON.stringify(who)}::text,${JSON.stringify(colours)}::text,${enabled()}::boolean,
+        coalesce(jsonb_agg(to_jsonb(page) order by page.created_at desc,page.game_id desc),'[]'::jsonb)
+      )::text) version from (
+        select game_id,state,scorer_user_id,generation,mode,created_at from scrabble.crokinole_games
+        where family_id=${familyId}::uuid and not removed
+        ${cursor ? tx`and (created_at,game_id)<(${cursor.date}::text::timestamptz,${cursor.id})` : tx``}
+        order by created_at desc,game_id desc limit 31
+      ) page`;
+      return {
+        kind: "crokinole-history-refresh-v1" as const,
+        version: head.version as string,
+        state:
+          head.version === known
+            ? null
+            : await readSnapshot(tx, who, familyId, { cursor: rawCursor }),
+      };
     });
   }
   async function mutate(
@@ -902,5 +941,5 @@ export function createCrokinoleRepository(
       };
     });
   }
-  return { readState, mutate, exportHistory };
+  return { readState, readHistoryRefresh, mutate, exportHistory };
 }
