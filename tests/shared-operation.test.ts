@@ -59,6 +59,20 @@ function fixture() {
   return { data, shared };
 }
 describe("shared UI command translation", () => {
+  it("rejects cached-client reconstruction that drops or changes immutable Word Buddy mode", () => {
+    const { data, shared } = fixture();
+    const previous = structuredClone(data);
+    previous.games[0].definition.wordBuddy = true;
+    for (const mode of [undefined, false]) {
+      const next = structuredClone(previous);
+      if (mode === undefined) delete next.games[0].definition.wordBuddy;
+      else next.games[0].definition.wordBuddy = mode;
+      expect(() =>
+        describeSharedChange(previous, next, shared, "device"),
+      ).toThrow("Original shared game history cannot be replaced");
+      expect(previous.games[0].definition.wordBuddy).toBe(true);
+    }
+  });
   it("sends play commands without accepting a client score snapshot", () => {
     const { data, shared } = fixture();
     const result = applyCommand(

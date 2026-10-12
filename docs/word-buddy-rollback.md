@@ -30,9 +30,14 @@ before switching; this artifact cannot promise to undo every possible defect.
 
 ## Mixed-version behavior
 
-- PR53 cached clients cannot canonically hydrate new Word Buddy games. They must
-  reload to a compatible client; existing Classic games remain supported. Do not
-  claim that old tabs gain new readers automatically.
+- PR53 domain/local/replay hydration cannot canonically hydrate new Word Buddy
+  games. Shared browser reads use structural checks instead, so some old tabs can
+  still display games and send ordinary commands without showing the new mode or
+  tools. A client-side correction that rebuilds through the old createGame may
+  drop the field in memory, but describeSharedChange rejects any definition change
+  before sending it. The compatible server never accepts replacement definitions.
+  Old tabs must reload for the complete compatible experience; do not claim that
+  they gain new readers automatically. Classic games remain supported.
 - Mutations carry commands/revisions, not replacement game snapshots. The server
   loads its authoritative definition and journal. Older-shaped commands accepted
   by the compatible server preserve absent/false/true mode fields exactly.

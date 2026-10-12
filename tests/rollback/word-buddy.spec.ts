@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { createGame } from "../../src/domain/game";
+import { applyCommand, createGame } from "../../src/domain/game";
 import { testLexicon } from "../../src/lib/test-lexicon";
 import { installFixture } from "../browser/fixtures/crokinole";
 
@@ -20,7 +20,18 @@ for (const held of [false, true]) {
       lexicon: testLexicon,
     });
     if (!made.ok) throw Error(made.error.message);
-    f.family.games = [made.game];
+    const started = applyCommand(
+      made.game,
+      {
+        type: "start-clock",
+        id: "clock",
+        expectedRevision: 0,
+        timedAt: new Date().toISOString(),
+      },
+      testLexicon,
+    );
+    if (!started.ok) throw Error(started.error.message);
+    f.family.games = [started.game];
     f.family.gameAccess[made.game.id] = {
       scorerUserId: f.family.member.userId,
       deviceId: "fixture",
