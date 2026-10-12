@@ -1,0 +1,75 @@
+.turn-coaching {
+  display: grid;
+  gap: 1rem;
+  max-width: 100%;
+}
+.turn-coaching p {
+  margin: 0;
+}
+.turn-coaching input,
+.turn-coaching select {
+  min-height: 44px;
+  max-width: 100%;
+}
+.turn-coaching details {
+  border: 1px solid #c9c3b6;
+  border-radius: 12px;
+  padding: 12px;
+}
+.turn-coaching summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+.coaching-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.coaching-options [aria-pressed="true"] {
+  outline: 3px solid #587b62;
+}
+.coaching-board {
+  display: grid;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  gap: 1px;
+  background: #9b9f91;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 440px;
+}
+.coaching-board .square {
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  padding: 0;
+}
+.coaching-board .letter-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: clamp(9px, 2.8vw, 20px);
+}
+.coaching-board .letter-tile small {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 7px;
+}
+.coaching-board .fresh {
+  outline: 2px solid #356a4a;
+  outline-offset: -2px;
+}
+.coaching-launch {
+  min-height: 44px;
+}
+
+.coaching-board .letter-tile b {
+  font-size: clamp(9px, 2.8vw, 20px);
+  line-height: 1;
+}
+.coaching-options button {
+  text-transform: capitalize;
+}

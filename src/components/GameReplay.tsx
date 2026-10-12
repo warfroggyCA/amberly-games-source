@@ -11,6 +11,7 @@ import { gameReplay, type GameState } from "../domain/game";
 import type { SavedPlayer } from "../lib/preview-store";
 import { PlaybackClock } from "../lib/playback-clock";
 import { replayStepLabel } from "../lib/game-replay";
+import { TurnCoaching } from "./TurnCoaching";
 import { SpectatorGame } from "./SpectatorGame";
 import { LeadCounts } from "./LeadCounts";
 import "./game-replay.css";
@@ -142,6 +143,7 @@ export function GameReplay({
           Close replay
         </button>
       </header>
+      <TurnCoaching game={record} onOpen={pause} />
       {!timeline || !frame || !before ? (
         <>
           <p role="status">

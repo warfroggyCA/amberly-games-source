@@ -301,6 +301,131 @@ suite("isolated real PostgreSQL shared family repository", () => {
     ).rejects.toMatchObject({ code: "INVALID_GAME" });
   });
 
+  it("coaching guest access stays scoped, read-only and separate from polling", async () => {
+    const f = await fixture();
+    const created = await f.mutate({
+      type: "create-game",
+      id: "coaching",
+      coaching: true,
+      mode: "confirmed",
+      players: [
+        { id: "ada", seat: 0 },
+        { id: "ben", seat: 2 },
+      ],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    expect(created.game!.definition.coaching).toBe(true);
+    const recorded = await f.mutate({
+      type: "game-commands",
+      gameId: "coaching",
+      deviceId: "device-a",
+      generation: 1,
+      commands: [
+        {
+          type: "play",
+          id: "turn:one.1",
+          expectedRevision: 0,
+          placements: [..."CAT"].map((letter, i) => ({
+            row: 7,
+            col: 7 + i,
+            tile: { letter: letter as "C" | "A" | "T", blank: false },
+          })),
+        },
+      ],
+    });
+    const token = randomBytes(32).toString("hex");
+    await f.mutate({ type: "create-watch-link", gameId: "coaching", token });
+    const first = await repository.readWatchRefresh(token);
+    expect(first.game!.coaching).toBe(true);
+    expect(first.game).not.toHaveProperty("events");
+    expect(first.game).not.toHaveProperty("definition");
+    const position = await repository.readWatchCoaching(token, "turn:one.1");
+    expect(position.board.flat().every((t) => t === null)).toBe(true);
+    expect(position.turn.score).toBe(recorded.game!.turns[0].score);
+    expect(Object.keys(position).sort()).toEqual(
+      [
+        "gameId",
+        "revision",
+        "sequence",
+        "board",
+        "turn",
+        "rackCount",
+        "lexicon",
+        "verifiedWords",
+        "tileSupply",
+        "corrected",
+      ].sort(),
+    );
+    expect(JSON.stringify(position)).not.toMatch(
+      /initialRacks|fingerprint|commands|recordedBy|scorer_user_id/,
+    );
+    expect(
+      (await repository.readWatchRefresh(token, first.version)).game,
+    ).toBeNull();
+    await expect(
+      repository.readWatchCoaching(token, "other-game-turn"),
+    ).rejects.toMatchObject({ status: 404 });
+    await expect(
+      repository.readWatchCoaching("bad", "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.watch_links set expires_at=now()-interval '1 second' where family_id=${f.familyId}::uuid`;
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.watch_links set expires_at=now()+interval '1 day' where family_id=${f.familyId}::uuid`;
+    await owner`update scrabble.memberships set active=false where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await owner`update scrabble.memberships set active=true where family_id=${f.familyId}::uuid and user_id=${f.admin.userId}::uuid`;
+    const privateGame = await f.mutate({
+      type: "create-game",
+      id: "private-coaching",
+      coaching: true,
+      mode: "practice",
+      players: [{ id: "ada", seat: 0 }],
+      firstPlayerId: "ada",
+      direction: "clockwise",
+      deviceId: "device-a",
+    });
+    const privateToken = randomBytes(32).toString("hex");
+    await owner`insert into scrabble.watch_links(family_id,game_id,token_hash,created_by,expires_at) values(${f.familyId}::uuid,${privateGame.game!.id},${createHash("sha256").update(privateToken).digest("hex")},${f.admin.userId}::uuid,now()+interval '1 day')`;
+    await expect(
+      repository.readWatchCoaching(privateToken, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    await f.mutate({ type: "revoke-watch-link", gameId: "coaching" });
+    await expect(
+      repository.readWatchCoaching(token, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+    for (const role of ["anon", "authenticated", "service_role"]) {
+      const [priv] =
+        await owner`select has_function_privilege(${role},'scrabble.read_watch_coaching_source(text)','execute') allowed`;
+      expect(priv.allowed).toBe(false);
+    }
+    expect(
+      (await repository.readState(f.admin, f.familyId)).games.find(
+        (g) => g.id === "coaching",
+      ),
+    ).toEqual(recorded.game);
+    const replacementToken = randomBytes(32).toString("hex");
+    await f.mutate({
+      type: "create-watch-link",
+      gameId: "coaching",
+      token: replacementToken,
+    });
+    await f.mutate({
+      type: "remove-game",
+      gameId: "coaching",
+      expectedRevision: recorded.game!.revision,
+      reason: "Synthetic removal test",
+    });
+    await expect(
+      repository.readWatchCoaching(replacementToken, "turn:one.1"),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it("measures database wire and response bytes for representative refresh workloads", async () => {
     const f = await fixture();
     for (let i = 2; i < 8; i++)
@@ -3412,6 +3537,8 @@ suite("isolated real PostgreSQL shared family repository", () => {
         "scorerGeneration",
         "liveDraft",
         "wordBuddy",
+        "coaching",
+        "coachingEpoch",
         "lexicon",
         "verifiedWords",
       ].sort(),

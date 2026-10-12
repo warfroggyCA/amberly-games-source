@@ -1,3 +1,4 @@
+import { scoreTiers } from "./score-tiers";
 import { findMoves, type EnumerableLexicon, type ScoredMove } from "../solver";
 import {
   actionKey,
@@ -73,20 +74,14 @@ export function analyseScore(
 ): ScoreSummary {
   unseenTiles(position);
   checkBudget(budget);
-  const histogram = new Map<number, number>();
-  const medalMoves = new Map<number, ScoredMove>();
+  const tiers = scoreTiers();
   const retained: { action: Action; value: number; key: string }[] = [];
   const result = findMoves(position.board, position.rack, lexicon, {
     limit: 8,
     maxNodes: budget.maxNodes,
     signal: budget.signal,
     onMove(move) {
-      histogram.set(move.score, (histogram.get(move.score) ?? 0) + 1);
-      const representative = medalMoves.get(move.score);
-      if (!representative || move.key < representative.key)
-        medalMoves.set(move.score, move);
-      if (medalMoves.size > 3)
-        medalMoves.delete(Math.min(...medalMoves.keys()));
+      tiers.observe(move);
       const action: Action = { type: "play", placements: move.placements };
       const value =
         move.score +
@@ -121,14 +116,13 @@ export function analyseScore(
   ])
     candidates.set(actionKey(action), action);
   const maximum = result.moves[0]?.score ?? 0;
+  const summary = tiers.summary();
   return {
     maximum,
-    maximumCount: histogram.get(maximum) ?? 0,
+    maximumCount:
+      summary.histogram.find((b) => b.score === maximum)?.count ?? 0,
     totalMoves: result.totalMoves,
-    histogram: [...histogram]
-      .map(([score, count]) => ({ score, count }))
-      .sort((a, b) => b.score - a.score),
-    best: [...medalMoves.values()].sort((a, b) => b.score - a.score),
+    ...summary,
     candidates: [...candidates.values()],
     candidateCount: result.totalMoves + other.length + 1,
     nodes: result.visitedNodes,

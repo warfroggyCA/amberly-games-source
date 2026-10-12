@@ -1,3 +1,4 @@
+import { coachingPosition } from "../domain/turn-coaching";
 import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import type {
   RefreshVersions,
@@ -211,6 +212,7 @@ function validateMutation(input: SharedMutation) {
       "mode",
       ...(Object.hasOwn(op, "tileSet") ? ["tileSet"] : []),
       ...(Object.hasOwn(op, "wordBuddy") ? ["wordBuddy"] : []),
+      ...(Object.hasOwn(op, "coaching") ? ["coaching"] : []),
     ],
     "game-commands": ["gameId", "commands", "deviceId", "generation"],
     "verify-words": [
@@ -306,6 +308,8 @@ function validateMutation(input: SharedMutation) {
         "Enter a name of 1–60 characters, a bio up to 240 characters, and a supported small JPEG photo.",
       );
   } else if (op.type === "create-game") {
+    if (op.coaching !== undefined && typeof op.coaching !== "boolean")
+      reject("INVALID_GAME", "Choose whether coaching is enabled.");
     if (op.wordBuddy !== undefined && typeof op.wordBuddy !== "boolean")
       reject("INVALID_GAME", "Choose whether Word Buddy is enabled.");
     if (
@@ -1044,6 +1048,7 @@ export function createSharedRepository(
         }
       }
       const created = createGame({
+        ...(op.coaching !== undefined ? { coaching: op.coaching } : {}),
         ...(op.wordBuddy !== undefined ? { wordBuddy: op.wordBuddy } : {}),
         ...(tileSet ? { tileSet } : {}),
         id: op.id,
@@ -2372,6 +2377,25 @@ export function createSharedRepository(
       draft: LiveDraft | null;
     };
   }
+  async function readWatchCoaching(token: string, turnId: string) {
+    if (!/^[a-f0-9]{64}$/.test(token) || !safeId(turnId))
+      reject("WATCH_LINK_UNAVAILABLE", "This review is unavailable.", 404);
+    const hash = createHash("sha256").update(token).digest("hex");
+    return sql.begin("read only", async (tx) => {
+      await tx`set local role scrabble_runtime`;
+      await requireCurrentSchema(tx);
+      await tx`select set_config('statement_timeout','5000',true)`;
+      const [row] =
+        await tx`select scrabble.read_watch_coaching_source(${hash}) state`;
+      // Trusted server-only reconstruction. Never return the source or journal over HTTP.
+      const position = row?.state
+        ? coachingPosition(row.state as GameState, turnId)
+        : null;
+      if (!position)
+        reject("WATCH_LINK_UNAVAILABLE", "This review is unavailable.", 404);
+      return position;
+    });
+  }
   async function readWatch(token: string): Promise<SpectatorState> {
     return (await readWatchRefresh(token)).game!;
   }
@@ -2503,6 +2527,7 @@ export function createSharedRepository(
     admit,
     exportHistory,
     readWatch,
+    readWatchCoaching,
     readWatchRefresh,
     writeLiveDraft,
     readLiveDraft,

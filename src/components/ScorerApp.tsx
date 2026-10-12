@@ -78,6 +78,7 @@ import "./amberly.css";
 import "./game-screen.css";
 import { GameScorePanel } from "./GameScorePanel";
 import { useGameSounds } from "./useGameSounds";
+import { TurnCoaching } from "./TurnCoaching";
 import { SpectatorGame } from "./SpectatorGame";
 import { useLiveDraft, type LiveContext } from "./useLiveDraft";
 import { AmberlyHeader, AmberlyNavigation } from "./AmberlyHeader";
@@ -382,6 +383,7 @@ export function ScorerApp({
     tileSetId: string | null,
     equipmentRevision: number,
     wordBuddy: boolean,
+    coaching: boolean,
   ) {
     if (wordBuddy && !wordBuddyAvailable) {
       setError(
@@ -413,6 +415,7 @@ export function ScorerApp({
       const tileSet = snapshotTileSet(equipment, tileSetId);
       const result = createGame({
         ...(wordBuddy ? { wordBuddy: true } : {}),
+        ...(coaching ? { coaching: true } : {}),
         ...(tileSet ? { tileSet } : {}),
         id: id(),
         players,
@@ -1094,6 +1097,7 @@ export function ScorerApp({
           {returnNavigation}
           {playAgain}
           {draftRecovery}
+          <TurnCoaching game={game} />
           <SpectatorGame
             soundControl={soundControl}
             game={game}
@@ -1427,6 +1431,7 @@ export function ScorerApp({
             )}
             {playAgain}
             {draftRecovery}
+            {view === "Play" && game && <TurnCoaching game={game} />}
             {view === "Play" &&
               (!game ? (
                 <div className="empty-state">

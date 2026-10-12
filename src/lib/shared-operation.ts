@@ -72,6 +72,9 @@ export function describeSharedChange(
     if (!old)
       return {
         type: "create-game",
+        ...(game.definition.coaching !== undefined
+          ? { coaching: game.definition.coaching }
+          : {}),
         ...(game.definition.wordBuddy !== undefined
           ? { wordBuddy: game.definition.wordBuddy }
           : {}),
