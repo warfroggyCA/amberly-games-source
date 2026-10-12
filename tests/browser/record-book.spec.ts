@@ -84,7 +84,10 @@ for (const withPhoto of [false, true])
       page.getByRole("heading", { name: "A game worth remembering" }),
     ).toBeVisible();
     await expect(page.locator(".book-score")).toHaveText("412");
-    const mode = page.getByLabel("Scrabble mode", { exact: true });
+    const mode = page.getByRole("combobox", {
+      name: "Scrabble mode",
+      exact: true,
+    });
     await expect(mode).toHaveValue("all");
     await mode.selectOption("word-buddy");
     await expect(page.locator(".book-score")).toHaveText("398");
