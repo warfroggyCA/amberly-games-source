@@ -1,3 +1,4 @@
+import { coachingAvailable } from "../lib/coaching-availability";
 import { coachingPosition } from "../domain/turn-coaching";
 import { wordBuddyAvailable } from "../lib/word-buddy-availability";
 import type {
@@ -108,6 +109,7 @@ async function readPlayerRows(
 }
 type Options = {
   wordBuddyEnabled?: boolean;
+  coachingEnabled?: boolean;
   resolveLexicon?: (reference: unknown) => EnumerableLexicon;
   defaultLexicon?: EnumerableLexicon;
   verifyWord?: (word: string) => Promise<OfficialWordResult>;
@@ -498,6 +500,7 @@ export function createSharedRepository(
   options: Options = {},
 ) {
   const allowWordBuddy = options.wordBuddyEnabled ?? wordBuddyAvailable;
+  const allowCoaching = options.coachingEnabled ?? coachingAvailable;
   const resolve = options.resolveLexicon ?? resolveLexicon;
   const lexiconDefault = options.defaultLexicon ?? defaultLexicon;
   const verifyWord = options.verifyWord ?? lookupOfficialWordCached;
@@ -1004,6 +1007,12 @@ export function createSharedRepository(
       if (op.mode === "practice") requireAdmin(who);
       requirePermission(who, "startGames");
       requirePermission(who, "scoreGames");
+      if (op.coaching === true && !allowCoaching)
+        reject(
+          "COACHING_UNAVAILABLE",
+          "Post-turn coaching is temporarily unavailable. Reload and start without coaching.",
+          409,
+        );
       if (op.wordBuddy === true && !allowWordBuddy)
         reject(
           "WORD_BUDDY_UNAVAILABLE",
@@ -2378,6 +2387,12 @@ export function createSharedRepository(
     };
   }
   async function readWatchCoaching(token: string, turnId: string) {
+    if (!allowCoaching)
+      reject(
+        "COACHING_UNAVAILABLE",
+        "Post-turn coaching is temporarily unavailable.",
+        404,
+      );
     if (!/^[a-f0-9]{64}$/.test(token) || !safeId(turnId))
       reject("WATCH_LINK_UNAVAILABLE", "This review is unavailable.", 404);
     const hash = createHash("sha256").update(token).digest("hex");

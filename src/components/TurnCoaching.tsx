@@ -23,6 +23,7 @@ import { LETTER_VALUES, premiumAt } from "../domain/board";
 import type { Placement } from "../domain/types";
 import { Modal } from "./Modal";
 import "./turn-coaching.css";
+import { coachingAvailable } from "../lib/coaching-availability";
 
 export function TurnCoaching({
   game,
@@ -33,7 +34,7 @@ export function TurnCoaching({
 }) {
   const enabled =
     "definition" in game ? game.definition.coaching : game.coaching;
-  return enabled ? (
+  return coachingAvailable && enabled ? (
     <PrivateCoaching key={game.id} game={game} onOpen={onOpen} />
   ) : null;
 }

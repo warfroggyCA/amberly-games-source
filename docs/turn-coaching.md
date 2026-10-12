@@ -71,3 +71,26 @@ real database authorization, guest browser privacy/mobile behavior, and a real
 Next/PostgreSQL anonymous viewing-link journey including revocation. External auth
 is simulated only in the isolated integrated harness; physical-device and hosted
 acceptance remain separate.
+
+## Compatible fallback
+
+Build the same reviewed source with `NEXT_PUBLIC_AMBERLY_COACHING_ENABLED=false`
+and `NEXT_PUBLIC_AMBERLY_WORD_BUDDY_ENABLED=true`. The coaching switch hides setup
+and review entry points, rejects new coaching games (including cached-client
+requests), and denies the guest position endpoint before database access. It does
+not gate definitions, journal hydration, ordinary scoring, viewing links, Word
+Buddy or creation retry receipts. Existing coaching games keep their immutable
+mode, scores and history. Keep the additive migration on rollback.
+
+`npm run test:coaching:rollback` builds and checks this variant with synthetic
+browser and real local API/database journeys, then writes an exact-source/build
+receipt. CI also checks this fallback. Rebuild explicitly with coaching `true`
+for release, retaining Word Buddy `true`; verify the actual compiler setting.
+Retain a READY disabled deployment before enabling and use that compatible
+artifact for rollback, never the pre-coaching reader.
+
+Previously loaded clients must reload to hide cached controls. Cached creation
+and guest position requests fail closed against the disabled server, but already
+delivered historical positions and local worker code cannot be recalled remotely.
+An already-open local review may continue until reload or its normal cancellation.
+This switch is a product rollback, not revocation of previously delivered data.

@@ -1,9 +1,15 @@
+import { coachingAvailable } from "../../../../lib/coaching-availability";
 import { getSharedRepository } from "../../../../server/database";
 import { SharedRepositoryError } from "../../../../server/shared-repository";
 import { privateJson } from "../../../../server/shared-http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
+  if (!coachingAvailable)
+    return privateJson(
+      { error: "Post-turn coaching is temporarily unavailable." },
+      404,
+    );
   const token = request.headers
     .get("authorization")
     ?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];

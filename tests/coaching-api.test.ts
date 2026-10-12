@@ -1,5 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mock = vi.hoisted(() => ({ get: vi.fn(), read: vi.fn() }));
+const mock = vi.hoisted(() => ({ get: vi.fn(), read: vi.fn(), enabled: true }));
+vi.mock("../src/lib/coaching-availability", () => ({
+  get coachingAvailable() {
+    return mock.enabled;
+  },
+}));
 vi.mock("../src/server/database", () => ({ getSharedRepository: mock.get }));
 import { GET } from "../src/app/api/watch/coaching/route";
 import { SharedRepositoryError } from "../src/server/shared-repository";
@@ -12,6 +17,7 @@ function request(id = "registered:turn.1", auth = `Bearer ${token}`) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mock.enabled = true;
   mock.get.mockReturnValue({ readWatchCoaching: mock.read });
 });
 it.each(["", "Bearer short", `Bearer ${"A".repeat(64)}`, "Basic private"])(
@@ -44,3 +50,12 @@ it.each([401, 403, 404, 410, 500])(
     expect(await response.text()).not.toMatch(/secret|journal/);
   },
 );
+
+it("disabled build rejects cached guest requests without opening the database", async () => {
+  mock.enabled = false;
+  const response = await GET(request());
+  expect(response.status).toBe(404);
+  expect(response.headers.get("cache-control")).toContain("no-store");
+  expect(mock.get).not.toHaveBeenCalled();
+  expect(await response.json()).not.toHaveProperty("position");
+});

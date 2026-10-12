@@ -522,7 +522,7 @@ test("real guest coaching uses authorized original positions and never uploads r
     id: secondId,
     profile: { name: "Coaching Ben" },
   });
-  const created = await mutate(page.request, {
+  const operation: SharedOperation = {
     type: "create-game",
     id: gameId,
     coaching: true,
@@ -534,7 +534,38 @@ test("real guest coaching uses authorized original positions and never uploads r
     firstPlayerId: firstId,
     direction: "clockwise",
     deviceId: "integration",
-  });
+  };
+  if (process.env.NEXT_PUBLIC_AMBERLY_COACHING_ENABLED === "false") {
+    const rejected = await page.request.post("/api/family", {
+      headers: ownerHeaders,
+      data: { requestId: randomUUID(), operation },
+    });
+    expect(rejected.status()).toBe(409);
+    expect(await rejected.json()).toMatchObject({
+      code: "COACHING_UNAVAILABLE",
+    });
+    const state = await (
+      await page.request.get("/api/family", { headers: ownerHeaders })
+    ).json();
+    expect(state.games.some((g: { id: string }) => g.id === gameId)).toBe(
+      false,
+    );
+    const denied = await page.request.get(
+      "/api/watch/coaching?turnId=cached-turn",
+      {
+        headers: { Authorization: `Bearer ${"a".repeat(64)}` },
+      },
+    );
+    expect(denied.status()).toBe(404);
+    expect(await denied.json()).not.toHaveProperty("position");
+    const classic = await mutate(page.request, {
+      ...operation,
+      coaching: false,
+    });
+    expect(classic.game.definition.coaching).toBe(false);
+    return;
+  }
+  const created = await mutate(page.request, operation);
   const turnId = "coaching:original.turn";
   const recorded = await mutate(page.request, {
     type: "game-commands",
