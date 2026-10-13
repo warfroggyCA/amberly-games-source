@@ -6,7 +6,11 @@ import type {
   SharedRefresh,
   RefreshCatalog,
 } from "../lib/shared-refresh";
-import { requireCurrentSchema } from "./schema-compatibility";
+import { parseLoadedGameIds, loadedGameScope } from "../lib/shared-refresh";
+import {
+  requireClockRecoverySchema,
+  requireCurrentSchema,
+} from "./schema-compatibility";
 import {
   hasPermission,
   isMemberPermissions,
@@ -1372,6 +1376,11 @@ export function createSharedRepository(
         op.gameId,
       );
       requireScorer(actor, row, op);
+      if (
+        op.type === "game-commands" &&
+        op.commands.some((command) => command.type === "recover-clock")
+      )
+        await requireClockRecoverySchema(tx);
       let commands: GameCommand[];
       if (op.type === "verify-words") {
         const cached = await knownWords(tx, familyId, op.words);
@@ -1781,9 +1790,24 @@ export function createSharedRepository(
     known: RefreshVersions,
     gameId?: string,
     replayOnly = false,
+    loadedGameIds?: string[],
   ): Promise<SharedRefresh> {
     if ((gameId && !safeId(gameId)) || (replayOnly && !gameId))
       reject("INVALID_CURSOR", "Choose a valid game.");
+    if (loadedGameIds !== undefined) {
+      try {
+        if (
+          gameId ||
+          replayOnly ||
+          !Array.isArray(loadedGameIds) ||
+          !loadedGameIds.every(safeId)
+        )
+          throw new Error();
+        parseLoadedGameIds(loadedGameIds.join(","));
+      } catch {
+        reject("INVALID_CURSOR", "Choose valid loaded games.");
+      }
+    }
     return transaction(
       actor,
       familyId,
@@ -1812,12 +1836,17 @@ export function createSharedRepository(
               order by archived,lower(name),id`
           : await readPlayerRows(tx, familyId, true);
         // The extra row is metadata only: pagination must not transfer a 21st game.
-        const page = replayOnly
-          ? []
-          : await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
+        const page =
+          replayOnly || loadedGameIds
+            ? []
+            : await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
         where d.family_id=${familyId}::uuid and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)
         order by d.created_at desc,d.game_id desc limit 21`;
-        const visible = page.slice(0, 20);
+        const visible = loadedGameIds
+          ? await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d
+            where d.family_id=${familyId}::uuid and d.game_id in ${tx(loadedGameIds)}
+            and not exists(select 1 from scrabble.game_removals r where r.family_id=d.family_id and r.game_id=d.game_id)`
+          : page.slice(0, 20);
         if (gameId && !visible.some((r) => r.game_id === gameId)) {
           const extra =
             await tx`select d.game_id,d.created_at::text created_cursor from scrabble.game_definitions d where d.family_id=${familyId}::uuid and d.game_id=${gameId}
@@ -1953,7 +1982,11 @@ export function createSharedRepository(
           kind: "family-refresh-v1",
           userId: actor.userId,
           familyId,
-          scope: replayOnly ? `replay:${gameId}` : (gameId ?? ""),
+          scope: loadedGameIds
+            ? loadedGameScope(loadedGameIds)
+            : replayOnly
+              ? `replay:${gameId}`
+              : (gameId ?? ""),
           versions,
           values,
           playerIds: playerHeads.map((p) => p.id),

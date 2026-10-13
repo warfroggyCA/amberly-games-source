@@ -1,6 +1,7 @@
 import {
   REFRESH_HEADER,
   parseRefreshVersions,
+  parseLoadedGameIds,
 } from "../../../lib/shared-refresh";
 import { bindScoringDevice } from "../../../server/scoring-device";
 import { createAuthContext, type AuthContext } from "../../../server/auth";
@@ -48,18 +49,35 @@ export async function GET(request: Request) {
     if ((cursor?.length ?? 0) > 600 || (gameId?.length ?? 0) > 120)
       throw new HttpError(400, "The history reference is invalid.");
     const replayOnly = params.get("replay") === "1";
+    let loadedGameIds: string[] | undefined;
+    if (params.has("loadedGameIds")) {
+      try {
+        loadedGameIds = parseLoadedGameIds(params.get("loadedGameIds")!);
+      } catch {
+        throw new HttpError(400, "The loaded history references are invalid.");
+      }
+      if (gameId || cursor || replayOnly)
+        throw new HttpError(400, "Choose one history refresh scope.");
+    }
     if (replayOnly && (!gameId || cursor))
       throw new HttpError(400, "Choose one recorded game.");
     const refresh = request.headers.get(REFRESH_HEADER);
-    if (refresh !== null && !cursor) {
+    if ((refresh !== null || loadedGameIds) && !cursor) {
       let known;
       try {
-        known = parseRefreshVersions(refresh);
+        known = parseRefreshVersions(refresh ?? "{}");
       } catch {
         throw new HttpError(400, "The refresh reference is invalid.");
       }
       return context.json(
-        await repo.readRefresh(actor, familyId, known, gameId, replayOnly),
+        await repo.readRefresh(
+          actor,
+          familyId,
+          known,
+          gameId,
+          replayOnly,
+          loadedGameIds,
+        ),
       );
     }
     return context.json(

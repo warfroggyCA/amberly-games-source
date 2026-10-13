@@ -23,6 +23,8 @@ import type { Board, Lexicon, Placement } from "./types";
 
 export const GAME_VERSION = "family-v1.0.0";
 export const MAX_GAME_EVENTS = 5000;
+/** Explicit journal boundary: all timing is unavailable after this recovery. */
+export const CLOCK_RECOVERY_POLICY = 1;
 export type Player = { id: string; name: string; seat: 0 | 1 | 2 | 3 };
 export type PhysicalTile = keyof typeof LETTER_COUNTS;
 export type Racks = Record<string, PhysicalTile[]>;
@@ -67,6 +69,11 @@ export type GameCommand = CommandBase &
     | { type: "play"; placements: Placement[] }
     | { type: "pass" }
     | { type: "start-clock" }
+    | {
+        type: "recover-clock";
+        timingPolicy: typeof CLOCK_RECOVERY_POLICY;
+        reason: string;
+      }
     | {
         type: "edit-turn";
         turnId: string;
@@ -198,6 +205,13 @@ export function hasVerifiedWords(game: GameState): boolean {
   return (
     !!game.verifiedWords?.length ||
     game.events.some((event) => event.command.type === "verify-words")
+  );
+}
+export function hasClockRecovery(game: Pick<GameState, "events">): boolean {
+  return game.events.some(
+    ({ command }) =>
+      command.type === "recover-clock" &&
+      command.timingPolicy === CLOCK_RECOVERY_POLICY,
   );
 }
 export function hasCustomTileSupply(game: GameState): boolean {
@@ -926,6 +940,7 @@ function validCommand(command: unknown): command is GameCommand {
     play: ["placements"],
     "edit-turn": ["turnId", "placements", "reason"],
     "start-clock": [],
+    "recover-clock": ["timingPolicy", "reason"],
     pass: [],
     exchange: ["count"],
     pause: [],
@@ -953,8 +968,19 @@ function validCommand(command: unknown): command is GameCommand {
     return false;
   if (command.timedAt !== undefined && !isIsoTimestamp(command.timedAt))
     return false;
-  if (command.type === "start-clock" && !isIsoTimestamp(command.timedAt))
+  if (
+    (command.type === "start-clock" || command.type === "recover-clock") &&
+    !isIsoTimestamp(command.timedAt)
+  )
     return false;
+  if (command.type === "recover-clock")
+    return (
+      command.timingPolicy === CLOCK_RECOVERY_POLICY &&
+      typeof command.reason === "string" &&
+      !!command.reason.trim() &&
+      command.reason.length <= 200 &&
+      !/[\u0000-\u001f\u007f]/.test(command.reason)
+    );
   if (
     command.type === "edit-turn" &&
     (!safeId(command.turnId) ||
@@ -1159,6 +1185,7 @@ function* gameCommandSteps(
       "assisted-pass",
     ].includes(command.type) &&
     game.events.some((e) => e.command.type === "start-clock") &&
+    !hasClockRecovery(game) &&
     !command.timedAt
   )
     return fail(
@@ -1166,6 +1193,8 @@ function* gameCommandSteps(
       "Reload the scorer before continuing this timed game.",
     );
   if (
+    command.type !== "recover-clock" &&
+    !hasClockRecovery(game) &&
     command.timedAt &&
     game.events.some(
       (e) =>
@@ -1183,7 +1212,7 @@ function* gameCommandSteps(
   )
     return fail(
       "CLOCK_MOVED_BACK",
-      "The device clock moved backwards. Correct its time before continuing.",
+      "The device clock moved backwards. Correct its time, or open the game menu and choose Continue without timing.",
     );
   const event: GameEvent = {
     sequence: game.revision + 1,
@@ -1199,6 +1228,16 @@ function* gameCommandSteps(
         "CLOCK_ALREADY_STARTED",
         "Timing has already started, or the game is paused.",
       );
+  } else if (command.type === "recover-clock") {
+    if (!game.events.some((e) => e.command.type === "start-clock"))
+      return fail("CLOCK_NOT_STARTED", "This game has no timing to stop.");
+    if (hasClockRecovery(game))
+      return fail(
+        "CLOCK_ALREADY_RECOVERED",
+        "This game is already continuing without timing.",
+      );
+    // Preserve every original timestamp. This explicit, versioned event removes
+    // the timing requirement for later actions, even if the old clock was ahead.
   } else if (command.type === "edit-turn") {
     const target = game.turns.find((t) => t.id === command.turnId);
     if (!target || target.type !== "play")

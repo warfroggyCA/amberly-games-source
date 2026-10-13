@@ -29,6 +29,8 @@ export function replayStepLabel(game: GameState, event?: GameEvent): string {
       return "Game resumed";
     case "start-clock":
       return "Game timing started";
+    case "recover-clock":
+      return "Continued without timing · timing statistics unavailable";
     case "reconcile":
       return "Recorded tile counts corrected";
     case "extend-supply":

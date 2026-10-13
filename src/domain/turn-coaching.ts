@@ -29,6 +29,7 @@ export function rackContinuity(game: GameState): number {
     "exchange",
     "assisted-pass",
     "start-clock",
+    "recover-clock",
     "pause",
     "resume",
     "verify-words",

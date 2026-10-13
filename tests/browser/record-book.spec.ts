@@ -146,6 +146,7 @@ for (const withPhoto of [false, true])
     await expect(page.locator(".book-journal-entry")).toHaveCount(1);
     await page.getByRole("button", { name: "Highlights", exact: true }).click();
     await expect(page.locator(".book-score")).toHaveText("100");
+    await expect(page.locator(".book-details")).toHaveCount(0);
   });
 
 test("Record Book refuses partial records and private practice", async ({

@@ -63,6 +63,7 @@ The required local files, in order, are:
 17. `20260927123000_transparent_profile_photos.sql`
 18. `20261012024030_word_buddy_watch.sql`
 19. `20261012160000_turn_coaching.sql`
+20. `20261013022858_clock_recovery_viewers.sql`
 
 Word Buddy rollout requires the matching reader and watch projection. Once a
 Word Buddy game exists, PR53 and older readers cannot canonically hydrate its
@@ -96,3 +97,33 @@ Player archiving is additive: historical games and linked accounts remain intact
 Access & Usage adds migration 16 and a superadmin-only report. Review [access/usage semantics and rollout](access-usage.md) before publication. Its table and narrow Gym metadata projection are additive; raw practice ownership remains unchanged. Apply the approved migration before the app, keep receipts on rollback, and verify both report/CSV denial for a member and recording for a signed-in account. The presence of source files is not evidence that tracking has started on the hosted app.
 
 Transparent photo migration 17 widens the existing image constraint without changing rows. Apply before publishing transparent-photo support; retain PNG-capable readers on rollback after PNGs are saved. See [profile personalization](profile-personalization.md).
+
+
+### Clock recovery compatibility
+
+The `recover-clock` command with `timingPolicy: 1` is an append-only journal
+boundary. The scorer deliberately continues without timing after a device-clock
+problem, with a required reason. Existing events and timestamps are retained;
+all timing totals and averages for the affected game become unavailable. Scores,
+turn order, eligibility and the current local entry are retained. This action
+cannot be reversed or used on a finalized result. It does not start a new clock.
+
+Deploy the compatible application reader together with the additive
+`20261013022858_clock_recovery_viewers.sql` migration before enabling recovery
+writers. The recovery command checks the migration's `application_schema_v4`
+capability inside its transaction before saving any event in the batch. A missing
+capability returns `CLOCK_RECOVERY_UNAVAILABLE` (409) after checking the saved
+request receipt. This definite rejection clears only the attempted recovery request;
+the draft remains available and normal games are not locked by an unresolved save.
+Timing-only recovery preserves private rack continuity and historical rack snapshots.
+The guest projection includes the event type and policy, not the reason.
+Existing pages must refresh to receive the compatible client. Verify a scorer and
+guest after release using synthetic data in the authorized environment.
+
+**Rollback limitation:** after any recovery event is stored, the former binary
+cannot hydrate that game's new event. Do not roll back to an incompatible engine
+or delete/rewrite recovery events. Prepare a rollback build that retains the new
+command validator, replay behavior and unavailable-timing projection while
+reverting other changes. Retain the additive migration. This is a forward-compatible
+rollback requirement, not a claim that the old release can read the new journal.
+No hosted migration or deployment was performed by the local implementation.

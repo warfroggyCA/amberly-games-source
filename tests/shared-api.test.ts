@@ -265,7 +265,11 @@ it("scopes replay reads and authenticates conditional Crokinole history", async 
   expect(
     (await GET(request("/api/family?replay=1&gameId=g", "{}"))).status,
   ).toBe(200);
-  expect(mock.refresh.mock.calls.at(-1)?.slice(-2)).toEqual(["g", true]);
+  expect(mock.refresh.mock.calls.at(-1)?.slice(-3)).toEqual([
+    "g",
+    true,
+    undefined,
+  ]);
   expect(
     (
       await crokinoleGet(
@@ -281,4 +285,30 @@ it("scopes replay reads and authenticates conditional Crokinole history", async 
   );
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toContain("no-store");
+});
+
+it("bounds loaded-game refreshes and rejects mixed scopes before querying", async () => {
+  mock.refresh.mockResolvedValue({ kind: "family-refresh-v1" });
+  const request = (query: string) =>
+    new Request(origin + "/api/family?" + query, {
+      headers: { "x-scrabble-user": mock.actor.id },
+    });
+  for (const query of [
+    "loadedGameIds=",
+    "loadedGameIds=a,a",
+    "loadedGameIds=__proto__",
+    "loadedGameIds=a&gameId=b",
+    "loadedGameIds=a&cursor=c",
+    "loadedGameIds=a&replay=1",
+    "loadedGameIds=" + Array.from({ length: 41 }, (_, i) => "g" + i).join(","),
+  ]) {
+    expect((await GET(request(query))).status).toBe(400);
+  }
+  expect(mock.refresh).not.toHaveBeenCalled();
+  expect((await GET(request("loadedGameIds=a,b"))).status).toBe(200);
+  expect(mock.refresh.mock.calls[0].slice(-3)).toEqual([
+    undefined,
+    false,
+    ["a", "b"],
+  ]);
 });

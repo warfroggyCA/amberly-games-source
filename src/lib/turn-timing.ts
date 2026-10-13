@@ -1,4 +1,9 @@
-import type { GameCommand, GameState } from "../domain/game";
+import {
+  CLOCK_RECOVERY_POLICY,
+  hasClockRecovery,
+  type GameCommand,
+  type GameState,
+} from "../domain/game";
 
 /** Preview and save commands must use the same timed-game validation contract. */
 export function commandTiming(
@@ -6,7 +11,9 @@ export function commandTiming(
   type: GameCommand["type"],
   now = new Date(),
 ) {
-  return type === "start-clock" ||
+  if (type === "start-clock" || type === "recover-clock")
+    return { timedAt: now.toISOString() };
+  return !hasClockRecovery(game) &&
     game.events.some((event) => event.command.type === "start-clock")
     ? { timedAt: now.toISOString() }
     : {};
@@ -16,6 +23,7 @@ export type TimingEvent = {
   type: string;
   timedAt?: string | null;
   turnId?: string | null;
+  timingPolicy?: number | null;
 };
 export type TimedGame = {
   events?: GameState["events"];
@@ -27,6 +35,9 @@ export function timingEvents(game: TimedGame): TimingEvent[] {
       type: e.command.type,
       timedAt: e.command.timedAt,
       turnId: e.turn?.id,
+      ...(e.command.type === "recover-clock"
+        ? { timingPolicy: e.command.timingPolicy }
+        : {}),
     })) ??
     game.timingEvents ??
     []
@@ -34,13 +45,26 @@ export function timingEvents(game: TimedGame): TimingEvent[] {
 }
 /** Scorer-device elapsed time; refresh/sleep keeps counting, explicit pauses do not. */
 export function turnTiming(game: TimedGame, now: number) {
+  const events = timingEvents(game);
+  const recovery = events.find((event) => event.type === "recover-clock");
+  // A viewer with an older reader must never invent totals for an unknown
+  // recovery policy. Only the known policy gets its more specific explanation.
+  if (recovery)
+    return {
+      started: true,
+      reliable: false as const,
+      recovered: recovery.timingPolicy === CLOCK_RECOVERY_POLICY,
+      currentMs: null,
+      totalMs: null,
+      durations: {} as Record<string, number>,
+    };
   let started = false;
   let anchor: number | null = null;
   let elapsed = 0;
   let totalMs = 0;
   const durations: Record<string, number> = {};
   let previousAt: number | null = null;
-  for (const command of timingEvents(game)) {
+  for (const command of events) {
     const at = command.timedAt ? Date.parse(command.timedAt) : null;
     // Old journals can contain timestamps accepted by the former lexical
     // comparison. Their real elapsed time cannot be reconstructed safely.

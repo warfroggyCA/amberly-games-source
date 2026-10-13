@@ -10,27 +10,39 @@ import "./crokinole.css";
 
 export function ColourSettings({
   colours,
+  revision,
   onSave,
   onClose,
   disabled = false,
 }: {
   colours: PieceColour[];
-  onSave: (colours: PieceColour[]) => Promise<void>;
+  revision: number;
+  onSave: (colours: PieceColour[], baseRevision: number) => Promise<void>;
   onClose: () => void;
   disabled?: boolean;
 }) {
   const [editing, setEditing] = useState<PieceColour | null>(null);
+  const [editRevision, setEditRevision] = useState(revision);
+  const changed = !!editing && editRevision !== revision;
+  function edit(colour: PieceColour) {
+    setEditing({ ...colour });
+    setEditRevision(revision);
+    setError("");
+  }
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
   const ordered = [...colours].sort((a, b) => a.sortOrder - b.sortOrder);
-  async function save(next: PieceColour[]) {
-    if (lock.current || disabled) return;
+  async function save(next: PieceColour[], baseRevision = revision) {
+    if (lock.current || disabled || changed) return;
     lock.current = true;
     setBusy(true);
     setError("");
     try {
-      await onSave(next.map((c, sortOrder) => ({ ...c, sortOrder })));
+      await onSave(
+        next.map((c, sortOrder) => ({ ...c, sortOrder })),
+        baseRevision,
+      );
       setEditing(null);
     } catch (e) {
       setError(
@@ -66,6 +78,13 @@ export function ColourSettings({
           {error}
         </p>
       )}
+      {changed && (
+        <p role="alert">
+          Piece colours changed while you were editing. Your entry is still
+          here. Discard these changes and reopen the saved colour before editing
+          again.
+        </p>
+      )}
       {ordered.map((colour, index) => (
         <div className="crokinole-palette-row" key={colour.id}>
           <div className="crokinole-identity">
@@ -78,7 +97,7 @@ export function ColourSettings({
           <button
             className="button light"
             aria-label={`Move ${colour.name} earlier`}
-            disabled={busy || disabled || index === 0}
+            disabled={busy || disabled || !!editing || index === 0}
             onClick={() => move(index, -1)}
           >
             ↑
@@ -86,7 +105,9 @@ export function ColourSettings({
           <button
             className="button light"
             aria-label={`Move ${colour.name} later`}
-            disabled={busy || disabled || index === ordered.length - 1}
+            disabled={
+              busy || disabled || !!editing || index === ordered.length - 1
+            }
             onClick={() => move(index, 1)}
           >
             ↓
@@ -94,15 +115,15 @@ export function ColourSettings({
           {!colour.isDefault && (
             <button
               className="text-button"
-              disabled={busy || disabled}
-              onClick={() => setEditing({ ...colour })}
+              disabled={busy || disabled || !!editing}
+              onClick={() => edit(colour)}
             >
               Edit {colour.name}
             </button>
           )}
           <button
             className="text-button"
-            disabled={busy || disabled}
+            disabled={busy || disabled || !!editing}
             onClick={() =>
               void save(
                 ordered.map((c) =>
@@ -125,6 +146,7 @@ export function ColourSettings({
                   ...ordered.filter((c) => c.id !== editing.id),
                   { ...editing, name: editing.name.trim() },
                 ].sort((a, b) => a.sortOrder - b.sortOrder),
+                editRevision,
               );
           }}
         >
@@ -154,7 +176,7 @@ export function ColourSettings({
           <div className="crokinole-actions">
             <button
               className="button primary"
-              disabled={busy || disabled || !editing.name.trim()}
+              disabled={busy || disabled || changed || !editing.name.trim()}
             >
               Save colour
             </button>
@@ -164,7 +186,7 @@ export function ColourSettings({
               disabled={busy}
               onClick={() => setEditing(null)}
             >
-              Cancel
+              {changed ? "Discard changes" : "Cancel"}
             </button>
           </div>
         </form>
@@ -174,7 +196,7 @@ export function ColourSettings({
             className="button primary"
             disabled={busy || disabled}
             onClick={() =>
-              setEditing({
+              edit({
                 id: crypto.randomUUID(),
                 name: "",
                 value: "#356a4e",

@@ -1106,6 +1106,93 @@ suite("isolated real PostgreSQL shared family repository", () => {
     await code(repository.readState(other.admin, f.familyId), "NOT_A_MEMBER");
   }, 30000);
 
+  it("conditionally revalidates loaded games beyond page one with concerns, removals and RLS", async () => {
+    const f = await fixture();
+    const older = (await f.create()).game!;
+    const privateGame = (await f.create("practice")).game!;
+    for (let i = 0; i < 21; i++) await f.create();
+    expect(
+      (await repository.readRefresh(f.admin, f.familyId, {})).gameIds,
+    ).not.toContain(older.id);
+    const ids = [older.id, privateGame.id];
+    const read = (known: RefreshVersions = {}, as = f.admin) =>
+      repository.readRefresh(as, f.familyId, known, undefined, false, ids);
+    const cold = await read();
+    expect(cold.gameIds.sort()).toEqual([...ids].sort());
+    expect(cold.scope).toBe(`loaded:${ids.join(",")}`);
+    expect((await read(cold.versions)).values).toEqual({});
+    const report = await f.mutate({
+      type: "report-protest",
+      gameId: older.id,
+      reason: "Check older result",
+      reportedFor: null,
+    });
+    const concerned = await read(cold.versions);
+    expect(Object.keys(concerned.values)).toEqual([`g:${older.id}`]);
+    expect(concerned.values[`g:${older.id}`]).toMatchObject({
+      access: { protests: [{ id: report.gameAccess!.protests[0].id }] },
+    });
+    await f.mutate({
+      type: "resolve-protest",
+      gameId: older.id,
+      protestId: report.gameAccess!.protests[0].id,
+      outcome: "upheld",
+      reason: "Score needs review",
+    });
+    const resolved = await read(concerned.versions);
+    expect(Object.keys(resolved.values)).toEqual([`g:${older.id}`]);
+    await f.mutate(pass(older.id));
+    const moved = await read(resolved.versions);
+    expect(moved.values[`g:${older.id}`]).toMatchObject({
+      game: { revision: 1 },
+    });
+    const guest = await read({}, f.guest);
+    expect(guest.gameIds).toEqual([older.id]);
+    expect(guest.values[`g:${privateGame.id}`]).toBeUndefined();
+    const other = await fixture();
+    const otherGame = (await other.create()).game!;
+    expect(
+      (
+        await repository.readRefresh(
+          f.admin,
+          f.familyId,
+          {},
+          undefined,
+          false,
+          [otherGame.id],
+        )
+      ).gameIds,
+    ).toEqual([]);
+    await code(read({}, other.admin), "NOT_A_MEMBER");
+    await f.mutate({
+      type: "delete-practice-game",
+      gameId: privateGame.id,
+      expectedRevision: 0,
+      reason: "Remove synthetic game",
+    });
+    const removed = await read(moved.versions);
+    expect(removed.gameIds).toEqual([older.id]);
+    expect(removed.values[`g:${privateGame.id}`]).toBeUndefined();
+    expect(removed.values.catalog).toMatchObject({
+      removedGameIds: [privateGame.id],
+    });
+    await code(
+      repository.readRefresh(
+        f.admin,
+        f.familyId,
+        {},
+        undefined,
+        false,
+        Array.from({ length: 41 }, (_, i) => `g-${i}`),
+      ),
+      "INVALID_CURSOR",
+    );
+    await code(
+      repository.readRefresh(f.admin, f.familyId, {}, undefined, false, []),
+      "INVALID_CURSOR",
+    );
+  });
+
   it("refreshes only changed authorized resources within a consistent snapshot", async () => {
     const f = await fixture();
     const first = (await f.create()).game!;
@@ -3658,6 +3745,148 @@ suite("isolated real PostgreSQL shared family repository", () => {
     expect(JSON.stringify(timedView)).not.toContain(f.admin.email);
     await code(repository.readWatch("a".repeat(64)), "WATCH_LINK_UNAVAILABLE");
     await code(repository.readWatch("bad-token"), "WATCH_LINK_UNAVAILABLE");
+  });
+  it("rejects clock recovery before any batch events are saved if its guest projection is unavailable", async () => {
+    const f = await fixture();
+    const game = (await f.create()).game!;
+    await owner`alter function scrabble.application_schema_v4() rename to clock_projection_unavailable`;
+    try {
+      await code(
+        f.mutate({
+          type: "game-commands",
+          gameId: game.id,
+          deviceId: "device-a",
+          generation: 1,
+          commands: [
+            {
+              type: "start-clock",
+              id: randomUUID(),
+              expectedRevision: 0,
+              timedAt: "2035-10-12T12:00:00Z",
+            },
+            {
+              type: "recover-clock",
+              timingPolicy: 1,
+              id: randomUUID(),
+              expectedRevision: 1,
+              timedAt: "2026-10-12T12:00:00Z",
+              reason: "Clock was ahead",
+            },
+          ],
+        }),
+        "CLOCK_RECOVERY_UNAVAILABLE",
+      );
+      const [events] =
+        await owner`select count(*)::integer count from scrabble.game_events where family_id=${f.familyId}::uuid and game_id=${game.id}`;
+      expect(events.count).toBe(0);
+      expect(
+        (await repository.readState(f.admin, f.familyId)).games.find(
+          (saved) => saved.id === game.id,
+        ),
+      ).toEqual(game);
+    } finally {
+      await owner`alter function scrabble.clock_projection_unavailable() rename to application_schema_v4`;
+    }
+    const [grants] =
+      await owner`select has_function_privilege('scrabble_runtime','scrabble.application_schema_v4()','execute') runtime, has_function_privilege('anon','scrabble.application_schema_v4()','execute') anon, has_function_privilege('authenticated','scrabble.application_schema_v4()','execute') authenticated`;
+    expect(grants).toEqual({
+      runtime: true,
+      anon: false,
+      authenticated: false,
+    });
+  });
+  it("projects clock recovery without the private reason and permits subsequent untimed scoring", async () => {
+    const coachingRepository = createSharedRepository(runtime, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => testLexicon,
+      coachingEnabled: true,
+    });
+    const f = await fixture(coachingRepository);
+    const game = (
+      await f.mutate({
+        type: "create-game",
+        id: randomUUID(),
+        mode: "confirmed",
+        coaching: true,
+        players: [
+          { id: "ada", seat: 0 },
+          { id: "ben", seat: 2 },
+        ],
+        firstPlayerId: "ada",
+        direction: "clockwise",
+        deviceId: "device-a",
+      })
+    ).game!;
+    const token = createHash("sha256").update(randomUUID()).digest("hex");
+    await f.mutate({ type: "create-watch-link", gameId: game.id, token });
+    const reason = "Private explanation of a device clock problem";
+    const commands = [
+      {
+        type: "start-clock" as const,
+        id: randomUUID(),
+        expectedRevision: 0,
+        timedAt: "2035-10-12T12:00:00Z",
+      },
+      {
+        type: "recover-clock" as const,
+        timingPolicy: 1 as const,
+        id: randomUUID(),
+        expectedRevision: 1,
+        timedAt: "2026-10-12T12:00:00Z",
+        reason,
+      },
+      { type: "pass" as const, id: randomUUID(), expectedRevision: 2 },
+    ];
+    const mutation = {
+      type: "game-commands" as const,
+      gameId: game.id,
+      deviceId: "device-a",
+      generation: 1,
+      commands,
+    };
+    const requestId = randomUUID();
+    await f.mutate(mutation, f.admin, requestId);
+    // A previously accepted request remains confirmable even if a later restore
+    // temporarily lacks the writer capability. Never report it as not applied.
+    await owner`alter function scrabble.application_schema_v4() rename to clock_projection_unavailable`;
+    try {
+      const retry = await f.mutate(mutation, f.admin, requestId);
+      expect(retry.replayed).toBe(true);
+      expect(retry.game?.revision).toBe(3);
+    } finally {
+      await owner`alter function scrabble.clock_projection_unavailable() rename to application_schema_v4`;
+    }
+    const view = await repository.readWatch(token);
+    expect(view.revision).toBe(3);
+    expect(view.coachingEpoch).toBe(0);
+    expect(view.turns).toHaveLength(1);
+    expect(view.timingEvents?.[1]).toEqual({
+      type: "recover-clock",
+      timedAt: "2026-10-12T12:00:00Z",
+      turnId: null,
+      timingPolicy: 1,
+    });
+    expect(JSON.stringify(view)).not.toContain(reason);
+    expect(view).not.toHaveProperty("events");
+    const stored = (await repository.readState(f.admin, f.familyId)).games.find(
+      (saved) => saved.id === game.id,
+    )!;
+    expect(stored.events[1].command).toMatchObject({
+      type: "recover-clock",
+      reason,
+      timingPolicy: 1,
+    });
+    expect(stored.events[0].command.timedAt).toBe("2035-10-12T12:00:00Z");
+    await code(
+      f.mutate(
+        {
+          ...mutation,
+          commands: [{ ...commands[1], id: randomUUID(), expectedRevision: 3 }],
+        },
+        f.guest,
+      ),
+      "SCORER_CONFLICT",
+    );
   });
   it("keeps viewer tile totals current through play, undo, custom supply, reconciliation and assistance without exposing racks", async () => {
     const f = await fixture();

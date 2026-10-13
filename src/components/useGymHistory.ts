@@ -47,7 +47,10 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     [status, setStatus] = useState(enabled ? "Connecting profile…" : ""),
     [page, setPage] = useState<GymHistory | null>(null),
     [detail, setDetail] = useState<GymSessionDetail | null>(null),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(false),
+    [connectionState, setConnectionState] = useState<
+      "connecting" | "failed" | "complete"
+    >(enabled ? "connecting" : "complete");
   const current = useRef<GymIdentity | null>(null),
     alive = useRef(true),
     writing = useRef(Promise.resolve()),
@@ -60,7 +63,10 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     live: boolean;
     failed: boolean;
   } | null>(null);
-  const flushRef = useRef<() => Promise<void>>(async () => {});
+  const flushRef = useRef<() => Promise<void>>(async () => {}),
+    retryRef = useRef<() => Promise<void>>(async () => {}),
+    connecting = useRef<number | null>(null),
+    connected = useRef(false);
   const storageFailure = useRef<string | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     delay = useRef(2000);
@@ -146,45 +152,88 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
       }
     }
   }
+  async function connect() {
+    // Only initial connection failures can reconnect in place. Once practice
+    // belongs to a profile, the existing account-change path requires reload.
+    if (
+      !enabled ||
+      !alive.current ||
+      connected.current ||
+      connecting.current !== null
+    )
+      return;
+    const version = ++generation.current;
+    connecting.current = version;
+    setConnectionState("connecting");
+    setStatus("Connecting profile…");
+    const isCurrent = () => alive.current && generation.current === version;
+    try {
+      const auth = await response<{ user: { id: string } | null }>(
+        "/api/auth/session",
+      );
+      if (!isCurrent()) return;
+      if (!auth.user)
+        throw new Error(
+          "Sign in through Games to save practice to your profile.",
+        );
+      const result = await response<GymHistory>(
+        "/api/family/gym",
+        auth.user.id,
+      );
+      if (!isCurrent()) return;
+      // A delayed history response must not expose the previous account's
+      // history or flush its pending saves after the browser session changes.
+      const latest = await response<{ user: { id: string } | null }>(
+        "/api/auth/session",
+      );
+      if (!isCurrent()) return;
+      if (
+        latest.user?.id !== auth.user.id ||
+        result.identity.userId !== auth.user.id
+      )
+        throw new Error(
+          "Your account changed while connecting. Retry to connect to your current profile.",
+        );
+      connected.current = true;
+      current.current = result.identity;
+      setIdentity(result.identity);
+      setPage(result);
+      setConnectionState("complete");
+      setStatus("Profile connected");
+      await flushRef.current();
+    } catch (e) {
+      if (isCurrent()) {
+        setConnectionState("failed");
+        setStatus(
+          e instanceof Error
+            ? e.message
+            : "Profile saving unavailable. Please retry.",
+        );
+      }
+    } finally {
+      if (connecting.current === version) connecting.current = null;
+    }
+  }
+  async function retry() {
+    if (current.current) await flushRef.current();
+    else await connect();
+  }
   useEffect(() => {
     flushRef.current = flush;
+    retryRef.current = retry;
   });
   useEffect(() => {
     alive.current = true;
     if (!enabled) return;
-    const version = ++generation.current;
-    void (async () => {
-      try {
-        const auth = await response<{ user: { id: string } | null }>(
-          "/api/auth/session",
-        );
-        if (!auth.user)
-          throw new Error(
-            "Sign in through Games to save practice to your profile.",
-          );
-        const result = await response<GymHistory>(
-          "/api/family/gym",
-          auth.user.id,
-        );
-        if (!alive.current || generation.current !== version) return;
-        current.current = result.identity;
-        setIdentity(result.identity);
-        setPage(result);
-        setStatus("Profile connected");
-        await flushRef.current();
-      } catch (e) {
-        if (alive.current && generation.current === version)
-          setStatus(
-            e instanceof Error ? e.message : "Profile saving unavailable.",
-          );
-      }
-    })();
-    const retry = () => void flushRef.current();
+    void retryRef.current();
+    const retry = () => void retryRef.current();
     window.addEventListener("online", retry);
     window.addEventListener("focus", retry);
     return () => {
       alive.current = false;
-      generation.current = version + 1;
+      generation.current += 1;
+      connecting.current = null;
+      connected.current = false;
       current.current = null;
       if (retryTimer.current) clearTimeout(retryTimer.current);
       window.removeEventListener("online", retry);
@@ -319,6 +368,7 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     record,
     history,
     review,
-    retry: () => void flushRef.current(),
+    canRetry: connectionState === "failed" || !!identity,
+    retry: () => void retryRef.current(),
   };
 }

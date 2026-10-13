@@ -28,9 +28,10 @@ export function replayAction(
   if (!result.ok) throw Error(result.error.message);
   return result.game;
 }
-export function replayFixture() {
+export function replayFixture({ coaching }: { coaching?: boolean } = {}) {
   const created = createGame({
     id: "recorded-replay",
+    coaching,
     createdAt: "2026-10-04T12:00:00.000Z",
     players: [
       { id: "doug", name: "Doug", seat: 0 },

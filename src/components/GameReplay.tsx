@@ -139,11 +139,13 @@ export function GameReplay({
           </span>
           <h1>Game replay</h1>
         </div>
-        <button className="button light" onClick={onClose}>
-          Close replay
-        </button>
+        <div className="replay-heading-actions">
+          <TurnCoaching game={record} onOpen={pause} />
+          <button className="button light" onClick={onClose}>
+            Close replay
+          </button>
+        </div>
       </header>
-      <TurnCoaching game={record} onOpen={pause} />
       {!timeline || !frame || !before ? (
         <>
           <p role="status">

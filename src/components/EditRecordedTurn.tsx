@@ -1,15 +1,19 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { GameTurn } from "../domain/game";
 import type { Letter, Placement } from "../domain/types";
 
 export function EditRecordedTurn({
   turn,
   disabled,
+  conflict,
+  onReload,
   onSave,
 }: {
   turn: GameTurn;
   disabled: boolean;
+  conflict?: string | null;
+  onReload?: () => void;
   onSave: (placements: Placement[], reason: string) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -18,26 +22,49 @@ export function EditRecordedTurn({
   );
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const conflictNotice = conflict && (
+    <div>
+      <p className="error-banner" role="alert">
+        {conflict} Your edit is retained; saving is blocked.
+      </p>
+      {onReload && (
+        <button
+          type="button"
+          className="button light"
+          disabled={saving || disabled}
+          onClick={onReload}
+        >
+          Discard my edit and load latest play
+        </button>
+      )}
+    </div>
+  );
   if (!editing)
     return (
-      <button
-        className="button light"
-        disabled={disabled}
-        onClick={() => setEditing(true)}
-      >
-        Edit this play
-      </button>
+      <>
+        {conflictNotice}
+        <button
+          className="button light"
+          disabled={disabled || !!conflict}
+          onClick={() => setEditing(true)}
+        >
+          Edit this play
+        </button>
+      </>
     );
   return (
     <form
       className="recorded-turn-editor"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (saving) return;
+        if (savingRef.current || disabled || conflict) return;
+        savingRef.current = true;
         setSaving(true);
         try {
           await onSave(placements, reason);
         } finally {
+          savingRef.current = false;
           setSaving(false);
         }
       }}
@@ -46,6 +73,7 @@ export function EditRecordedTurn({
         Correct the placed tiles below. Later plays and totals are checked again
         before saving. The original entry is retained.
       </p>
+      {conflictNotice}
       {placements.map((p, index) => (
         <div className="recorded-tile" key={index}>
           <label>
@@ -164,7 +192,7 @@ export function EditRecordedTurn({
       <button
         type="submit"
         className="button primary"
-        disabled={saving || disabled || !reason.trim()}
+        disabled={saving || disabled || !!conflict || !reason.trim()}
       >
         {saving ? "Checking & saving…" : "Save correction"}
       </button>

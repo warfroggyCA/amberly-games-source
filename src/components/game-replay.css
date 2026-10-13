@@ -4,6 +4,7 @@
   padding: 16px clamp(12px, 3vw, 32px) 32px;
 }
 .replay-heading,
+.replay-heading-actions,
 .replay-buttons {
   display: flex;
   align-items: center;

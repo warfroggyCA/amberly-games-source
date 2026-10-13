@@ -1,4 +1,5 @@
 import { createGameSummaryRepository } from "../src/server/game-summary-repository";
+import { recordBookGames } from "../src/lib/family-record-book";
 import { createSharedRepository } from "../src/server/shared-repository";
 import { testLexicon } from "../src/lib/test-lexicon";
 import { DEFAULT_CROKINOLE_SETTINGS } from "../src/domain/crokinole-defaults";
@@ -144,6 +145,252 @@ export function crokinoleDatabaseCases(
       await expect(
         repo.readHistoryRefresh(f.admin, f.familyId, cached.version),
       ).rejects.toMatchObject({ status: 403 });
+    });
+    it("keeps concern eligibility consistent across detail, first and later history pages, and standings", async () => {
+      const f = await fixture();
+      const summaries = createGameSummaryRepository(runtime);
+      // Two completed results on different pages, with active games between them.
+      for (let index = 0; index < 32; index++) {
+        const gameId = `history-concern-${index}`;
+        await f.mutate({
+          type: "create-game",
+          definition: {
+            ...f.definition,
+            id: gameId,
+            createdAt: new Date(Date.UTC(2026, 9, 1, 0, index)).toISOString(),
+            endCondition: { type: "fixed_rounds", rounds: 1 },
+          },
+          paletteRevision: 0,
+        });
+        if (index === 0 || index === 31)
+          await f.mutate({
+            type: "command",
+            gameId,
+            generation: 1,
+            expectedDraftRevision: 0,
+            command: {
+              type: "record_round",
+              id: `finish-${index}`,
+              roundId: "r1",
+              expectedRevision: 0,
+              entries: [
+                { participantId: "ada", rawScore: 20 },
+                { participantId: "ben", rawScore: 5 },
+              ],
+            },
+          });
+      }
+      const first = await repo.readState(f.member, f.familyId);
+      expect(first.games).toHaveLength(30);
+      expect(first.nextCursor).not.toBeNull();
+      const cursors = [undefined, first.nextCursor!] as const;
+      for (const [pageIndex, gameId] of [
+        [0, "history-concern-31"],
+        [1, "history-concern-0"],
+      ] as const) {
+        const cursor = cursors[pageIndex];
+        let cached = await repo.readHistoryRefresh(
+          f.member,
+          f.familyId,
+          "",
+          cursor,
+        );
+        const originalGame = cached.state!.games.find(
+          (g) => g.definition.id === gameId,
+        );
+        const check = async (eligible: boolean) => {
+          const history = await repo.readState(f.member, f.familyId, {
+            cursor,
+          });
+          const detail = await repo.readState(f.member, f.familyId, { gameId });
+          expect(history.access[gameId]).toEqual(detail.access[gameId]);
+          expect(history.games.find((g) => g.definition.id === gameId)).toEqual(
+            originalGame,
+          );
+          expect(
+            recordBookGames([], {}, history.games, history.access).some(
+              (g) => g.id === gameId && g.eligible,
+            ),
+          ).toBe(eligible);
+          const pages = await Promise.all(
+            cursors.map((cursor) =>
+              repo.readState(f.member, f.familyId, { cursor }),
+            ),
+          );
+          const book = recordBookGames(
+            [],
+            {},
+            pages.flatMap((p) => p.games),
+            Object.assign({}, ...pages.map((p) => p.access)),
+          );
+          const standings = (await summaries.read(f.member, f.familyId))
+            .standings;
+          expect(
+            standings?.find(
+              (s) => s.gameType === "crokinole" && s.playerId === "ada",
+            )?.played ?? 0,
+          ).toBe(book.filter((g) => g.eligible).length);
+        };
+        const refresh = async () => {
+          const next = await repo.readHistoryRefresh(
+            f.member,
+            f.familyId,
+            cached.version,
+            cursor,
+          );
+          expect(next.version).not.toBe(cached.version);
+          expect(next.state).not.toBeNull();
+          expect(next.state!.access[gameId].concerns).toEqual(
+            (await repo.readState(f.member, f.familyId, { gameId })).access[
+              gameId
+            ].concerns,
+          );
+          cached = next;
+          const unchanged = await repo.readHistoryRefresh(
+            f.member,
+            f.familyId,
+            cached.version,
+            cursor,
+          );
+          expect(unchanged.state).toBeNull();
+          // Concern payloads stay inside PostgreSQL for unchanged reads.
+          expect(Buffer.byteLength(JSON.stringify(unchanged))).toBeLessThan(
+            128,
+          );
+        };
+        await check(true);
+        for (const outcome of ["dismissed", "upheld"] as const) {
+          const reported = await f.mutate({
+            type: "report-concern",
+            gameId,
+            expectedRevision: 1,
+            reason: "Check the physical scores",
+          });
+          const concern = reported.access!.concerns.at(-1)!;
+          await refresh();
+          await check(false);
+          await f.mutate({
+            type: "resolve-concern",
+            gameId,
+            expectedRevision: 1,
+            concernId: concern.id,
+            outcome,
+            reason: "Reviewed at the table",
+          });
+          await refresh();
+          await check(outcome === "dismissed");
+        }
+      }
+    });
+    it("keeps history concern payloads and fingerprints within the authorized family and games", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      const cached = await repo.readHistoryRefresh(f.member, f.familyId, "");
+      const other = await fixture();
+      await other.mutate({
+        type: "create-game",
+        definition: { ...other.definition, id: f.definition.id },
+        paletteRevision: 0,
+      });
+      await other.mutate({
+        type: "report-concern",
+        gameId: f.definition.id,
+        expectedRevision: 0,
+        reason: "Other family evidence",
+      });
+      const privateId = "private-concern-history";
+      await f.mutate({
+        type: "create-game",
+        definition: { ...f.definition, id: privateId, mode: "practice" },
+        paletteRevision: 0,
+      });
+      await f.mutate({
+        type: "report-concern",
+        gameId: privateId,
+        expectedRevision: 0,
+        reason: "Private evidence",
+      });
+      expect(
+        (await repo.readHistoryRefresh(f.member, f.familyId, cached.version))
+          .state,
+      ).toBeNull();
+      const visible = await repo.readState(f.member, f.familyId);
+      expect(Object.keys(visible.access)).toEqual([f.definition.id]);
+      expect(visible.access[f.definition.id].concerns).toEqual([]);
+      expect(
+        (await repo.readState(f.admin, f.familyId)).access[privateId].concerns,
+      ).toHaveLength(1);
+      await expect(
+        repo.readState(f.member, f.familyId, { gameId: privateId }),
+      ).rejects.toMatchObject({ status: 404 });
+      await expect(
+        repo.readHistoryRefresh(other.member, f.familyId, cached.version),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+    it("reads the concern fingerprint and history payload from one snapshot during a concurrent report", async () => {
+      const f = await fixture();
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      let injected = false;
+      // Execute real SQL, but commit a second client's concern after the hash read
+      // and before the history payload read. Neither query result is mocked.
+      const observed = new Proxy(runtime, {
+        get(target, key, receiver) {
+          if (key !== "begin") return Reflect.get(target, key, receiver);
+          return (
+            options: string,
+            work: (tx: postgres.TransactionSql) => Promise<unknown>,
+          ) =>
+            runtime.begin(options, (tx) =>
+              work(
+                new Proxy(tx, {
+                  apply(target, thisArg, args) {
+                    const query = Reflect.apply(target, thisArg, args);
+                    if (
+                      !injected &&
+                      Array.isArray(args[0]) &&
+                      args[0].join("").includes("select md5(jsonb_build_array")
+                    ) {
+                      injected = true;
+                      return query.then(async (rows: unknown) => {
+                        await f.mutate({
+                          type: "report-concern",
+                          gameId: f.definition.id,
+                          expectedRevision: 0,
+                          reason: "Reported during refresh",
+                        });
+                        return rows;
+                      });
+                    }
+                    return query;
+                  },
+                }),
+              ),
+            );
+        },
+      });
+      const reading = createCrokinoleRepository(observed, { enabled: true });
+      const before = await reading.readHistoryRefresh(f.member, f.familyId, "");
+      expect(injected).toBe(true);
+      expect(before.state!.access[f.definition.id].concerns).toEqual([]);
+      const after = await repo.readHistoryRefresh(
+        f.member,
+        f.familyId,
+        before.version,
+      );
+      expect(after.version).not.toBe(before.version);
+      expect(after.state!.access[f.definition.id].concerns).toHaveLength(1);
+      expect(
+        (await repo.readHistoryRefresh(f.member, f.familyId, after.version))
+          .state,
+      ).toBeNull();
     });
     it("blocks same-revision score edits, duplicate command IDs and orphan events at SQL level", async () => {
       const f = await fixture();
