@@ -431,7 +431,7 @@ export function createCrokinoleStore(
     });
     return opening;
   }
-  const historyCache = new Map<
+  const refreshCache = new Map<
     string,
     { version: string; state: CrokinoleSharedState }
   >();
@@ -439,8 +439,8 @@ export function createCrokinoleStore(
     const params = new URLSearchParams();
     if (gameId) params.set("gameId", gameId);
     if (cursor) params.set("cursor", cursor);
-    const key = cursor ?? "";
-    const prior = gameId ? undefined : historyCache.get(key);
+    const key = gameId ? `game:${gameId}` : `history:${cursor ?? ""}`;
+    const prior = refreshCache.get(key);
     let value: unknown;
     try {
       value = await request<unknown>(
@@ -449,34 +449,46 @@ export function createCrokinoleStore(
         {
           expectedUserId: userId,
           signal: controller.signal,
-          ...(!gameId ? { refresh: prior?.version ?? "" } : {}),
+          refresh: prior?.version ?? "",
         },
       );
       if (
-        !gameId &&
         object(value) &&
-        value.kind === "crokinole-history-refresh-v1"
+        value.kind ===
+          (gameId
+            ? "crokinole-game-refresh-v1"
+            : "crokinole-history-refresh-v1")
       ) {
         if (
           typeof value.version !== "string" ||
-          !/^[a-f0-9]{32}$/.test(value.version)
+          !/^[a-f0-9]{32}$/.test(value.version) ||
+          (gameId && value.gameId !== gameId)
         )
-          throw new Error("Invalid history version.");
+          throw new Error("Invalid Crokinole refresh version or scope.");
         const state =
           value.state === null && value.version === prior?.version
             ? prior.state
             : value.state;
         checkShared(state);
-        historyCache.set(key, { version: value.version, state });
-        // Bound memory independently of the number of pages opened in Record Book.
-        if (historyCache.size > 20)
-          historyCache.delete(historyCache.keys().next().value!);
+        if (
+          closed ||
+          (gameId &&
+            (state.games.length !== 1 ||
+              state.games[0].definition.id !== gameId))
+        )
+          throw new Error("The Crokinole refresh is no longer current.");
+        refreshCache.set(key, { version: value.version, state });
+        // Bound memory across game views and pages opened in Record Book.
+        if (refreshCache.size > 20)
+          refreshCache.delete(refreshCache.keys().next().value!);
         return state;
       }
       checkShared(value);
+      // A compatible older server can return a full snapshot without a hint.
+      refreshCache.delete(key);
       return value;
     } catch (error) {
-      historyCache.clear();
+      refreshCache.clear();
       throw error;
     }
   }
@@ -782,6 +794,8 @@ export function createCrokinoleStore(
   async function sendPending() {
     const mutation = workspace.pending;
     if (!mutation) return;
+    // Saved actions and ambiguous failures must reconcile against a fresh view.
+    refreshCache.clear();
     await writes;
     await transaction();
     try {
@@ -1141,7 +1155,7 @@ export function createCrokinoleStore(
       }
     },
     close() {
-      historyCache.clear();
+      refreshCache.clear();
       closed = true;
       clearTimeout(timer);
       controller.abort();

@@ -75,6 +75,306 @@ export function crokinoleDatabaseCases(
         return work(tx);
       });
     }
+    it("invalidates selected scorer drafts without a round change while keeping another client's view private", async () => {
+      const f = await fixture(),
+        gameId = f.definition.id;
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      let scorer = await repo.readGameRefresh(f.admin, f.familyId, gameId, "");
+      const viewer = await repo.readGameRefresh(
+        f.member,
+        f.familyId,
+        gameId,
+        "",
+      );
+      expect(scorer.state?.draft).toBeNull();
+      expect(viewer.state?.draft).toBeUndefined();
+      for (let revision = 0; revision < 2; revision++) {
+        await f.mutate({
+          type: "save-draft",
+          gameId,
+          generation: 1,
+          expectedRevision: 0,
+          expectedDraftRevision: revision,
+          values: revision ? {} : { ada: "10" },
+          editingRoundId: null,
+        });
+        scorer = await repo.readGameRefresh(
+          f.admin,
+          f.familyId,
+          gameId,
+          scorer.version,
+        );
+        expect(scorer.state?.games[0].revision).toBe(0);
+        expect(scorer.state?.draft?.revision).toBe(revision + 1);
+        expect(
+          (
+            await repo.readGameRefresh(
+              f.member,
+              f.familyId,
+              gameId,
+              viewer.version,
+            )
+          ).state,
+        ).toBeNull();
+      }
+      expect(scorer.state?.draft?.values).toEqual({});
+      expect(
+        (
+          await repo.readGameRefresh(
+            f.admin,
+            f.familyId,
+            gameId,
+            scorer.version,
+          )
+        ).state,
+      ).toBeNull();
+      // Payload changes must invalidate even if an imported draft kept its revision.
+      await owner`update scrabble.crokinole_drafts set payload=jsonb_set(payload,'{values}','{"ada":"9"}') where family_id=${f.familyId}`;
+      scorer = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        scorer.version,
+      );
+      expect(scorer.state?.draft?.values).toEqual({ ada: "9" });
+      await f.mutate({
+        type: "take-over",
+        gameId,
+        expectedRevision: 0,
+        generation: 1,
+        reason: "Fixture generation reset",
+      });
+      expect(
+        (
+          await repo.readGameRefresh(
+            f.admin,
+            f.familyId,
+            gameId,
+            scorer.version,
+          )
+        ).state?.draft,
+      ).toBeNull();
+    });
+
+    it("invalidates selected concerns, resolutions, settings, palette and feature availability", async () => {
+      const f = await fixture(),
+        gameId = f.definition.id;
+      await f.mutate({
+        type: "create-game",
+        definition: f.definition,
+        paletteRevision: 0,
+      });
+      let cached = await repo.readGameRefresh(f.admin, f.familyId, gameId, "");
+      const reported = await f.mutate(
+        {
+          type: "report-concern",
+          gameId,
+          expectedRevision: 0,
+          reason: "Fixture review",
+        },
+        f.member,
+      );
+      cached = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state?.access[gameId].concerns).toHaveLength(1);
+      await f.mutate({
+        type: "resolve-concern",
+        gameId,
+        expectedRevision: 0,
+        concernId: reported.access!.concerns[0].id,
+        outcome: "dismissed",
+        reason: "Fixture resolved",
+      });
+      cached = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state?.access[gameId].concerns[0].resolution?.outcome).toBe(
+        "dismissed",
+      );
+      await f.mutate({
+        type: "save-defaults",
+        expectedRevision: 0,
+        defaults: DEFAULT_CROKINOLE_SETTINGS,
+      });
+      cached = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state?.palette.revision).toBe(1);
+      await f.mutate({
+        type: "save-palette",
+        expectedRevision: 1,
+        colours: DEFAULT_PIECE_COLOURS,
+      });
+      cached = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state?.palette.revision).toBe(2);
+      const disabled = createCrokinoleRepository(runtime, { enabled: false });
+      const off = await disabled.readGameRefresh(
+        f.admin,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(off.state?.creationEnabled).toBe(false);
+      expect(off.state?.access[gameId].canScore).toBe(false);
+      expect(off.state?.draft).toBeUndefined();
+    });
+
+    it("rechecks selected-game ownership, permissions, practice access, removal and membership on matching hints", async () => {
+      const f = await fixture(),
+        gameId = f.definition.id;
+      await f.mutate(
+        { type: "create-game", definition: f.definition, paletteRevision: 0 },
+        f.member,
+      );
+      let cached = await repo.readGameRefresh(f.member, f.familyId, gameId, "");
+      await f.mutate({
+        type: "take-over",
+        gameId,
+        expectedRevision: 0,
+        generation: 1,
+        reason: "Fixture takeover",
+      });
+      cached = await repo.readGameRefresh(
+        f.member,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state?.access[gameId]).toMatchObject({
+        generation: 2,
+        canScore: false,
+      });
+      expect(cached.state?.draft).toBeUndefined();
+      await owner`update scrabble.memberships set permissions='{"scoreGames":false}'::jsonb where family_id=${f.familyId} and user_id=${f.member.userId}`;
+      cached = await repo.readGameRefresh(
+        f.member,
+        f.familyId,
+        gameId,
+        cached.version,
+      );
+      expect(cached.state).not.toBeNull();
+      const practice = {
+        ...f.definition,
+        id: randomUUID(),
+        mode: "practice" as const,
+      };
+      await f.mutate({
+        type: "create-game",
+        definition: practice,
+        paletteRevision: 0,
+      });
+      const privateView = await repo.readGameRefresh(
+        f.admin,
+        f.familyId,
+        practice.id,
+        "",
+      );
+      await expect(
+        repo.readGameRefresh(
+          f.member,
+          f.familyId,
+          practice.id,
+          privateView.version,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      await owner`update scrabble.memberships set active=false where family_id=${f.familyId} and user_id=${f.member.userId}`;
+      await expect(
+        repo.readGameRefresh(f.member, f.familyId, gameId, cached.version),
+      ).rejects.toMatchObject({ status: 403 });
+      const admin = await repo.readGameRefresh(f.admin, f.familyId, gameId, "");
+      await f.mutate({
+        type: "remove-game",
+        gameId,
+        expectedRevision: 0,
+        reason: "Fixture removal",
+      });
+      await expect(
+        repo.readGameRefresh(f.admin, f.familyId, gameId, admin.version),
+      ).rejects.toMatchObject({ status: 404 });
+    });
+
+    it.each(["definition", "projection", "journal"])(
+      "detects %s tampering without a revision increment on a cached completed view",
+      async (part) => {
+        const f = await fixture(),
+          gameId = f.definition.id;
+        await f.mutate({
+          type: "create-game",
+          definition: {
+            ...f.definition,
+            endCondition: { type: "fixed_rounds", rounds: 1 },
+          },
+          paletteRevision: 0,
+        });
+        await f.mutate({
+          type: "command",
+          gameId,
+          generation: 1,
+          expectedDraftRevision: 0,
+          command: {
+            type: "record_round",
+            id: "finish",
+            roundId: "r1",
+            expectedRevision: 0,
+            entries: [
+              { participantId: "ada", rawScore: 10 },
+              { participantId: "ben", rawScore: 5 },
+            ],
+          },
+        });
+        const cached = await repo.readGameRefresh(
+          f.admin,
+          f.familyId,
+          gameId,
+          "",
+        );
+        expect(cached.state?.games[0].status).toBe("completed");
+        expect(
+          (
+            await repo.readGameRefresh(
+              f.admin,
+              f.familyId,
+              gameId,
+              cached.version,
+            )
+          ).state,
+        ).toBeNull();
+        // Only the disposable cluster owner bypasses immutable guards to simulate
+        // pre-existing imported corruption. Production permissions are unchanged.
+        await owner.begin(async (tx) => {
+          await tx`set local session_replication_role=replica`;
+          if (part === "definition")
+            await tx`update scrabble.crokinole_games set definition=jsonb_set(definition,'{players,0,name}','"Changed"') where family_id=${f.familyId}`;
+          else if (part === "projection")
+            await tx`update scrabble.crokinole_games set state=jsonb_set(state,'{totals,ada}','999') where family_id=${f.familyId}`;
+          else
+            await tx`update scrabble.crokinole_events set event=jsonb_set(event,'{command,entries,0,rawScore}','999') where family_id=${f.familyId}`;
+        });
+        await expect(
+          repo.readGameRefresh(f.admin, f.familyId, gameId, cached.version),
+        ).rejects.toMatchObject({ code: "HISTORY_INTEGRITY" });
+      },
+    );
+
     it("invalidates conditional pages for scores, permissions, palette, removals and revoked membership", async () => {
       const f = await fixture();
       await f.mutate({

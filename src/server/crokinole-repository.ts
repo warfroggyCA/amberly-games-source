@@ -312,6 +312,46 @@ export function createCrokinoleRepository(
       };
     });
   }
+  async function readGameRefresh(
+    actor: VerifiedActor,
+    familyId: string,
+    gameId: string,
+    known: string,
+  ) {
+    if (!id(gameId)) fail("INVALID_GAME", "Invalid game reference.");
+    return transaction(actor, familyId, false, async (tx, who) => {
+      const colours = await palette(tx, familyId);
+      // Compute the hint inside the authorized snapshot. Include the permanent
+      // history as well as its projection so an integrity change cannot hide
+      // behind an unchanged revision. Only the current scorer's draft belongs
+      // in this view; its edits must invalidate even without a recorded round.
+      const [head] = await tx`select md5(jsonb_build_array(
+        ${familyId}::text,${gameId}::text,${JSON.stringify(who)}::text,
+        ${JSON.stringify(colours)}::text,${enabled()}::boolean,
+        g.definition,g.state,g.revision,g.scorer_user_id,g.generation,g.mode,
+        (select jsonb_agg(event order by sequence) from scrabble.crokinole_events e
+          where e.family_id=g.family_id and e.game_id=g.game_id),
+        (select jsonb_agg(concern order by id) from scrabble.crokinole_concerns c
+          where c.family_id=g.family_id and c.game_id=g.game_id),
+        d.revision,d.payload
+      )::text) version from scrabble.crokinole_games g
+      left join scrabble.crokinole_drafts d on d.family_id=g.family_id
+        and d.game_id=g.game_id and d.generation=g.generation
+        and g.scorer_user_id=${who.userId}::uuid
+        and ${enabled() && hasPermission(who, "scoreGames")}::boolean
+      where g.family_id=${familyId}::uuid and g.game_id=${gameId} and not g.removed`;
+      if (!head) fail("GAME_NOT_FOUND", "This game is not available.", 404);
+      return {
+        kind: "crokinole-game-refresh-v1" as const,
+        gameId,
+        version: head.version as string,
+        state:
+          head.version === known
+            ? null
+            : await readSnapshot(tx, who, familyId, { gameId }),
+      };
+    });
+  }
   async function mutate(
     actor: VerifiedActor,
     familyId: string,
@@ -956,5 +996,11 @@ export function createCrokinoleRepository(
       };
     });
   }
-  return { readState, readHistoryRefresh, mutate, exportHistory };
+  return {
+    readState,
+    readHistoryRefresh,
+    readGameRefresh,
+    mutate,
+    exportHistory,
+  };
 }

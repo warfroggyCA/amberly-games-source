@@ -13,6 +13,7 @@ import {
   parseRefreshVersions,
 } from "../src/lib/shared-refresh";
 import { usageDatabaseCases } from "./usage-database-cases";
+import { benchmarkDraftRefresh } from "./draft-refresh-benchmark";
 import { gymHistoryDatabaseCases } from "./gym-history-database-cases";
 import { playerArchiveDatabaseCases } from "./player-archive-database-cases";
 import {
@@ -158,6 +159,13 @@ const code = (value: Promise<unknown>, expected: string) =>
   expect(value).rejects.toMatchObject({ code: expected });
 
 suite("isolated real PostgreSQL shared family repository", () => {
+  it.skipIf(
+    !process.env.AMBERLY_F4_RECEIPT || !process.env.AMBERLY_BASELINE_SHARED,
+  )(
+    "measures paired draft and selected-game refreshes at the audit journal sizes",
+    () => benchmarkDraftRefresh(owner),
+    120000,
+  );
   usageDatabaseCases(owner, runtime);
   it("compatible fallback preserves modes across old-shaped commands, retries and re-upgrade", async () => {
     const fallback = createSharedRepository(runtime, {
@@ -2262,6 +2270,197 @@ suite("isolated real PostgreSQL shared family repository", () => {
       );
     }
     await Promise.all([runtime.end(), owner.end()]);
+  });
+
+  it("renews only identical live draft streams and rescores changed or expired heartbeats", async () => {
+    let resolves = 0;
+    const preview = createSharedRepository(runtime, {
+      defaultLexicon: testLexicon,
+      resolveLexicon: () => {
+        resolves++;
+        return testLexicon;
+      },
+    });
+    const f = await fixture(preview);
+    const game = (await f.create()).game!;
+    resolves = 0;
+    const input: LiveDraftInput = {
+      gameId: game.id,
+      revision: 0,
+      generation: 1,
+      streamId: randomUUID(),
+      sequence: 1,
+      kind: "edit",
+      placements: ["A", "T"].map((letter, i) => ({
+        row: 7,
+        col: 7 + i,
+        tile: { letter: letter as "A" | "T", blank: false },
+      })),
+    };
+    await preview.writeLiveDraft(f.admin, f.familyId, input);
+    const initial = await preview.readLiveDraft(f.guest, f.familyId, game.id);
+    expect(initial).toMatchObject({ score: 4, valid: true });
+    expect(resolves).toBe(1);
+    for (let sequence = 2; sequence <= 4; sequence++) {
+      expect(
+        await preview.writeLiveDraft(f.admin, f.familyId, {
+          ...input,
+          kind: "heartbeat",
+          sequence,
+        }),
+      ).toEqual({ accepted: true });
+      expect(
+        await preview.readLiveDraft(f.guest, f.familyId, game.id),
+      ).toMatchObject({ ...initial!, expiresAt: expect.any(String) });
+    }
+    expect(resolves).toBe(1);
+    const edited: LiveDraftInput = {
+      ...input,
+      kind: "heartbeat",
+      sequence: 5,
+      placements: [{ row: 7, col: 7, tile: { letter: "Z", blank: false } }],
+    };
+    await preview.writeLiveDraft(f.admin, f.familyId, edited);
+    expect(resolves).toBe(2);
+    expect(
+      await preview.readLiveDraft(f.guest, f.familyId, game.id),
+    ).toMatchObject({ valid: false, placements: edited.placements });
+    await owner`update scrabble.live_drafts set expires_at=now()-interval '1 second' where family_id=${f.familyId}::uuid`;
+    await preview.writeLiveDraft(f.admin, f.familyId, {
+      ...edited,
+      sequence: 6,
+    });
+    expect(resolves).toBe(3);
+    await f.mutate(pass(game.id));
+    await code(
+      preview.writeLiveDraft(f.admin, f.familyId, { ...edited, sequence: 7 }),
+      "STALE_DRAFT",
+    );
+  });
+
+  it("scores narrow draft positions with verified additions, custom supply, rack counts and overlap fences", async () => {
+    const f = await fixture();
+    let game = (await f.create()).game!;
+    let sequence = 0;
+    const streamId = randomUUID();
+    const placements = [..."ZZTEST"].map((letter, i) => ({
+      row: 7,
+      col: 7 + i,
+      tile: { letter: letter as "Z" | "T" | "E" | "S", blank: false },
+    }));
+    const publish = async () => {
+      await repository.writeLiveDraft(f.admin, f.familyId, {
+        gameId: game.id,
+        revision: game.revision,
+        generation: 1,
+        streamId,
+        sequence: ++sequence,
+        kind: "edit",
+        placements,
+      });
+      return repository.readLiveDraft(f.guest, f.familyId, game.id);
+    };
+    expect(await publish()).toMatchObject({ valid: false });
+    game = (
+      await f.mutate({
+        type: "verify-words",
+        gameId: game.id,
+        words: ["ZZTEST"],
+        deviceId: "device-a",
+        generation: 1,
+        expectedRevision: game.revision,
+      })
+    ).game!;
+    expect(await publish()).toMatchObject({ valid: false }); // two Zs need more supply
+    const command = async (value: import("../src/domain/game").GameCommand) => {
+      game = (
+        await f.mutate({
+          type: "game-commands",
+          gameId: game.id,
+          deviceId: "device-a",
+          generation: 1,
+          commands: [value],
+        })
+      ).game!;
+    };
+    await command({
+      type: "extend-supply",
+      id: randomUUID(),
+      expectedRevision: game.revision,
+      additions: { Z: 1 },
+      reason: "Synthetic extra tile",
+      recordedBy: "Fixture",
+      recordedAt: new Date().toISOString(),
+    });
+    expect(await publish()).toMatchObject({
+      valid: true,
+      score: expect.any(Number),
+    });
+    await command({
+      type: "reconcile",
+      id: randomUUID(),
+      expectedRevision: game.revision,
+      rackCounts: { ada: 5, ben: 7 },
+      bagCount: game.expectedBagCount + 2,
+      reason: "Synthetic rack count",
+      recordedBy: "Fixture",
+      recordedAt: new Date().toISOString(),
+    });
+    expect(await publish()).toMatchObject({ valid: false });
+    await command({
+      type: "play",
+      id: randomUUID(),
+      expectedRevision: game.revision,
+      placements: ["A", "T"].map((letter, i) => ({
+        row: 7,
+        col: 7 + i,
+        tile: { letter: letter as "A" | "T", blank: false },
+      })),
+    });
+    await code(publish(), "INVALID_DRAFT");
+  });
+
+  it("serializes two command clients with draft heartbeats and rejects the retired position", async () => {
+    const f = await fixture();
+    const game = (await f.create()).game!;
+    const input: LiveDraftInput = {
+      gameId: game.id,
+      revision: 0,
+      generation: 1,
+      streamId: randomUUID(),
+      sequence: 1,
+      kind: "edit",
+      placements: [{ row: 7, col: 7, tile: { letter: "A", blank: false } }],
+    };
+    await repository.writeLiveDraft(f.admin, f.familyId, input);
+    const result = await Promise.allSettled([
+      f.mutate(pass(game.id)),
+      f.mutate(pass(game.id)),
+      repository.writeLiveDraft(f.admin, f.familyId, {
+        ...input,
+        kind: "heartbeat",
+        sequence: 2,
+      }),
+    ]);
+    expect(
+      result.slice(0, 2).filter((r) => r.status === "fulfilled"),
+    ).toHaveLength(1);
+    const state = await repository.readState(f.admin, f.familyId, {
+      gameId: game.id,
+    });
+    expect(state.games[0].revision).toBe(1);
+    expect(state.games[0].events).toHaveLength(1);
+    expect(
+      await repository.readLiveDraft(f.guest, f.familyId, game.id),
+    ).toBeNull();
+    await code(
+      repository.writeLiveDraft(f.admin, f.familyId, {
+        ...input,
+        kind: "heartbeat",
+        sequence: 3,
+      }),
+      "STALE_DRAFT",
+    );
   });
 
   it("shares a server-scored provisional entry only with authorized readers and never changes recorded history", async () => {

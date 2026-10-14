@@ -900,3 +900,107 @@ it("materializes unchanged history pages but clears cached authorization after e
   await s.refresh();
   expect(request.mock.calls.at(-1)?.[2].refresh).toBe("");
 });
+
+it("reuses only the selected game's validated view, preserving dirty local drafts", async () => {
+  const s = store();
+  const snapshot = state();
+  const version = "2".repeat(32);
+  request.mockResolvedValue({
+    kind: "crokinole-game-refresh-v1",
+    gameId: "game",
+    version,
+    state: snapshot,
+  });
+  await s.load("game");
+  s.setDraft("game", { values: { a: "23" }, editingRoundId: null });
+  await settled();
+  request.mockResolvedValue({
+    kind: "crokinole-game-refresh-v1",
+    gameId: "game",
+    version,
+    state: null,
+  });
+  await s.refresh("game");
+  expect(request.mock.calls.at(-1)?.[2].refresh).toBe(version);
+  expect(s.getSnapshot().drafts.game).toMatchObject({
+    values: { a: "23" },
+    dirty: true,
+  });
+  expect(s.getSnapshot().games).toEqual(snapshot.games);
+  // The version of game must never satisfy a different selected view.
+  await s.refresh("other");
+  expect(request.mock.calls.at(-1)?.[2].refresh).toBe("");
+  expect(s.getSnapshot().error).toContain("scope");
+});
+
+it.each(["offline", "malformed", "legacy"])(
+  "discards selected-game hints after %s responses",
+  async (failure) => {
+    const s = store(),
+      version = "3".repeat(32);
+    request.mockResolvedValueOnce({
+      kind: "crokinole-game-refresh-v1",
+      gameId: "game",
+      version,
+      state: state(),
+    });
+    await s.load("game");
+    if (failure === "offline")
+      request.mockRejectedValueOnce(new Error("Offline"));
+    else if (failure === "malformed")
+      request.mockResolvedValueOnce({
+        kind: "crokinole-game-refresh-v1",
+        gameId: "game",
+        version: "4".repeat(32),
+        state: null,
+      });
+    else request.mockResolvedValueOnce(state());
+    await s.refresh("game");
+    request.mockResolvedValueOnce(state());
+    await s.refresh("game");
+    expect(request.mock.calls.at(-1)?.[2].refresh).toBe("");
+    expect(s.getSnapshot().status).toBe("ready");
+  },
+);
+
+it("clears conditional game hints after a mutation and never exposes a revoked cached draft", async () => {
+  const s = store(),
+    version = "5".repeat(32);
+  request.mockResolvedValueOnce({
+    kind: "crokinole-game-refresh-v1",
+    gameId: "game",
+    version,
+    state: state(),
+  });
+  await s.load("game");
+  s.setDraft("game", { values: { a: "20" }, editingRoundId: null });
+  await settled();
+  request.mockResolvedValueOnce({
+    draft: {
+      revision: 1,
+      baseRevision: 0,
+      generation: 1,
+      values: { a: "20" },
+      editingRoundId: null,
+    },
+  });
+  await s.syncDraft("game");
+  const revoked = state();
+  revoked.access.game.canScore = false;
+  delete revoked.draft;
+  request.mockResolvedValueOnce({
+    kind: "crokinole-game-refresh-v1",
+    gameId: "game",
+    version: "6".repeat(32),
+    state: revoked,
+  });
+  await s.refresh("game");
+  expect(request.mock.calls.at(-1)?.[2].refresh).toBe("");
+  expect(s.getSnapshot().drafts.game).toBeUndefined();
+  request.mockRejectedValueOnce(
+    new FamilyRequestError("Revoked", 403, "NOT_A_MEMBER"),
+  );
+  await s.refresh("game");
+  expect(s.getSnapshot().accessLost).toBe(true);
+  expect(s.getSnapshot().games).toEqual([]);
+});
