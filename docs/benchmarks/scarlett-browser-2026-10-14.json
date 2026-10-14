@@ -1,4 +1,6 @@
 {
+  "scope": "Entry card only, before Open Gym; does not measure whole-journey bytes or cache reuse.",
+  "motionContext": "Historical run inherited the suite reduced-motion setting; Gym would select its still. Superseded for normal-motion journey acceptance by scarlett-journey-2026-10-14.json.",
   "method": "Fresh browser context visits to /family with identical fixtures, browser profile and viewport; the asset request is not intercepted. Body bytes are actual response content. Resource timing is diagnostic, not a controlled latency or decode benchmark. No production service used.",
   "rows": [
     {

@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { installFixture } from "./fixtures/crokinole";
 
+test.use({ reducedMotion: "no-preference" });
+
 test("Scarlett's entry card loads its animated asset and preserves the card interaction", async ({
   page,
 }, testInfo) => {
@@ -65,6 +67,8 @@ test("Scarlett's entry card loads its animated asset and preserves the card inte
       : null;
   }, asset);
   const metrics = {
+    stage: "family-entry-before-navigation",
+    normalMotion: true,
     variant: baseline ? "before" : "after",
     project: testInfo.project.name,
     buildId: (await readFile(".next/BUILD_ID", "utf8")).trim(),
@@ -92,4 +96,8 @@ test("Scarlett's entry card loads its animated asset and preserves the card inte
   await expect(open).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/gym-lab(?:\?from=family)?$/);
+  await expect(page.locator(".gym-welcome .gym-mascot")).toHaveAttribute(
+    "src",
+    "/gym/scarlett-lift.webp",
+  );
 });

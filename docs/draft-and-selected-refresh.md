@@ -67,10 +67,10 @@ The [paired receipt](benchmarks/draft-refresh-2026-10-14.json) includes every
 sample, source-file hashes and EXPLAIN ANALYZE/BUFFERS summaries. Representative
 server-to-application DB bytes (all three idle repeats have the same byte count):
 
-| Read | Journal size | Released | Candidate |
-| --- | ---: | ---: | ---: |
-| Scrabble publication | 0 / 40 / 100 | 4,100 / 36,299 / 84,726 | 3,273 / 3,276 / 3,279 |
-| Scrabble heartbeat | 0 / 40 / 100 | 4,100 / 36,299 / 84,726 | 1,575 / 1,576 / 1,577 |
+| Read                    | Journal size |                Released |             Candidate |
+| ----------------------- | -----------: | ----------------------: | --------------------: |
+| Scrabble publication    | 0 / 40 / 100 | 4,100 / 36,299 / 84,726 | 3,273 / 3,276 / 3,279 |
+| Scrabble heartbeat      | 0 / 40 / 100 | 4,100 / 36,299 / 84,726 | 1,575 / 1,576 / 1,577 |
 | Crokinole selected idle | 0 / 20 / 100 | 3,576 / 22,366 / 97,776 | 1,359 / 1,359 / 1,359 |
 
 The heartbeat acknowledgment remains 17 JSON bytes. At 100 rounds, Crokinole's
@@ -103,11 +103,17 @@ cream-composited comparison at 360px measures 38.749 dB PSNR overall (minimum fr
 38.113 dB). Sampled poses were inspected at 180px; lossy/resized pixels are not
 claimed to be identical to the 640px source.
 
-The [browser receipt](benchmarks/scarlett-browser-2026-10-14.json) compares cold
-context visits in all four profiles; each requests 2,844,668 instead of 7,270,588
-bytes with identical image bounds and viewport. The browser check makes cold
-context visits at identical profile/viewport sizes,
-records the requested URL and response bytes, compares two rendered animation
-frames, checks the image geometry, and activates Open Gym by keyboard. Static
-asset transfer is separate from database egress. Physical-device quality and
-household network behavior remain separate acceptance checks.
+The historical [entry-only receipt](benchmarks/scarlett-browser-2026-10-14.json)
+stopped before Open Gym and inherited the suite's reduced-motion setting. It
+establishes entry-card transfer only. It does not establish normal-motion Gym
+behavior, browser cache reuse, or whole-journey savings.
+
+The subsequent [normal-motion journey validation](scarlett-journey-validation.md)
+measures the full cold `/family` → Open Gym journey and revisits with browser
+caching enabled. Every profile transfers **7,270,588 animation bytes before and
+10,115,256 after: a 39.1% increase** for that first complete journey. The 60.9%
+reduction applies only to the entry card. The larger Gym still needs the original
+640px animation. The new receipt records browser-specific revisit behavior,
+the hydration still on reload, and desktop/mobile high-DPR visual evidence.
+Static asset transfer is separate from database egress. Physical-device quality
+and household network behavior remain separate acceptance checks.
