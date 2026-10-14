@@ -28,10 +28,33 @@ async function ready(image: Locator, source: string) {
 
 async function runJourney(page: Page, testInfo: TestInfo, upstream: string) {
   const baseline = process.env.AMBERLY_SCARLETT_BASELINE === "1";
-  const variant = baseline ? "before" : "after";
-  const entryAsset = baseline
-    ? "/gym/scarlett-lift.webp"
-    : "/gym/scarlett-entry.webp";
+  const scenario =
+    process.env.AMBERLY_SCARLETT_VARIANT ?? (baseline ? "original" : "shared");
+  if (!["original", "dual", "shared"].includes(scenario))
+    throw new Error("Choose original, dual or shared Scarlett assets");
+  const variant =
+    scenario === "original"
+      ? "before"
+      : scenario === "dual"
+        ? "after"
+        : "shared";
+  const entryAsset =
+    scenario === "original"
+      ? "/gym/scarlett-lift.webp"
+      : scenario === "dual"
+        ? "/gym/scarlett-entry.webp"
+        : "/gym/scarlett-shared.webp";
+  const gymAsset =
+    scenario === "shared"
+      ? "/gym/scarlett-shared.webp"
+      : "/gym/scarlett-lift.webp";
+  const expectedAnimationBytes = (
+    await Promise.all(
+      [...new Set([entryAsset, gymAsset])].map(
+        async (asset) => (await readFile(`public${asset}`)).length,
+      ),
+    )
+  ).reduce((sum, size) => sum + size, 0);
   const fixture = await startScarlettJourneyFixture(upstream);
   let dpr = 0;
   let label = "";
@@ -122,7 +145,7 @@ async function runJourney(page: Page, testInfo: TestInfo, upstream: string) {
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/gym-lab\?from=family$/);
     const welcome = page.locator(".gym-welcome .gym-mascot");
-    await ready(welcome, "/gym/scarlett-lift.webp");
+    await ready(welcome, gymAsset);
     await expect(page.locator(".gym-lab")).not.toHaveClass(
       /gym-reduced-motion/,
     );
@@ -135,7 +158,7 @@ async function runJourney(page: Page, testInfo: TestInfo, upstream: string) {
       .reduce((sum, r) => sum + r.bodyBytes, 0);
     // Count actual response bodies at the server, including 304 revalidations
     // (zero body) and excluding memory-cache hits (no server request).
-    expect(animationBytes).toBe(baseline ? 7270588 : 10115256);
+    expect(animationBytes).toBe(expectedAnimationBytes);
 
     fixture.setPhase("family-return");
     await page
@@ -145,11 +168,11 @@ async function runJourney(page: Page, testInfo: TestInfo, upstream: string) {
     await ready(entry, entryAsset);
     fixture.setPhase("gym-reopen");
     await open.click();
-    await ready(welcome, "/gym/scarlett-lift.webp");
+    await ready(welcome, gymAsset);
     // A reload permits normal max-age=0 revalidation, without disabling cache.
     fixture.setPhase("gym-reload");
     await page.reload();
-    await ready(welcome, "/gym/scarlett-lift.webp");
+    await ready(welcome, gymAsset);
     const reloadGeometry = await capture(welcome, "gym-reload");
     const revisitTransfers = fixture.transfers.slice(coldTransfers.length);
     const revisitAnimationBytes = revisitTransfers
@@ -161,6 +184,7 @@ async function runJourney(page: Page, testInfo: TestInfo, upstream: string) {
     expect(fixture.unexpectedApiRequests).toEqual([]);
     const metrics = {
       variant,
+      scenario,
       project: testInfo.project.name,
       buildId: (await readFile(".next/BUILD_ID", "utf8")).trim(),
       viewport: page.viewportSize(),
@@ -216,7 +240,7 @@ test("normal-motion family to Gym journey counts all Scarlett transfers and cach
 
 test.describe("desktop high-DPR", () => {
   test.use({ deviceScaleFactor: 2 });
-  test("normal-motion family to Gym at 2x retains the original welcome animation", async ({
+  test("normal-motion family to Gym at 2x retains the full-size welcome animation", async ({
     page,
     baseURL,
   }, testInfo) => {

@@ -1,5 +1,10 @@
 # Scarlett: normal-motion entry and Gym journey
 
+This is the historical validation of the dual-asset proposal at
+`9ebb6bb576955fd45622dff59eb133ac99521368`. It remains the measured reference for
+the [subsequent shared 640px candidate](scarlett-shared-animation.md); its hold
+recommendation below applies to the superseded dual-asset proposal.
+
 The entry derivative is a tradeoff. It saves 4,425,920 bytes on a cold family-hub
 visit that stops there, but adds 2,844,668 bytes when that visit continues into the
 Gym. **Recommend holding F17 acceptance until the owner accepts this entry-versus-

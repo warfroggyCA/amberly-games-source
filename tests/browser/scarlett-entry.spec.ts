@@ -13,7 +13,7 @@ test("Scarlett's entry card loads its animated asset and preserves the card inte
   const baseline = process.env.AMBERLY_SCARLETT_BASELINE === "1";
   const asset = baseline
     ? "/gym/scarlett-lift.webp"
-    : "/gym/scarlett-entry.webp";
+    : "/gym/scarlett-shared.webp";
   const requests: string[] = [];
   page.on("request", (r) => {
     if (r.url().includes("scarlett")) requests.push(new URL(r.url()).pathname);
@@ -98,6 +98,6 @@ test("Scarlett's entry card loads its animated asset and preserves the card inte
   await expect(page).toHaveURL(/\/gym-lab(?:\?from=family)?$/);
   await expect(page.locator(".gym-welcome .gym-mascot")).toHaveAttribute(
     "src",
-    "/gym/scarlett-lift.webp",
+    baseline ? "/gym/scarlett-lift.webp" : "/gym/scarlett-shared.webp",
   );
 });

@@ -84,36 +84,28 @@ optimization, not a claim that database CPU stops growing with history length.
 Elapsed samples vary; these figures exclude TLS/pooler overhead, Supabase Auth
 HTTP and HTTP headers. They do not establish household savings, billing or quotas.
 
-## Animated entry asset
+## Shared animated Scarlett
 
-Only `GymEntryCard` selects `/gym/scarlett-entry.webp`. The original 640px Gym
-animation remains unchanged at SHA-256
+The final F17 candidate uses one optimized **640px** animation for the entry card,
+Gym welcome and practice companion. It preserves 120 frames, exact timing, the
+five-second infinite loop and every alpha sample. The original source remains
+unchanged at SHA-256
 `e7c75308723411072bd3f08e82fba6232c7a5cb296b17eea7fdc62a7f085e22e`.
-The 360px derived image supports the 144–180px entry display at approximately 2×.
-Layout, alt text, focus order and the Open Gym action are retained.
+Layout, alt text, keyboard behavior and motion preferences are unchanged.
 
-Run `node scripts/prepare-scarlett-entry.mjs` with the pinned installation to
-reproduce the derivation. It verifies the approved source before encoding and
-checks all frames, delays, loop and transparency before replacing the derivative.
-The [asset receipt](benchmarks/scarlett-entry-2026-10-14.json) records source and
-output hashes, encoder versions and settings. Output is 2,844,668 bytes versus
-7,270,588 bytes, a 60.9% reduction; both have 120 frames, the same 5,000 ms timeline
-and an infinite loop. All alpha samples match the source resized to 360px. The
-cream-composited comparison at 360px measures 38.749 dB PSNR overall (minimum frame
-38.113 dB). Sampled poses were inspected at 180px; lossy/resized pixels are not
-claimed to be identical to the 640px source.
+The shared file is **6,097,124 bytes**, 16.1% below the released original. The
+normal-motion cold `/family` → Open Gym journey transfers it once, versus
+7,270,588 bytes for the original or 10,115,256 for the initial dual-asset proposal.
+The latter's 60.9% entry-only reduction is not a whole-journey saving.
 
-The historical [entry-only receipt](benchmarks/scarlett-browser-2026-10-14.json)
-stopped before Open Gym and inherited the suite's reduced-motion setting. It
-establishes entry-card transfer only. It does not establish normal-motion Gym
-behavior, browser cache reuse, or whole-journey savings.
+[Shared candidate evaluation](scarlett-shared-animation.md) includes three
+measured 640px encodings, matched-frame detail, high-DPR browser comparisons,
+three-way journey receipts, browser-specific revisit behavior and reproduction.
+The smaller 360px entry option remains cheaper for hub-only visits and the
+measured WebKit return/reopen sequence; those tradeoffs are retained in the
+report. No household, billing, production-cache or physical-device claim is made.
 
-The subsequent [normal-motion journey validation](scarlett-journey-validation.md)
-measures the full cold `/family` → Open Gym journey and revisits with browser
-caching enabled. Every profile transfers **7,270,588 animation bytes before and
-10,115,256 after: a 39.1% increase** for that first complete journey. The 60.9%
-reduction applies only to the entry card. The larger Gym still needs the original
-640px animation. The new receipt records browser-specific revisit behavior,
-the hydration still on reload, and desktop/mobile high-DPR visual evidence.
-Static asset transfer is separate from database egress. Physical-device quality
-and household network behavior remain separate acceptance checks.
+The [earlier dual-asset validation](scarlett-journey-validation.md) is retained as
+historical evidence. Run `node scripts/prepare-scarlett-animation.mjs` to reproduce
+the selected shared asset with the pinned installation. Static asset transfer
+remains separate from the F4 database measurements above.
