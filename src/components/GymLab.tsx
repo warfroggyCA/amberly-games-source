@@ -1097,9 +1097,9 @@ export function GymLab({
             <button
               className="text-button"
               onClick={historySync.retry}
-              disabled={!historySync.identity}
+              disabled={!historySync.canRetry}
             >
-              Retry sync
+              {historySync.identity ? "Retry sync" : "Retry connection"}
             </button>
           </div>
         ) : (
@@ -1124,9 +1124,11 @@ export function GymLab({
             </button>
           </p>
         )}
-        {!catalogLoaded && !catalogError && (
-          <p role="status">Loading word list…</p>
-        )}
+        {!catalogLoaded &&
+          !catalogError &&
+          (!profileHistory || historySync.identity) && (
+            <p role="status">Loading word list…</p>
+          )}
         {referencePending && !busy && (
           <p role="alert">
             Your additions are saved, but scores and hints need refreshing.{" "}

@@ -12,3 +12,15 @@ export async function requireCurrentSchema(tx: postgres.TransactionSql) {
       503,
     );
 }
+
+/** Only recovery writers require the compatible guest projection; old games remain available. */
+export async function requireClockRecoverySchema(tx: postgres.TransactionSql) {
+  const [schema] =
+    await tx`select to_regprocedure('scrabble.application_schema_v4()') is not null as ready`;
+  if (!schema.ready)
+    throw new SharedRepositoryError(
+      "CLOCK_RECOVERY_UNAVAILABLE",
+      "Stopping timing needs an operator update. Your game and current entry are unchanged.",
+      409,
+    );
+}

@@ -5,7 +5,11 @@ import {
   type Page,
   type APIRequestContext,
 } from "@playwright/test";
-import type { SharedOperation } from "../../src/lib/shared-contract";
+import type { GameState } from "../../src/domain/game";
+import type {
+  SharedMutation,
+  SharedOperation,
+} from "../../src/lib/shared-contract";
 
 const identities = JSON.parse(
   process.env.AMBERLY_INTEGRATED_IDENTITIES!,
@@ -637,4 +641,231 @@ test("real guest coaching uses authorized original positions and never uploads r
   } finally {
     await context.close();
   }
+});
+
+test("real clock recovery preserves the draft and journal across retries, stale requests and reload", async ({
+  page,
+}, info) => {
+  // No route interception: the scorer, retry receipt and reads use real Next + PostgreSQL.
+  await signIn(page, identities.owner.email);
+  await expect(
+    page.getByRole("heading", { name: "What are we playing?" }),
+  ).toBeVisible();
+  const family = await (
+    await page.request.get("/api/family", { headers: ownerHeaders })
+  ).json();
+  const deviceId = await page.evaluate(
+    ({ familyId, userId }) =>
+      localStorage.getItem(`scrabble-device:${familyId}:${userId}`),
+    { familyId: family.family.id, userId: identities.owner.id },
+  );
+  expect(deviceId).toBeTruthy();
+  const firstId = randomUUID();
+  const secondId = randomUUID();
+  const firstName = `Clock Ada ${firstId.slice(0, 8)}`;
+  await mutate(page.request, {
+    type: "create-player",
+    id: firstId,
+    profile: { name: firstName },
+  });
+  await mutate(page.request, {
+    type: "create-player",
+    id: secondId,
+    profile: { name: `Clock Ben ${secondId.slice(0, 8)}` },
+  });
+  const created = await mutate(page.request, {
+    type: "create-game",
+    id: randomUUID(),
+    mode: "confirmed",
+    players: [
+      { id: firstId, seat: 0 },
+      { id: secondId, seat: 2 },
+    ],
+    firstPlayerId: firstId,
+    direction: "clockwise",
+    deviceId: deviceId!,
+  });
+  const gameId = created.game.id as string;
+  const generation = created.gameAccess.generation as number;
+  const futureClock = new Date(Date.now() + 86400000).toISOString();
+  const started = await mutate(page.request, {
+    type: "game-commands",
+    gameId,
+    deviceId: deviceId!,
+    generation,
+    commands: [
+      {
+        type: "start-clock",
+        id: randomUUID(),
+        expectedRevision: 0,
+        timedAt: futureClock,
+      },
+    ],
+  });
+  const read = async (): Promise<GameState> => {
+    const response = await page.request.get(`/api/family?gameId=${gameId}`, {
+      headers: ownerHeaders,
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    const state = await response.json();
+    const game = (state.games as GameState[]).find((g) => g.id === gameId);
+    expect(game).toBeDefined();
+    return game!;
+  };
+  const blocked = await page.request.post("/api/family", {
+    headers: ownerHeaders,
+    data: {
+      requestId: randomUUID(),
+      operation: {
+        type: "game-commands",
+        gameId,
+        deviceId: deviceId!,
+        generation,
+        commands: [
+          {
+            type: "pass",
+            id: randomUUID(),
+            expectedRevision: 1,
+            timedAt: new Date().toISOString(),
+          },
+        ],
+      } satisfies SharedOperation,
+    },
+  });
+  expect(blocked.status()).toBe(400);
+  expect(await blocked.json()).toMatchObject({ code: "CLOCK_MOVED_BACK" });
+  expect(await read()).toEqual(started.game);
+
+  await page.goto("/family/scrabble");
+  await page
+    .locator(".game-list button")
+    .filter({ hasText: firstName })
+    .click();
+  await expect(page.getByTestId("cell-H8")).toBeVisible();
+  // Keep this game open in the URL as well as the device workspace for reloads.
+  await page.goto("/family/scrabble?view=play");
+  const draftSaved = page.waitForRequest(
+    (request) =>
+      new URL(request.url()).pathname === "/api/family/draft" &&
+      request.method() === "POST" &&
+      request.postDataJSON()?.placements?.length === 3,
+  );
+  await page.getByTestId("cell-H8").click();
+  await page
+    .getByRole("textbox", { name: "Type letters on the board" })
+    .pressSequentially("CAT");
+  await draftSaved;
+  await page
+    .getByRole("button", { name: "Open game menu", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Continue without timing", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Continue without timing",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("Reason for stopping timing")
+    .fill("Synthetic device clock was a day ahead");
+  const recoveryResponse = page.waitForResponse((response) => {
+    const request = response.request();
+    if (
+      new URL(response.url()).pathname !== "/api/family" ||
+      request.method() !== "POST"
+    )
+      return false;
+    const body = request.postDataJSON() as SharedMutation;
+    return (
+      body.operation.type === "game-commands" &&
+      body.operation.commands.some(
+        (command) => command.type === "recover-clock",
+      )
+    );
+  });
+  await dialog
+    .getByRole("button", { name: "Continue without timing", exact: true })
+    .click();
+  const recoveredResponse = await recoveryResponse;
+  expect(recoveredResponse.ok(), await recoveredResponse.text()).toBe(true);
+  const recovered = await recoveredResponse.json();
+  await expect(dialog).toHaveCount(0);
+  expect(recovered.game.revision).toBe(2);
+  expect(recovered.game.events[0]).toEqual(started.game.events[0]);
+  expect(recovered.game.turns).toEqual(started.game.turns);
+  expect(recovered.game.board).toEqual(started.game.board);
+  const recoveryRequest = recoveredResponse
+    .request()
+    .postDataJSON() as SharedMutation;
+  if (recoveryRequest.operation.type !== "game-commands")
+    throw Error("The scorer did not submit a recovery command.");
+  const recoveryCommand = recoveryRequest.operation.commands.find(
+    (command) => command.type === "recover-clock",
+  );
+  expect(recoveryCommand).toMatchObject({
+    type: "recover-clock",
+    timingPolicy: 1,
+    expectedRevision: 1,
+  });
+  if (!recoveryCommand) throw Error("The recovery command is missing.");
+  const duplicate = await page.request.post("/api/family", {
+    headers: ownerHeaders,
+    data: recoveryRequest,
+  });
+  expect(duplicate.ok(), await duplicate.text()).toBe(true);
+  expect(await duplicate.json()).toMatchObject({
+    replayed: true,
+    game: { revision: 2 },
+  });
+  const stale = await page.request.post("/api/family", {
+    headers: ownerHeaders,
+    data: {
+      requestId: randomUUID(),
+      operation: {
+        ...recoveryRequest.operation,
+        commands: [
+          { ...recoveryCommand, id: randomUUID(), expectedRevision: 1 },
+        ],
+      },
+    },
+  });
+  expect(stale.status()).toBe(409);
+  expect(await stale.json()).toMatchObject({ code: "REVISION_CONFLICT" });
+  expect(await read()).toEqual(recovered.game);
+
+  await page.reload();
+  await expect(
+    page.getByText("Timing unavailable", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByTestId("cell-J8")).toHaveAccessibleName(
+    "J8 T, 1 points",
+  );
+  await page.getByRole("button", { name: "Review turn", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Record 10 points", exact: true })
+    .click();
+  await expect.poll(async () => (await read()).turns.length).toBe(1);
+  const saved = await read();
+  expect(saved.revision).toBe(3);
+  expect(saved.scores).toEqual({ [firstId]: 10, [secondId]: 0 });
+  expect(saved.currentPlayerId).toBe(secondId);
+  expect(saved.events.map((event) => event.command.type)).toEqual([
+    "start-clock",
+    "recover-clock",
+    "play",
+  ]);
+  expect(saved.events[0]).toEqual(started.game.events[0]);
+  expect(saved.events[1]).toEqual(recovered.game.events[1]);
+  expect(saved.events[2].command).not.toHaveProperty("timedAt");
+  await page.reload();
+  await expect(
+    page.getByText("Timing unavailable", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(page.getByTestId("cell-J8")).toHaveAccessibleName(
+    "J8 T, 1 points",
+  );
+  expect(await read()).toEqual(saved);
+  await page.screenshot({
+    path: info.outputPath("real-clock-recovery-reloaded.png"),
+  });
 });

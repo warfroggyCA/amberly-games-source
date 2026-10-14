@@ -29,6 +29,8 @@ import {
 } from "react";
 import {
   applyCommand,
+  CLOCK_RECOVERY_POLICY,
+  hasClockRecovery,
   createGame,
   getTileSupply,
   getTileTotal,
@@ -88,6 +90,17 @@ import { CountCheck, CountCorrectionHistory } from "./CountCheck";
 import { DraftConflictNotice } from "./DraftConflictNotice";
 
 type View = "Home" | "Play" | "Records" | "History" | "Players";
+type CorrectionBasis = {
+  revision: number;
+  generation?: number;
+  scorerUserId?: string;
+};
+type TurnReview = {
+  gameId: string;
+  turn: GameTurn;
+  basis: CorrectionBasis;
+  canEdit: boolean;
+};
 type Action<T = GameCommand> = T extends GameCommand
   ? Omit<T, "id" | "expectedRevision">
   : never;
@@ -179,6 +192,7 @@ export function ScorerApp({
     | "assist"
     | "exchange"
     | "undo"
+    | "recover-clock"
     | "examples"
     | "suggestions"
     | "counts"
@@ -203,7 +217,8 @@ export function ScorerApp({
   const [cumulative, setCumulative] = useState(false);
   const [officialQuery, setOfficialQuery] = useState<string | null>(null);
   const [editingPlayer, setEditingPlayer] = useState<SavedPlayer | null>(null);
-  const [selectedTurn, setSelectedTurn] = useState<GameTurn | null>(null);
+  const [turnReview, setTurnReview] = useState<TurnReview | null>(null);
+  const selectedTurn = turnReview?.turn ?? null;
   const [error, setError] = useState<string | null>(null);
   const [buddyHold, setBuddyHold] = useState<string[] | null>(
     readWordBuddyHolds,
@@ -262,6 +277,7 @@ export function ScorerApp({
   async function execute(
     action: Action,
     target: GameState = game!,
+    correctionBasis?: CorrectionBasis,
   ): Promise<GameState | null> {
     if (!target) return null;
     if (shared && !store.canScore?.(target.id)) {
@@ -275,12 +291,23 @@ export function ScorerApp({
       ...action,
       ...commandTiming(target, action.type),
       id: id(),
-      expectedRevision: target.revision,
+      expectedRevision: correctionBasis?.revision ?? target.revision,
     } as GameCommand;
     const success = await mutate((data) => {
       const current = data.games.find((g) => g.id === target.id);
       if (!current)
         throw new Error("The game could not be found. Reload to recover.");
+      if (correctionBasis && shared) {
+        const access = getSnapshot().shared?.gameAccess[target.id];
+        if (
+          !store.canScore?.(target.id) ||
+          access?.generation !== correctionBasis.generation ||
+          access?.scorerUserId !== correctionBasis.scorerUserId
+        )
+          throw new Error(
+            "Scorer access changed while this correction was open. Your edit is retained. Load the latest play before saving.",
+          );
+      }
       const result = applyCommand(
         current,
         command,
@@ -295,6 +322,7 @@ export function ScorerApp({
       const drafts = { ...data.drafts };
       if (
         (action.type === "start-clock" ||
+          action.type === "recover-clock" ||
           action.type === "pause" ||
           action.type === "resume" ||
           action.type === "extend-supply") &&
@@ -539,6 +567,44 @@ export function ScorerApp({
     ? !!state.data.drafts[game.id]?.placements.length
     : false;
   const readOnly = !!game && shared && !store.canScore?.(game.id);
+  function openTurn(turn: GameTurn) {
+    if (!game) return;
+    const access = state.shared?.gameAccess[game.id];
+    setTurnReview({
+      gameId: game.id,
+      turn,
+      basis: {
+        revision: game.revision,
+        generation: access?.generation,
+        scorerUserId: access?.scorerUserId,
+      },
+      canEdit: game.status !== "finalized" && !readOnly,
+    });
+  }
+  const latestReviewedTurn =
+    game?.id === turnReview?.gameId
+      ? game?.turns.find((turn) => turn.id === turnReview?.turn.id)
+      : undefined;
+  const correctionAccess = game ? state.shared?.gameAccess[game.id] : undefined;
+  const correctionConflict =
+    !turnReview || !game
+      ? null
+      : game.id !== turnReview.gameId
+        ? "A different game is now open."
+        : game.status === "finalized"
+          ? "This game has been completed."
+          : !latestReviewedTurn
+            ? "This play is no longer in the current game."
+            : game.revision !== turnReview.basis.revision
+              ? "The game changed while this correction was open."
+              : shared &&
+                  (readOnly ||
+                    correctionAccess?.generation !==
+                      turnReview.basis.generation ||
+                    correctionAccess?.scorerUserId !==
+                      turnReview.basis.scorerUserId)
+                ? "Scorer access changed while this correction was open."
+                : null;
   const buddyKey = `${game?.id}:${game?.revision}:${liveContext?.generation}:${liveContext?.userId}:${view}:${readOnly}`;
   const buddyScope = `${state.shared?.member.userId ?? "local"}:${game?.id}`;
   const buddyHeld =
@@ -828,6 +894,23 @@ export function ScorerApp({
                     ? "Solo practice"
                     : `${game.players.length} players · ${game.direction}`}
               </p>
+              {!readOnly &&
+                game.status !== "finalized" &&
+                game.events.some(
+                  (event) => event.command.type === "start-clock",
+                ) &&
+                !hasClockRecovery(game) && (
+                  <button
+                    className="button light"
+                    disabled={busy || running}
+                    onClick={() => {
+                      setError(null);
+                      setModal("recover-clock");
+                    }}
+                  >
+                    Continue without timing
+                  </button>
+                )}
               {!readOnly && game.status !== "finalized" && (
                 <button
                   className="button light tabletop-end-game"
@@ -1071,7 +1154,7 @@ export function ScorerApp({
       </div>
     );
   }
-  if (shared && view === "Play" && game && readOnly)
+  if (shared && view === "Play" && game && readOnly && !turnReview)
     return (
       <div
         className={`app-shell ${draftRecovery ? "draft-recovery-shell" : "spectator-shell"}${game.status === "finalized" ? " history-result-shell" : ""}`}
@@ -1705,7 +1788,7 @@ export function ScorerApp({
                             <RoundTable
                               game={game}
                               cumulative={cumulative}
-                              onTurn={setSelectedTurn}
+                              onTurn={openTurn}
                             />
                             <p className="table-legend">
                               — No turn · A = assisted · Pass / exchange: 0
@@ -1714,10 +1797,7 @@ export function ScorerApp({
                         ) : (
                           <div className="turn-log">
                             {[...game.turns].reverse().map((t) => (
-                              <button
-                                key={t.id}
-                                onClick={() => setSelectedTurn(t)}
-                              >
+                              <button key={t.id} onClick={() => openTurn(t)}>
                                 <span className="turn-number">{t.number}</span>
                                 <span>
                                   <strong>
@@ -2046,6 +2126,31 @@ export function ScorerApp({
           description="Set those tiles aside, draw the same number from the bag, then return the discards. This uses your turn and scores zero."
         />
       )}
+      {modal === "recover-clock" && game && (
+        <SimpleAction
+          title="Continue without timing"
+          label="Reason for stopping timing"
+          type="text"
+          initial="Device clock changed"
+          busy={busy || running || readOnly}
+          error={error}
+          onClose={() => {
+            if (!busyRef.current) setModal(null);
+          }}
+          confirmLabel="Continue without timing"
+          description="Use this if an incorrect device clock is blocking play. Timing statistics for this entire game will be unavailable. Scores, recorded turns and your current entry are retained. Timing cannot be restarted in this game."
+          onSubmit={async (reason) => {
+            if (
+              await execute({
+                type: "recover-clock",
+                timingPolicy: CLOCK_RECOVERY_POLICY,
+                reason: reason.trim(),
+              })
+            )
+              setModal(null);
+          }}
+        />
+      )}
       {modal === "undo" && (
         <SimpleAction
           title="Undo the last turn"
@@ -2120,10 +2225,12 @@ export function ScorerApp({
           }}
         />
       )}
-      {selectedTurn && game && (
+      {selectedTurn && turnReview && game && turnReview.gameId === game.id && (
         <Modal
           title={`Turn ${selectedTurn.number} · ${nameOf(game, selectedTurn.playerId)}`}
-          onClose={() => setSelectedTurn(null)}
+          onClose={() => {
+            if (!busyRef.current) setTurnReview(null);
+          }}
         >
           <p>
             {selectedTurn.source === "assisted"
@@ -2157,25 +2264,39 @@ export function ScorerApp({
           <p>
             Running score: {selectedTurn.runningScores[selectedTurn.playerId]}
           </p>
-          {selectedTurn.type === "play" &&
-            game.status !== "finalized" &&
-            !readOnly && (
-              <EditRecordedTurn
-                key={selectedTurn.id}
-                turn={selectedTurn}
-                disabled={busy || running || hasDraft}
-                onSave={async (placements, reason) => {
-                  const next = await execute({
+          {selectedTurn.type === "play" && turnReview.canEdit && (
+            <EditRecordedTurn
+              key={`${selectedTurn.id}:${turnReview.basis.revision}:${turnReview.basis.generation}`}
+              turn={selectedTurn}
+              disabled={
+                busy ||
+                running ||
+                hasDraft ||
+                readOnly ||
+                game.status === "finalized"
+              }
+              conflict={correctionConflict}
+              onReload={
+                latestReviewedTurn && !readOnly && game.status !== "finalized"
+                  ? () => openTurn(latestReviewedTurn)
+                  : undefined
+              }
+              onSave={async (placements, reason) => {
+                const next = await execute(
+                  {
                     type: "edit-turn",
                     turnId: selectedTurn.id,
                     placements,
                     reason,
-                  });
-                  if (next) setSelectedTurn(null);
-                  return !!next;
-                }}
-              />
-            )}
+                  },
+                  game,
+                  turnReview.basis,
+                );
+                if (next) setTurnReview(null);
+                return !!next;
+              }}
+            />
+          )}
           {error && <p role="alert">{error}</p>}
           {!!selectedTurn.words.length && (
             <section
@@ -2539,6 +2660,7 @@ function SimpleAction({
   max,
   busy,
   error,
+  confirmLabel = "Confirm",
   onClose,
   onSubmit,
 }: {
@@ -2548,6 +2670,7 @@ function SimpleAction({
   type: "number" | "text";
   initial: string;
   max?: number;
+  confirmLabel?: string;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -2584,7 +2707,7 @@ function SimpleAction({
             Cancel
           </button>
           <button className="button primary" disabled={busy || !value.trim()}>
-            Confirm
+            {confirmLabel}
           </button>
         </div>
       </form>

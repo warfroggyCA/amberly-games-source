@@ -381,3 +381,61 @@ test("speed changes preserve the active animation and cancel cleanly on pause an
   await expect(page.locator(".turn-animation-layer")).toHaveCount(0);
   expect(fixture.writes).toEqual([]);
 });
+
+test("coaching stays compact beside the replay heading and pauses the full-size board", async ({
+  page,
+}, testInfo) => {
+  await page.clock.install();
+  if (testInfo.project.name === "desktop-chromium")
+    await page.setViewportSize({ width: 1280, height: 800 });
+  const fixture = await setup(page, replayFixture({ coaching: true }));
+  const board = page.getByRole("region", { name: "Recorded game replay" });
+  const controls = page.getByRole("region", { name: "Replay controls" });
+  const coaching = page.getByRole("button", {
+    name: "Post-turn coaching",
+    exact: true,
+  });
+  const assertLayout = async () => {
+    await fitsWidth(page);
+    const [gameBox, controlsBox, coachingBox] = await Promise.all([
+      board.boundingBox(),
+      controls.boundingBox(),
+      coaching.boundingBox(),
+    ]);
+    expect(coachingBox!.height).toBeLessThan(100);
+    if (
+      page.viewportSize()!.width >= 900 &&
+      page.viewportSize()!.height >= 551
+    ) {
+      expect(gameBox!.x).toBeGreaterThan(controlsBox!.x + controlsBox!.width);
+      expect(gameBox!.width).toBeGreaterThan(controlsBox!.width);
+      expect(Math.abs(gameBox!.y - controlsBox!.y)).toBeLessThan(2);
+    }
+  };
+  await assertLayout();
+  if (testInfo.project.name === "desktop-chromium") {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await assertLayout();
+  }
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await coaching.click();
+  await expect(
+    page.getByRole("dialog", { name: "Private turn coaching" }),
+  ).toBeVisible();
+  const slider = page.getByRole("slider", {
+    name: "Replay position",
+    includeHidden: true,
+  });
+  const stoppedAt = await slider.inputValue();
+  await page.clock.fastForward(5000);
+  await expect(slider).toHaveValue(stoppedAt);
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Play", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("replay-coaching-layout.png"),
+    fullPage: true,
+  });
+  expect(fixture.writes).toEqual([]);
+});

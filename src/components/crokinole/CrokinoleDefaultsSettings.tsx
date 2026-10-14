@@ -11,17 +11,20 @@ import { CrokinoleRules } from "./CrokinoleRules";
 import { Modal } from "../Modal";
 export function CrokinoleDefaultsSettings({
   initial,
+  revision,
   onSave,
   onClose,
   busy,
   canEdit,
 }: {
   initial?: CrokinoleDefaults;
-  onSave: (settings: CrokinoleDefaults) => Promise<void>;
+  revision: number;
+  onSave: (settings: CrokinoleDefaults, baseRevision: number) => Promise<void>;
   onClose: () => void;
   busy: boolean;
   canEdit: boolean;
 }) {
+  const [baseRevision, setBaseRevision] = useState(revision);
   const [settings, setSettings] = useState(
     initial ?? DEFAULT_CROKINOLE_SETTINGS,
   );
@@ -36,6 +39,7 @@ export function CrokinoleDefaultsSettings({
   const [error, setError] = useState("");
   const lock = useRef(false);
   const disabled = busy || saving || !canEdit;
+  const changed = revision !== baseRevision;
   const free = settings.format === "free_for_all";
   const candidate = {
     ...settings,
@@ -45,12 +49,13 @@ export function CrokinoleDefaultsSettings({
         : { type: "fixed_rounds" as const, rounds: Number(length) },
   };
   async function save() {
-    if (lock.current || disabled || !isCrokinoleDefaults(candidate)) return;
+    if (lock.current || disabled || changed || !isCrokinoleDefaults(candidate))
+      return;
     lock.current = true;
     setSaving(true);
     setError("");
     try {
-      await onSave(candidate);
+      await onSave(candidate, baseRevision);
       onClose();
     } catch (e) {
       setError(
@@ -79,6 +84,33 @@ export function CrokinoleDefaultsSettings({
           Your account can view these settings. Permission to manage equipment
           is required to change family defaults.
         </p>
+      )}
+      {changed && (
+        <div role="alert">
+          <p>
+            Family defaults changed while this form was open. Your choices are
+            still here; load the saved defaults before editing again.
+          </p>
+          <button
+            className="button light"
+            disabled={busy || saving}
+            onClick={() => {
+              const latest = initial ?? DEFAULT_CROKINOLE_SETTINGS;
+              setSettings(latest);
+              setLength(
+                String(
+                  latest.endCondition.type === "target"
+                    ? latest.endCondition.target
+                    : latest.endCondition.rounds,
+                ),
+              );
+              setBaseRevision(revision);
+              setError("");
+            }}
+          >
+            Discard my changes and load saved defaults
+          </button>
+        </div>
       )}
       <div className="crokinole-fields">
         <label className="crokinole-field">
@@ -197,7 +229,7 @@ export function CrokinoleDefaultsSettings({
         {canEdit && (
           <button
             className="button primary"
-            disabled={disabled || !isCrokinoleDefaults(candidate)}
+            disabled={disabled || changed || !isCrokinoleDefaults(candidate)}
             onClick={() => void save()}
           >
             {saving ? "Saving…" : "Save family defaults"}

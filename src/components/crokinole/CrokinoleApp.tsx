@@ -37,6 +37,7 @@ export type CrokinoleAppProps = {
   players: SavedPlayer[];
   actorNames?: Record<string, string>;
   palette: PieceColour[];
+  paletteRevision: number;
   match: CrokinoleGame | null;
   canScore: boolean;
   canCreate: boolean;
@@ -48,7 +49,10 @@ export type CrokinoleAppProps = {
   onDraftChange: (draft: CrokinoleUiDraft) => void;
   onCreate: (definition: CrokinoleDefinition) => Promise<void>;
   onCommand: (command: CrokinoleCommand) => Promise<void>;
-  onSavePalette: (colours: PieceColour[]) => Promise<void>;
+  onSavePalette: (
+    colours: PieceColour[],
+    baseRevision: number,
+  ) => Promise<void>;
   onNewGame: () => void;
   onHome: () => void;
   onMenu?: () => void;
@@ -696,6 +700,7 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
       {showColours && (
         <ColourSettings
           colours={palette}
+          revision={props.paletteRevision}
           onSave={props.onSavePalette}
           onClose={() => setShowColours(false)}
           disabled={busy || !props.canManageEquipment}

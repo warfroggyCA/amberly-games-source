@@ -2,6 +2,22 @@ import type { SharedState } from "./shared-contract";
 
 export const REFRESH_HEADER = "x-scrabble-refresh";
 export const REFRESH_HEADER_LIMIT = 6000;
+export const LOADED_GAME_REFRESH_LIMIT = 30;
+export function parseLoadedGameIds(raw: string): string[] {
+  const ids = raw.split(",");
+  if (
+    ids.length > LOADED_GAME_REFRESH_LIMIT ||
+    new Set(ids).size !== ids.length ||
+    ids.some(
+      (id) =>
+        !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$/.test(id) ||
+        ["__proto__", "constructor", "prototype"].includes(id),
+    )
+  )
+    throw new Error("Invalid loaded game references");
+  return ids;
+}
+export const loadedGameScope = (ids: string[]) => `loaded:${ids.join(",")}`;
 export type RefreshVersions = Record<string, string>;
 export type RefreshCatalog = Omit<
   SharedState,

@@ -614,6 +614,7 @@ export function FamilyHub({
             )}
             <CrokinoleApp
               key={gameId ?? "new"}
+              paletteRevision={state.palette!.revision}
               defaults={state.palette?.defaults}
               familyId={shared.family.id}
               players={
@@ -677,11 +678,11 @@ export function FamilyHub({
                 router.push(`/family/crokinole/${definition.id}`);
               }}
               onCommand={(command) => store.command(gameId!, command)}
-              onSavePalette={async (colours) => {
+              onSavePalette={async (colours, baseRevision) => {
                 await store.mutate({
                   type: "save-palette",
                   colours,
-                  expectedRevision: state.palette!.revision,
+                  expectedRevision: baseRevision,
                 });
               }}
               onNewGame={() => void navigate("/family/crokinole/new")}
@@ -1173,11 +1174,12 @@ export function FamilyHub({
       {equipment === "colours" && state.palette && (
         <ColourSettings
           colours={state.palette.colours}
+          revision={state.palette.revision}
           disabled={locked || !state.creationEnabled}
-          onSave={async (colours) => {
+          onSave={async (colours, baseRevision) => {
             await store.mutate({
               type: "save-palette",
-              expectedRevision: state.palette!.revision,
+              expectedRevision: baseRevision,
               colours,
             });
           }}
@@ -1187,16 +1189,17 @@ export function FamilyHub({
       {showDefaults && state.palette && (
         <CrokinoleDefaultsSettings
           initial={state.palette.defaults}
+          revision={state.palette.revision}
           busy={locked}
           canEdit={
             state.creationEnabled &&
             hasPermission(shared.member, "manageEquipment")
           }
           onClose={() => setShowDefaults(false)}
-          onSave={async (defaults) => {
+          onSave={async (defaults, baseRevision) => {
             await store.mutate({
               type: "save-defaults",
-              expectedRevision: state.palette!.revision,
+              expectedRevision: baseRevision,
               defaults,
             });
           }}
@@ -1335,10 +1338,26 @@ function HubHistory({
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const request = useRef(0);
+  const historyRead = useRef<AbortController | null>(null);
+  const loadingHistory = useRef(false);
+  const loadedEarlier = useRef(false);
+  const observedEpoch = useRef(leadEpoch);
+  const historyChanges = useRef(0);
+  const cancelHistoryRead = useCallback(() => {
+    ++request.current;
+    historyRead.current?.abort();
+  }, []);
   const load = useCallback(
     async (cursor?: string) => {
       const generation = ++request.current;
+      const changesAtStart = historyChanges.current;
+      historyRead.current?.abort();
+      const controller = new AbortController();
+      historyRead.current = controller;
+      loadingHistory.current = true;
       setLoading(true);
       setError("");
       try {
@@ -1349,29 +1368,47 @@ function HubHistory({
         const next = await familyRequest<unknown>(
           `/api/family/games?${query}`,
           undefined,
-          { expectedUserId: userId },
+          { expectedUserId: userId, signal: controller.signal },
         );
         if (!isGameSummaryPage(next))
           throw new Error(
             "History returned an incomplete response. Try again.",
           );
-        if (generation === request.current)
+        if (generation === request.current) {
           setData((old) => ({
             games: cursor ? [...old.games, ...next.games] : next.games,
             nextCursor: next.nextCursor,
             standings: next.standings ?? (cursor ? old.standings : undefined),
           }));
+          loadedEarlier.current = !!cursor;
+          if (!cursor) {
+            setNeedsRefresh(historyChanges.current !== changesAtStart);
+            setCheckedAt(
+              new Date().toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              }),
+            );
+          }
+        }
       } catch (e) {
         if (
           generation === request.current &&
           e instanceof FamilyRequestError &&
           [401, 403].includes(e.status)
-        )
+        ) {
           setData({ games: [], nextCursor: null });
+          loadedEarlier.current = false;
+          setNeedsRefresh(false);
+          setCheckedAt(null);
+        }
         if (generation === request.current)
           setError(e instanceof Error ? e.message : "Could not load history.");
       } finally {
-        if (generation === request.current) setLoading(false);
+        if (generation === request.current) {
+          loadingHistory.current = false;
+          setLoading(false);
+        }
       }
     },
     [filter, player, userId],
@@ -1383,8 +1420,70 @@ function HubHistory({
     });
     return () => {
       cancelled = true;
+      cancelHistoryRead();
     };
-  }, [load]);
+  }, [load, cancelHistoryRead]);
+  const refreshInBackground = useCallback(
+    (changed = false) => {
+      if (changed) historyChanges.current++;
+      if (
+        replayId ||
+        document.visibilityState !== "visible" ||
+        loadedEarlier.current ||
+        loadingHistory.current
+      ) {
+        if (changed || loadedEarlier.current) setNeedsRefresh(true);
+        return;
+      }
+      void load();
+    },
+    [load, replayId],
+  );
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled || observedEpoch.current === leadEpoch) return;
+      observedEpoch.current = leadEpoch;
+      refreshInBackground(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [leadEpoch, refreshInBackground]);
+  useEffect(() => {
+    const refresh = () => refreshInBackground();
+    window.addEventListener("focus", refresh);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("online", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [refreshInBackground]);
+  const refreshControl = (
+    <div>
+      <button
+        type="button"
+        className="button light"
+        disabled={loading}
+        onClick={() => void load()}
+      >
+        {loading ? "Refreshing…" : "Refresh history & standings"}
+      </button>
+      <p className="muted">
+        {checkedAt ? `Checked at ${checkedAt}. ` : ""}Refresh to check for newer
+        games and results. It starts again at the newest games and keeps your
+        filters.
+      </p>
+      {needsRefresh && (
+        <p role="status">
+          History may have changed. Your loaded games are kept here until you
+          refresh.
+        </p>
+      )}
+    </div>
+  );
   if (standingsGame && !replayId)
     return (
       <main className="hub-content">
@@ -1394,6 +1493,7 @@ function HubHistory({
         <h1 ref={standingsHeading} tabIndex={-1}>
           {standingsTitle} standings
         </h1>
+        {refreshControl}
         {loading && <p role="status">Loading standings…</p>}
         {error && <p role="alert">{error}</p>}
         {data.standings && !error && (
@@ -1427,6 +1527,7 @@ function HubHistory({
       <div hidden={!!replayId}>
         <main className="hub-content">
           <h1>Game history</h1>
+          {refreshControl}
           {data.standings && !error && (
             <details className="standings-disclosure">
               <summary>Family standings · wins & ranks</summary>

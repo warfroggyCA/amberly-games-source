@@ -5,6 +5,11 @@ import { formatDuration, turnTiming, type TimedGame } from "../lib/turn-timing";
 
 const TIMING_UNAVAILABLE =
   "Timing unavailable: recorded timestamps are incomplete or inconsistent.";
+function timingUnavailable(timing: ReturnType<typeof turnTiming>) {
+  return "recovered" in timing && timing.recovered
+    ? "Timing unavailable: this game continued without timing after a clock problem."
+    : TIMING_UNAVAILABLE;
+}
 
 function useTiming(game: TimedGame) {
   const [now, setNow] = useState(0);
@@ -29,7 +34,7 @@ export function GameClock({
   const timing = useTiming(game);
   if (!timing.reliable) {
     return (
-      <span className="game-clock" title={TIMING_UNAVAILABLE}>
+      <span className="game-clock" title={timingUnavailable(timing)}>
         Timing unavailable
       </span>
     );
@@ -57,7 +62,7 @@ export function TurnClock({
   if (game.status === "finalized") return null;
   if (!timing.reliable) {
     return (
-      <span className="turn-clock" title={TIMING_UNAVAILABLE}>
+      <span className="turn-clock" title={timingUnavailable(timing)}>
         Timing unavailable
       </span>
     );
@@ -90,7 +95,9 @@ export function TimingSummary({
     return (
       <section className="timing-summary" aria-label="Turn timing statistics">
         <h3>Time at the table</h3>
-        <p>{TIMING_UNAVAILABLE} Scores and recorded turns are unchanged.</p>
+        <p>
+          {timingUnavailable(timing)} Scores and recorded turns are unchanged.
+        </p>
       </section>
     );
   }
@@ -166,7 +173,7 @@ export function PlayerElapsedTime({
   if (!timing.started) return null;
   if (!timing.reliable) {
     return (
-      <small className="player-elapsed" title={TIMING_UNAVAILABLE}>
+      <small className="player-elapsed" title={timingUnavailable(timing)}>
         Timing unavailable
       </small>
     );

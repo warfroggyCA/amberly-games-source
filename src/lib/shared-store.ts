@@ -3,6 +3,9 @@ import {
   refreshHeader,
   materializeRefresh,
   type RefreshCache,
+  LOADED_GAME_REFRESH_LIMIT,
+  loadedGameScope,
+  parseLoadedGameIds,
 } from "./shared-refresh";
 import { hasPermission, isMemberPermissions } from "./member-permissions";
 import { EMPTY_EQUIPMENT, isEquipment } from "../domain/equipment";
@@ -738,7 +741,9 @@ export function createSharedStore(userId: string): SharedScorerStore {
   let stopOwnershipChecks: (() => void) | undefined;
   let retired = false;
   let accessLost = false;
-  const refreshCaches = new Map<string, RefreshCache>();
+  // Versions identify resources, not pages. Share their cache across bounded
+  // refresh batches; evict resources when they leave the installed workspace.
+  let refreshCache: RefreshCache | undefined;
   const lifetime = new AbortController();
   const listeners = new Set<() => void>();
   const publish = (next: ScorerSnapshot) => {
@@ -757,7 +762,7 @@ export function createSharedStore(userId: string): SharedScorerStore {
     scoringElsewhere = false,
   ) => {
     retired = true;
-    refreshCaches.clear();
+    refreshCache = undefined;
     accessLost ||= denied;
     lifetime.abort();
     ownershipChannel?.close();
@@ -809,11 +814,34 @@ export function createSharedStore(userId: string): SharedScorerStore {
   }
   async function sharedRequest(path: string): Promise<SharedState> {
     try {
-      const prior = refreshCaches.get(path);
+      const prior = refreshCache;
+      const params = new URL(path, "http://local").searchParams;
+      const loadedIds = params.has("loadedGameIds")
+        ? parseLoadedGameIds(params.get("loadedGameIds")!)
+        : undefined;
+      // Prioritize this batch's versions rather than filling the bounded header
+      // with unrelated cached games and repeatedly downloading later journals.
+      const requestedIds = loadedIds ?? [
+        ...new Set([
+          ...snapshot.data.games.slice(-20).map((g) => g.id),
+          ...(params.get("gameId") ? [params.get("gameId")!] : []),
+        ]),
+      ];
+      const known = Object.fromEntries(
+        [
+          "catalog",
+          ...requestedIds.map((id) => `g:${id}`),
+          ...Object.keys(prior?.versions ?? {}).filter((key) =>
+            key.startsWith("p:"),
+          ),
+        ].flatMap((key) =>
+          prior?.versions[key] ? [[key, prior.versions[key]]] : [],
+        ),
+      );
       const result = await request<unknown>(
         path,
         undefined,
-        refreshHeader(prior?.versions ?? {}),
+        refreshHeader(known),
       );
       if (record(result) && result.kind === "family-refresh-v1") {
         if (
@@ -824,8 +852,9 @@ export function createSharedStore(userId: string): SharedScorerStore {
             "Your account or family access changed. Sign in again.",
             401,
           );
-        const scope =
-          new URL(path, "http://local").searchParams.get("gameId") ?? "";
+        const scope = loadedIds
+          ? loadedGameScope(loadedIds)
+          : (params.get("gameId") ?? "");
         const materialized = materializeRefresh(
           result,
           prior,
@@ -834,16 +863,16 @@ export function createSharedStore(userId: string): SharedScorerStore {
           scope,
         );
         const state = validateShared(materialized.state, userId, familyId);
-        refreshCaches.delete(path);
-        refreshCaches.set(path, materialized.cache);
-        if (refreshCaches.size > 4)
-          refreshCaches.delete(refreshCaches.keys().next().value!);
+        refreshCache = {
+          versions: { ...prior?.versions, ...materialized.cache.versions },
+          values: { ...prior?.values, ...materialized.cache.values },
+        };
         return state;
       }
-      refreshCaches.delete(path);
+      refreshCache = undefined;
       return validateShared(result, userId, familyId);
     } catch (error) {
-      refreshCaches.delete(path);
+      refreshCache = undefined;
       if (
         error instanceof FamilyRequestError &&
         [401, 403].includes(error.status) &&
@@ -945,6 +974,25 @@ export function createSharedStore(userId: string): SharedScorerStore {
           allAccess[g.id]?.mode !== "practice"),
     );
     const visibleIds = new Set(games.map((g) => g.id));
+    if (refreshCache) {
+      const retained = new Set([
+        "catalog",
+        ...shared.players.map((p) => `p:${p.id}`),
+        ...games.map((g) => `g:${g.id}`),
+      ]);
+      refreshCache = {
+        versions: Object.fromEntries(
+          Object.entries(refreshCache.versions).filter(([key]) =>
+            retained.has(key),
+          ),
+        ),
+        values: Object.fromEntries(
+          Object.entries(refreshCache.values).filter(([key]) =>
+            retained.has(key),
+          ),
+        ),
+      };
+    }
     const meta = {
       ...shared,
       removedGameIds: [...removed],
@@ -1335,7 +1383,14 @@ export function createSharedStore(userId: string): SharedScorerStore {
           "Confirm the saved action before refreshing shared history.",
         );
       try {
-        const shared = await sharedRequest("/api/family");
+        let shared = await sharedRequest("/api/family");
+        const firstPageCursor = shared.nextCursor;
+        const priorIds = new Set(snapshot.data.games.map((g) => g.id));
+        const historyGap =
+          !!firstPageCursor &&
+          shared.games.length > 0 &&
+          !shared.games.some((g) => priorIds.has(g.id));
+        const unavailable = new Set(shared.removedGameIds ?? []);
         const activeGameId =
           workspace.activeGameId ?? snapshot.data.activeGameId;
         let active: SharedState | null = null;
@@ -1354,10 +1409,70 @@ export function createSharedStore(userId: string): SharedScorerStore {
               error.code === "GAME_NOT_FOUND"
             ))
               throw error;
+            unavailable.add(activeGameId);
           }
         }
-        install(shared, true, true);
-        if (active) install(active, true, true);
+        if (active)
+          shared = {
+            ...active,
+            games: [
+              ...new Map(
+                [...shared.games, ...active.games].map((g) => [g.id, g]),
+              ).values(),
+            ],
+            gameAccess: { ...shared.gameAccess, ...active.gameAccess },
+          };
+        const seen = new Set(shared.games.map((g) => g.id));
+        const olderIds = snapshot.data.games
+          .map((g) => g.id)
+          .filter(
+            (id) =>
+              !seen.has(id) &&
+              !unavailable.has(id) &&
+              (shared.member.role === "superadmin" ||
+                snapshot.shared?.gameAccess[id]?.mode !== "practice"),
+          )
+          .sort();
+        // Revalidate every retained game, including concerns and authority.
+        // Each request is bounded and unchanged resources omit their journals.
+        // Publish only after all batches succeed, never as a partial refresh.
+        for (
+          let offset = 0;
+          offset < olderIds.length;
+          offset += LOADED_GAME_REFRESH_LIMIT
+        ) {
+          const ids = olderIds.slice(
+            offset,
+            offset + LOADED_GAME_REFRESH_LIMIT,
+          );
+          const older = await sharedRequest(
+            `/api/family?loadedGameIds=${encodeURIComponent(ids.join(","))}`,
+          );
+          shared = {
+            ...older,
+            games: [
+              ...new Map(
+                [...shared.games, ...older.games].map((g) => [g.id, g]),
+              ).values(),
+            ],
+            gameAccess: { ...shared.gameAccess, ...older.gameAccess },
+            removedGameIds: [
+              ...new Set([
+                ...(shared.removedGameIds ?? []),
+                ...(older.removedGameIds ?? []),
+              ]),
+            ],
+          };
+        }
+        shared.games.sort(
+          (a, b) =>
+            a.definition.createdAt.localeCompare(b.definition.createdAt) ||
+            a.id.localeCompare(b.id),
+        );
+        // More than a page may have arrived while this device was away. Keep
+        // retained games, but expose the gap instead of claiming full coverage.
+        shared.nextCursor = firstPageCursor;
+        install(shared, false, !historyGap);
       } catch (error) {
         if (!retired)
           publish({

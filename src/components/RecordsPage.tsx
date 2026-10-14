@@ -446,18 +446,22 @@ export function RecordsPage({
                   )}
                 </section>
               </div>
-              <details className="book-details">
-                <summary>Explore every player’s Scrabble records</summary>
-                <ScrabbleRecordDetails
-                  games={games}
-                  players={players}
-                  access={access}
-                  hasMore={hasMore}
-                  onLoadMore={onLoadMore}
-                  onOpen={onOpen}
-                  onHistory={onHistory}
-                />
-              </details>
+              {kind === "scrabble" && (
+                <details className="book-details">
+                  <summary>Explore every player’s Scrabble records</summary>
+                  <ScrabbleRecordDetails
+                    games={selected.flatMap((g) =>
+                      g.source ? [g.source] : [],
+                    )}
+                    players={players}
+                    access={access}
+                    hasMore={hasMore}
+                    onLoadMore={onLoadMore}
+                    onOpen={onOpen}
+                    onHistory={onHistory}
+                  />
+                </details>
+              )}
             </>
           )}
           {tab === "Rivalries" && (

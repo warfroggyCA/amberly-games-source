@@ -245,7 +245,18 @@ export function createCrokinoleRepository(
     const cursor = historyCursor(query.cursor);
     const rows =
       await tx`select game_id,case when row_number() over (order by created_at desc,game_id desc)<=30 then state else null end state,scorer_user_id,generation,mode,created_at::text as created_at_cursor from scrabble.crokinole_games where family_id=${familyId}::uuid and not removed ${cursor ? tx`and (created_at,game_id)<(${cursor.date}::text::timestamptz,${cursor.id})` : tx``} order by created_at desc,game_id desc limit 31`;
-    for (const row of rows.slice(0, 30)) {
+    const page = rows.slice(0, 30);
+    const concerns = new Map<string, GameProtest[]>();
+    if (page.length) {
+      const entries =
+        await tx`select game_id,concern from scrabble.crokinole_concerns where family_id=${familyId}::uuid and game_id in ${tx(page.map((row) => row.game_id))} order by game_id,id`;
+      for (const entry of entries) {
+        const gameConcerns = concerns.get(entry.game_id) ?? [];
+        gameConcerns.push(entry.concern as GameProtest);
+        concerns.set(entry.game_id, gameConcerns);
+      }
+    }
+    for (const row of page) {
       result.games.push(row.state);
       result.access[row.game_id] = {
         scorerUserId: row.scorer_user_id,
@@ -253,7 +264,7 @@ export function createCrokinoleRepository(
         mode: row.mode,
         canScore:
           row.scorer_user_id === who.userId && hasPermission(who, "scoreGames"),
-        concerns: [],
+        concerns: concerns.get(row.game_id) ?? [],
       };
     }
     if (rows.length > 30) {
@@ -278,15 +289,19 @@ export function createCrokinoleRepository(
       const colours = await palette(tx, familyId);
       // Hash the authorized page in PostgreSQL, including its boundary sentinel.
       // No journals or photos cross the wire for an unchanged page.
-      const [head] = await tx`select md5(jsonb_build_array(
-        ${JSON.stringify(who)}::text,${JSON.stringify(colours)}::text,${enabled()}::boolean,
-        coalesce(jsonb_agg(to_jsonb(page) order by page.created_at desc,page.game_id desc),'[]'::jsonb)
-      )::text) version from (
+      const [head] = await tx`with page as (
         select game_id,state,scorer_user_id,generation,mode,created_at from scrabble.crokinole_games
         where family_id=${familyId}::uuid and not removed
         ${cursor ? tx`and (created_at,game_id)<(${cursor.date}::text::timestamptz,${cursor.id})` : tx``}
         order by created_at desc,game_id desc limit 31
-      ) page`;
+      ), concerns as (
+        select c.game_id,jsonb_agg(c.concern order by c.id) entries
+        from scrabble.crokinole_concerns c join page on page.game_id=c.game_id
+        where c.family_id=${familyId}::uuid group by c.game_id
+      ) select md5(jsonb_build_array(
+        ${JSON.stringify(who)}::text,${JSON.stringify(colours)}::text,${enabled()}::boolean,
+        coalesce(jsonb_agg(to_jsonb(page) || jsonb_build_object('concerns',coalesce(concerns.entries,'[]'::jsonb)) order by page.created_at desc,page.game_id desc),'[]'::jsonb)
+      )::text) version from page left join concerns using(game_id)`;
       return {
         kind: "crokinole-history-refresh-v1" as const,
         version: head.version as string,

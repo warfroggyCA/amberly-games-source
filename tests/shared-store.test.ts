@@ -1,5 +1,9 @@
 import { refreshFixture } from "./shared-refresh-fixture";
-import { REFRESH_HEADER } from "../src/lib/shared-refresh";
+import {
+  REFRESH_HEADER,
+  loadedGameScope,
+  LOADED_GAME_REFRESH_LIMIT,
+} from "../src/lib/shared-refresh";
 import { LETTER_COUNTS } from "../src/domain/board";
 import type { Equipment } from "../src/domain/equipment";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -801,6 +805,9 @@ describe("shared history refresh", () => {
     fetchMock.mockResolvedValueOnce(
       response(state([makeGame()], "older-page")),
     );
+    fetchMock.mockResolvedValueOnce(
+      response(state([makeGame("older-game", "2026-09-12T12:00:00Z")])),
+    );
     await store.refresh!();
     expect(store.getSnapshot().shared?.nextCursor).toBe("oldest-page");
     expect(store.getSnapshot().data.games).toHaveLength(2);
@@ -820,6 +827,144 @@ describe("shared history refresh", () => {
       "/api/family?gameId=older-game",
     );
     expect(store.getSnapshot().data.activeGameId).toBe("older-game");
+  });
+
+  it("does not invent a history gap when a refresh contains no new games", async () => {
+    fetchMock.mockResolvedValueOnce(response(state([], "older")));
+    const store = create();
+    await store.load();
+    fetchMock.mockResolvedValueOnce(response(state([])));
+    await store.loadMore!();
+    expect(store.getSnapshot().shared?.nextCursor).toBeNull();
+    fetchMock.mockResolvedValueOnce(response(state([], "older")));
+    await store.refresh!();
+    expect(store.getSnapshot().data.games).toHaveLength(0);
+    expect(store.getSnapshot().shared?.nextCursor).toBeNull();
+  });
+
+  it("marks history incomplete when a new first page no longer overlaps the loaded range", async () => {
+    const store = create();
+    await store.load();
+    expect(store.getSnapshot().shared?.nextCursor).toBeNull();
+    const newest = Array.from({ length: 20 }, (_, i) =>
+      makeGame(`new-${i}`, "2026-10-12T12:00:00Z"),
+    );
+    fetchMock
+      .mockResolvedValueOnce(response(state(newest, "gap-page")))
+      .mockResolvedValueOnce(response(state([makeGame()])));
+    await store.refresh!();
+    expect(store.getSnapshot().data.games).toHaveLength(21);
+    expect(store.getSnapshot().shared?.nextCursor).toBe("gap-page");
+    const skipped = makeGame("in-between", "2026-10-11T12:00:00Z");
+    fetchMock.mockResolvedValueOnce(response(state([skipped, makeGame()])));
+    await store.loadMore!();
+    expect(store.getSnapshot().data.games).toHaveLength(22);
+    expect(
+      store.getSnapshot().data.games.some((g) => g.id === skipped.id),
+    ).toBe(true);
+    expect(store.getSnapshot().shared?.nextCursor).toBeNull();
+  });
+
+  it("revalidates all loaded older games in bounded conditional batches, including access-only changes", async () => {
+    let older = Array.from({ length: 85 }, (_, i) =>
+      makeGame(`older-${String(i).padStart(3, "0")}`, "2026-09-12T12:00:00Z"),
+    );
+    let changedAuthority = false;
+    const batches: { ids: string[]; changed: string[] }[] = [];
+    fetchMock.mockImplementation((path: string, init) => {
+      const query = new URL(path, "http://local").searchParams;
+      if (query.has("cursor")) return Promise.resolve(response(state(older)));
+      const ids = query.get("loadedGameIds")?.split(",");
+      const remote = state(
+        ids ? older.filter((g) => ids.includes(g.id)) : [makeGame()],
+        "older-page",
+      );
+      if (changedAuthority && remote.gameAccess["older-000"]) {
+        remote.gameAccess["older-000"].canScore = false;
+        remote.gameAccess["older-000"].generation = 2;
+      }
+      const wire = refreshFixture(
+        remote,
+        JSON.parse(init.headers[REFRESH_HEADER] ?? "{}"),
+        ids ? loadedGameScope(ids) : "",
+      );
+      if (ids)
+        batches.push({
+          ids,
+          changed: Object.keys(wire.values).filter((key) =>
+            key.startsWith("g:"),
+          ),
+        });
+      return Promise.resolve(response(wire));
+    });
+    const store = create();
+    await store.load();
+    await store.loadMore!();
+    await store.refresh!(); // Establish resource versions for legacy paged values.
+    batches.length = 0;
+    await store.refresh!();
+    expect(batches.map((b) => b.ids.length)).toEqual([30, 30, 25]);
+    expect(
+      batches.every(
+        (b) =>
+          b.ids.length <= LOADED_GAME_REFRESH_LIMIT && b.changed.length === 0,
+      ),
+    ).toBe(true);
+    const moved = applyCommand(
+      older[84],
+      { type: "pass", id: "remote-pass", expectedRevision: 0 },
+      testLexicon,
+    );
+    if (!moved.ok) throw Error(moved.error.message);
+    older = older.map((g) => (g.id === moved.game.id ? moved.game : g));
+    changedAuthority = true;
+    batches.length = 0;
+    await store.refresh!();
+    expect(batches.flatMap((b) => b.changed)).toEqual([
+      "g:older-000",
+      "g:older-084",
+    ]);
+    expect(
+      store.getSnapshot().data.games.find((g) => g.id === "older-084")
+        ?.revision,
+    ).toBe(1);
+    expect(store.getSnapshot().shared?.gameAccess["older-000"].generation).toBe(
+      2,
+    );
+    expect(store.canScore!("older-000")).toBe(false);
+    // A removed or newly inaccessible loaded game is evicted, even if it wasn't selected.
+    older = older.filter((g) => g.id !== "older-084");
+    await store.refresh!();
+    expect(
+      store.getSnapshot().data.games.some((g) => g.id === "older-084"),
+    ).toBe(false);
+    expect(store.getSnapshot().shared?.gameAccess["older-084"]).toBeUndefined();
+  });
+
+  it("does not install a partial refresh when a later loaded-page check fails", async () => {
+    await seed(local({ "older-game": draft() }));
+    const older = makeGame("older-game", "2026-09-12T12:00:00Z");
+    fetchMock.mockResolvedValueOnce(response(state([makeGame(), older])));
+    const store = create();
+    await store.load();
+    const updated = applyCommand(
+      makeGame(),
+      { type: "pass", id: "new-turn", expectedRevision: 0 },
+      testLexicon,
+    );
+    if (!updated.ok) throw Error(updated.error.message);
+    fetchMock
+      .mockResolvedValueOnce(response(state([updated.game])))
+      .mockRejectedValueOnce(new Error("Interrupted"));
+    await expect(store.refresh!()).rejects.toThrow("connection");
+    expect(
+      store.getSnapshot().data.games.find((g) => g.id === "game-1")?.revision,
+    ).toBe(0);
+    expect(store.getSnapshot().data.games.some((g) => g.id === older.id)).toBe(
+      true,
+    );
+    expect(store.getSnapshot().data.drafts[older.id]).toEqual(draft());
+    expect((await stored()).drafts).toMatchObject({ [older.id]: draft() });
   });
 
   it("retains a stale draft and blocks only that game instead of silently erasing letters", async () => {
@@ -1853,4 +1998,72 @@ describe("read-only replay refresh", () => {
       ),
     ).rejects.toThrow();
   });
+});
+
+it("a definitely rejected clock recovery keeps the draft without locking other games", async () => {
+  const started = applyCommand(
+    makeGame(),
+    {
+      type: "start-clock",
+      id: "clock",
+      expectedRevision: 0,
+      timedAt: "2035-10-12T12:00:00Z",
+    },
+    testLexicon,
+  );
+  if (!started.ok) throw Error(started.error.message);
+  const entry = { ...draft(), revision: started.game.revision };
+  await seed(local({ "game-1": entry }));
+  fetchMock.mockResolvedValueOnce(
+    response(state([started.game, makeGame("other")])),
+  );
+  const store = create();
+  await store.load();
+  fetchMock.mockResolvedValueOnce(
+    response(
+      {
+        code: "CLOCK_RECOVERY_UNAVAILABLE",
+        error:
+          "Stopping timing needs an operator update. Your game and current entry are unchanged.",
+      },
+      409,
+    ),
+  );
+  await expect(
+    store.update((data) => {
+      const result = applyCommand(
+        data.games.find((g) => g.id === "game-1")!,
+        {
+          type: "recover-clock",
+          id: "recovery",
+          expectedRevision: 1,
+          timingPolicy: 1,
+          timedAt: "2026-10-12T12:00:00Z",
+          reason: "Incorrect device time",
+        },
+        testLexicon,
+      );
+      if (!result.ok) throw Error(result.error.message);
+      return {
+        ...data,
+        games: data.games.map((g) =>
+          g.id === result.game.id ? result.game : g,
+        ),
+        drafts: {
+          ...data.drafts,
+          "game-1": { ...entry, revision: result.game.revision },
+        },
+      };
+    }),
+  ).rejects.toThrow("operator update");
+  expect(sent()).toHaveLength(1);
+  expect(store.getSnapshot().unresolved).toBe(false);
+  expect(store.getSnapshot().pending).toBe(0);
+  expect((await stored()).pending).toBeNull();
+  expect(store.getSnapshot().data.drafts["game-1"]).toEqual(entry);
+  expect(store.getSnapshot().data.games.find((g) => g.id === "game-1")).toEqual(
+    started.game,
+  );
+  expect(store.canScore!("game-1")).toBe(true);
+  expect(store.canScore!("other")).toBe(true);
 });
