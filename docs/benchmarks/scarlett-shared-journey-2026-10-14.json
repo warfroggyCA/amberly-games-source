@@ -1,0 +1,859 @@
+{
+  "scope": "Normal-motion original vs dual-asset vs shared 640px animation; cold /family -> Open Gym and return/reopen/reload.",
+  "references": {
+    "commit": "9ebb6bb576955fd45622dff59eb133ac99521368",
+    "receipt": "docs/benchmarks/scarlett-journey-2026-10-14.json",
+    "receiptSha256": "99f3a0e0681ae213afd19f946732f205da8284d6b2175ee821d9e5dd9e083782",
+    "baselineBuild": "WJeE-p2fxu8I27DY3Kpu0",
+    "dualBuild": "PwJMtEz5-ufa-u66XpaYy",
+    "method": "Reference measurements are retained from the corrected earlier run in the same saved Cloud environment with identical browser versions, fixtures and viewport/DPR. They were not rerun in this follow-up."
+  },
+  "candidate": {
+    "buildId": "DG1N44BDTAg0UKfFvhnQk",
+    "baseCommit": "9ebb6bb576955fd45622dff59eb133ac99521368",
+    "changes": "Three animation URL replacements in GymEntryCard and GymLab; F4 unchanged.",
+    "asset": "public/gym/scarlett-shared.webp",
+    "bytes": 6097124,
+    "sha256": "08e3c095ee969a9cc69895b5a1bfd39e63fbbbe09f8d245e3b551e53e4902c76",
+    "appFileHashes": {
+      "src/components/GymEntryCard.tsx": "1d196837c84988ea165872abb07fee8a5420dd74e9e8794c5e2ba3647cfc99d3",
+      "src/components/GymLab.tsx": "784aad32c497cae1574199ab4fa2dc58c8c2538e1a9f6e2a1cee48b24d59d956"
+    }
+  },
+  "method": {
+    "browserRouting": false,
+    "fixtures": "Synthetic APIs handled by loopback pass-through server; no API reaches application or production; asset headers/body preserved.",
+    "context": "Fresh nonpersistent context for each variant/profile; no throttling.",
+    "byteCounter": "Proxy counts Scarlett response body chunks, retaining partial responses with completed=false and zero-body 304 responses; memory/cache reuse yields no server request.",
+    "motion": "no-preference explicitly; no stored motion preference; different screenshot bytes 700ms apart asserted in entry, welcome and reload.",
+    "cacheControl": "public, max-age=0",
+    "limits": [
+      "No production/CDN cache verification",
+      "No physical-device acceptance",
+      "No network latency, decode, memory, energy or frame-rate claim",
+      "No HTTP/TLS header bytes or unrelated page resources included"
+    ]
+  },
+  "samples": [
+    {
+      "original": {
+        "project": "desktop-chromium",
+        "devicePixelRatio": 1,
+        "buildId": "WJeE-p2fxu8I27DY3Kpu0",
+        "entryAnimationBytes": 7270588,
+        "coldJourneyAnimationBytes": 7270588,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 7693277
+      },
+      "dual": {
+        "project": "desktop-chromium",
+        "devicePixelRatio": 1,
+        "buildId": "PwJMtEz5-ufa-u66XpaYy",
+        "entryAnimationBytes": 2844668,
+        "coldJourneyAnimationBytes": 10115256,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 10537945
+      },
+      "shared": {
+        "variant": "shared",
+        "scenario": "shared",
+        "project": "desktop-chromium",
+        "buildId": "DG1N44BDTAg0UKfFvhnQk",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "devicePixelRatio": 1,
+        "normalMotion": true,
+        "browserRouting": false,
+        "entryGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 180,
+          "cssHeight": 180,
+          "devicePixelRatio": 1,
+          "physicalWidth": 180
+        },
+        "welcomeGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 420,
+          "cssHeight": 420,
+          "devicePixelRatio": 1,
+          "physicalWidth": 420
+        },
+        "reloadGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 420,
+          "cssHeight": 420,
+          "devicePixelRatio": 1,
+          "physicalWidth": 420
+        },
+        "entryAnimationBytes": 6097124,
+        "coldJourneyAnimationBytes": 6097124,
+        "coldJourneyScarlettBytes": 6097124,
+        "revisitAnimationBytes": 0,
+        "revisitScarlettBytes": 422689,
+        "totalScarlettBytes": 6519813,
+        "transfers": [
+          {
+            "phase": "family-cold",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-lift-still.png",
+            "status": 200,
+            "bodyBytes": 422689,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 304,
+            "bodyBytes": 0,
+            "cacheControl": "public, max-age=0",
+            "conditional": true,
+            "completed": true
+          }
+        ],
+        "timings": {
+          "entry": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 6097424,
+              "encodedBodySize": 6097124,
+              "decodedBodySize": 6097124,
+              "durationMs": 65.09999999962747
+            }
+          ],
+          "coldJourney": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 6097424,
+              "encodedBodySize": 6097124,
+              "decodedBodySize": 6097124,
+              "durationMs": 65.09999999962747
+            }
+          ],
+          "reload": [
+            {
+              "path": "/gym/scarlett-lift-still.png",
+              "transferSize": 422989,
+              "encodedBodySize": 422689,
+              "decodedBodySize": 422689,
+              "durationMs": 5.599999999627471
+            },
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 300,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 8.5
+            }
+          ]
+        },
+        "images": [
+          {
+            "name": "shared-desktop-chromium-1x-family-cold-a.png",
+            "sha256": "1ba87cd6a3468a1f4af3153155ffc95c7dd8139bd61973247797f232d2128e2b"
+          },
+          {
+            "name": "shared-desktop-chromium-1x-family-cold-b.png",
+            "sha256": "3b89fef2919c348ff00948d219280d1d76d5b3ef1e04c3fcc696b4cecdf10919"
+          },
+          {
+            "name": "shared-desktop-chromium-1x-gym-first-a.png",
+            "sha256": "4278e6898530d983ece39236eedc84def5abfc1b3e35829c4af63d4ab89b8e28"
+          },
+          {
+            "name": "shared-desktop-chromium-1x-gym-first-b.png",
+            "sha256": "9338f8afd26bec9959c7785d1d63cb7c767a7eca4acf699b06aa1db9b1fe5610"
+          },
+          {
+            "name": "shared-desktop-chromium-1x-gym-reload-a.png",
+            "sha256": "4278e6898530d983ece39236eedc84def5abfc1b3e35829c4af63d4ab89b8e28"
+          },
+          {
+            "name": "shared-desktop-chromium-1x-gym-reload-b.png",
+            "sha256": "9338f8afd26bec9959c7785d1d63cb7c767a7eca4acf699b06aa1db9b1fe5610"
+          }
+        ]
+      }
+    },
+    {
+      "original": {
+        "project": "desktop-chromium",
+        "devicePixelRatio": 2,
+        "buildId": "WJeE-p2fxu8I27DY3Kpu0",
+        "entryAnimationBytes": 7270588,
+        "coldJourneyAnimationBytes": 7270588,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 7693277
+      },
+      "dual": {
+        "project": "desktop-chromium",
+        "devicePixelRatio": 2,
+        "buildId": "PwJMtEz5-ufa-u66XpaYy",
+        "entryAnimationBytes": 2844668,
+        "coldJourneyAnimationBytes": 10115256,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 10537945
+      },
+      "shared": {
+        "variant": "shared",
+        "scenario": "shared",
+        "project": "desktop-chromium",
+        "buildId": "DG1N44BDTAg0UKfFvhnQk",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "devicePixelRatio": 2,
+        "normalMotion": true,
+        "browserRouting": false,
+        "entryGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 180,
+          "cssHeight": 180,
+          "devicePixelRatio": 2,
+          "physicalWidth": 360
+        },
+        "welcomeGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 420,
+          "cssHeight": 420,
+          "devicePixelRatio": 2,
+          "physicalWidth": 840
+        },
+        "reloadGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 420,
+          "cssHeight": 420,
+          "devicePixelRatio": 2,
+          "physicalWidth": 840
+        },
+        "entryAnimationBytes": 6097124,
+        "coldJourneyAnimationBytes": 6097124,
+        "coldJourneyScarlettBytes": 6097124,
+        "revisitAnimationBytes": 0,
+        "revisitScarlettBytes": 422689,
+        "totalScarlettBytes": 6519813,
+        "transfers": [
+          {
+            "phase": "family-cold",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-lift-still.png",
+            "status": 200,
+            "bodyBytes": 422689,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 304,
+            "bodyBytes": 0,
+            "cacheControl": "public, max-age=0",
+            "conditional": true,
+            "completed": true
+          }
+        ],
+        "timings": {
+          "entry": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 6097424,
+              "encodedBodySize": 6097124,
+              "decodedBodySize": 6097124,
+              "durationMs": 60.40000000037253
+            }
+          ],
+          "coldJourney": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 6097424,
+              "encodedBodySize": 6097124,
+              "decodedBodySize": 6097124,
+              "durationMs": 60.40000000037253
+            }
+          ],
+          "reload": [
+            {
+              "path": "/gym/scarlett-lift-still.png",
+              "transferSize": 422989,
+              "encodedBodySize": 422689,
+              "decodedBodySize": 422689,
+              "durationMs": 10.899999999441206
+            },
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 300,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 3.2000000001862645
+            }
+          ]
+        },
+        "images": [
+          {
+            "name": "shared-desktop-chromium-2x-family-cold-a.png",
+            "sha256": "f75f2b090d5b891dc8ceea71e50e5da93067e3e0be2ccb04066b09e73a5ab6db"
+          },
+          {
+            "name": "shared-desktop-chromium-2x-family-cold-b.png",
+            "sha256": "57c6c079af43e9297961b3a3c0ae7f8514638dcc92aeeb910a12598a48f21501"
+          },
+          {
+            "name": "shared-desktop-chromium-2x-gym-first-a.png",
+            "sha256": "e3c5905a34fb2ea709500354333f2ba6048b091965fc2ed39c80ed0f5b07e1c8"
+          },
+          {
+            "name": "shared-desktop-chromium-2x-gym-first-b.png",
+            "sha256": "d2ec4c97a7900bfe5b84f6d4bdffcbeac8008ec0d6f51faae8cfd8218d9c1905"
+          },
+          {
+            "name": "shared-desktop-chromium-2x-gym-reload-a.png",
+            "sha256": "e3c5905a34fb2ea709500354333f2ba6048b091965fc2ed39c80ed0f5b07e1c8"
+          },
+          {
+            "name": "shared-desktop-chromium-2x-gym-reload-b.png",
+            "sha256": "61636cfc4bf07738d9b07ad066566d65af002bb9dc3d5635969d50674d100ff2"
+          }
+        ]
+      }
+    },
+    {
+      "original": {
+        "project": "iphone-webkit",
+        "devicePixelRatio": 3,
+        "buildId": "WJeE-p2fxu8I27DY3Kpu0",
+        "entryAnimationBytes": 7270588,
+        "coldJourneyAnimationBytes": 7270588,
+        "revisitAnimationBytes": 7270588,
+        "totalScarlettBytes": 14963865
+      },
+      "dual": {
+        "project": "iphone-webkit",
+        "devicePixelRatio": 3,
+        "buildId": "PwJMtEz5-ufa-u66XpaYy",
+        "entryAnimationBytes": 2844668,
+        "coldJourneyAnimationBytes": 10115256,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 10537945
+      },
+      "shared": {
+        "variant": "shared",
+        "scenario": "shared",
+        "project": "iphone-webkit",
+        "buildId": "DG1N44BDTAg0UKfFvhnQk",
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "devicePixelRatio": 3,
+        "normalMotion": true,
+        "browserRouting": false,
+        "entryGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 144,
+          "cssHeight": 144,
+          "devicePixelRatio": 3,
+          "physicalWidth": 432
+        },
+        "welcomeGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 292.5,
+          "cssHeight": 292.5,
+          "devicePixelRatio": 3,
+          "physicalWidth": 877.5
+        },
+        "reloadGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 292.5,
+          "cssHeight": 292.5,
+          "devicePixelRatio": 3,
+          "physicalWidth": 877.5
+        },
+        "entryAnimationBytes": 6097124,
+        "coldJourneyAnimationBytes": 6097124,
+        "coldJourneyScarlettBytes": 6097124,
+        "revisitAnimationBytes": 6097124,
+        "revisitScarlettBytes": 6519813,
+        "totalScarlettBytes": 12616937,
+        "transfers": [
+          {
+            "phase": "family-cold",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "family-return",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-lift-still.png",
+            "status": 200,
+            "bodyBytes": 422689,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 304,
+            "bodyBytes": 0,
+            "cacheControl": "public, max-age=0",
+            "conditional": true,
+            "completed": true
+          }
+        ],
+        "timings": {
+          "entry": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "coldJourney": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "reload": [
+            {
+              "path": "/gym/scarlett-lift-still.png",
+              "transferSize": 422989,
+              "encodedBodySize": 422689,
+              "decodedBodySize": 422689,
+              "durationMs": 5
+            },
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 300,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 15
+            }
+          ]
+        },
+        "images": [
+          {
+            "name": "shared-iphone-webkit-3x-family-cold-a.png",
+            "sha256": "9908ac0da40183b9ab84dee039d76e2bdeac3e6427992e900717c8ae44be784a"
+          },
+          {
+            "name": "shared-iphone-webkit-3x-family-cold-b.png",
+            "sha256": "df82328351f59b78520c04ea2b33dd815a582845f1029306c04968998003be72"
+          },
+          {
+            "name": "shared-iphone-webkit-3x-gym-first-a.png",
+            "sha256": "525c353df362478a017e18f79d9f15b9aefeac0e3e878c3a02208b8e03690039"
+          },
+          {
+            "name": "shared-iphone-webkit-3x-gym-first-b.png",
+            "sha256": "d8f60b60e502b62e14e2faf2812ffe6d940ba717d54d5ef6b89c113eb5830b52"
+          },
+          {
+            "name": "shared-iphone-webkit-3x-gym-reload-a.png",
+            "sha256": "7d2725bd987495ff154bcfa27f2784d9d50398ae88d4e86c19a10bee260dca16"
+          },
+          {
+            "name": "shared-iphone-webkit-3x-gym-reload-b.png",
+            "sha256": "f6ebeac6281f47caa4c099fed98d191d77607920b6cc94f56c72055c60d22321"
+          }
+        ]
+      }
+    },
+    {
+      "original": {
+        "project": "ipad-webkit",
+        "devicePixelRatio": 2,
+        "buildId": "WJeE-p2fxu8I27DY3Kpu0",
+        "entryAnimationBytes": 7270588,
+        "coldJourneyAnimationBytes": 7270588,
+        "revisitAnimationBytes": 7270588,
+        "totalScarlettBytes": 14963865
+      },
+      "dual": {
+        "project": "ipad-webkit",
+        "devicePixelRatio": 2,
+        "buildId": "PwJMtEz5-ufa-u66XpaYy",
+        "entryAnimationBytes": 2844668,
+        "coldJourneyAnimationBytes": 10115256,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 10537945
+      },
+      "shared": {
+        "variant": "shared",
+        "scenario": "shared",
+        "project": "ipad-webkit",
+        "buildId": "DG1N44BDTAg0UKfFvhnQk",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        },
+        "devicePixelRatio": 2,
+        "normalMotion": true,
+        "browserRouting": false,
+        "entryGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 180,
+          "cssHeight": 180,
+          "devicePixelRatio": 2,
+          "physicalWidth": 360
+        },
+        "welcomeGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 357.171875,
+          "cssHeight": 357.171875,
+          "devicePixelRatio": 2,
+          "physicalWidth": 714.34375
+        },
+        "reloadGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 357.171875,
+          "cssHeight": 357.171875,
+          "devicePixelRatio": 2,
+          "physicalWidth": 714.34375
+        },
+        "entryAnimationBytes": 6097124,
+        "coldJourneyAnimationBytes": 6097124,
+        "coldJourneyScarlettBytes": 6097124,
+        "revisitAnimationBytes": 6097124,
+        "revisitScarlettBytes": 6519813,
+        "totalScarlettBytes": 12616937,
+        "transfers": [
+          {
+            "phase": "family-cold",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "family-return",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-lift-still.png",
+            "status": 200,
+            "bodyBytes": 422689,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 304,
+            "bodyBytes": 0,
+            "cacheControl": "public, max-age=0",
+            "conditional": true,
+            "completed": true
+          }
+        ],
+        "timings": {
+          "entry": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "coldJourney": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "reload": [
+            {
+              "path": "/gym/scarlett-lift-still.png",
+              "transferSize": 422989,
+              "encodedBodySize": 422689,
+              "decodedBodySize": 422689,
+              "durationMs": 4
+            },
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 300,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 3
+            }
+          ]
+        },
+        "images": [
+          {
+            "name": "shared-ipad-webkit-2x-family-cold-a.png",
+            "sha256": "95912787adf7d91242043ce24099940085bdc855c94ae9cda0db712d4d639c29"
+          },
+          {
+            "name": "shared-ipad-webkit-2x-family-cold-b.png",
+            "sha256": "c7d61ab2705b835fa5fa3dfc1bd7e4d7a0d01cb847fec5c75fd2fc754ae94beb"
+          },
+          {
+            "name": "shared-ipad-webkit-2x-gym-first-a.png",
+            "sha256": "86acbfc3bc10dc66646c88149fec5b0bcb13633f18a04e108789411fd1da747e"
+          },
+          {
+            "name": "shared-ipad-webkit-2x-gym-first-b.png",
+            "sha256": "7d2dab5add19be217202d6caf4aba5b8c6d0db839f9c1f66d33dba47a41739e2"
+          },
+          {
+            "name": "shared-ipad-webkit-2x-gym-reload-a.png",
+            "sha256": "a5f4939d112ec9679925366c4ea638229c992ba154e9712c85b08558272b11d5"
+          },
+          {
+            "name": "shared-ipad-webkit-2x-gym-reload-b.png",
+            "sha256": "2894fd5c78e711439274fc28fd8fb3f82e901593934f8aa2a66285a82f93703b"
+          }
+        ]
+      }
+    },
+    {
+      "original": {
+        "project": "iphone-landscape",
+        "devicePixelRatio": 3,
+        "buildId": "WJeE-p2fxu8I27DY3Kpu0",
+        "entryAnimationBytes": 7270588,
+        "coldJourneyAnimationBytes": 7270588,
+        "revisitAnimationBytes": 7270588,
+        "totalScarlettBytes": 14963865
+      },
+      "dual": {
+        "project": "iphone-landscape",
+        "devicePixelRatio": 3,
+        "buildId": "PwJMtEz5-ufa-u66XpaYy",
+        "entryAnimationBytes": 2844668,
+        "coldJourneyAnimationBytes": 10115256,
+        "revisitAnimationBytes": 0,
+        "totalScarlettBytes": 10537945
+      },
+      "shared": {
+        "variant": "shared",
+        "scenario": "shared",
+        "project": "iphone-landscape",
+        "buildId": "DG1N44BDTAg0UKfFvhnQk",
+        "viewport": {
+          "width": 750,
+          "height": 342
+        },
+        "devicePixelRatio": 3,
+        "normalMotion": true,
+        "browserRouting": false,
+        "entryGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 180,
+          "cssHeight": 180,
+          "devicePixelRatio": 3,
+          "physicalWidth": 540
+        },
+        "welcomeGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 317.375,
+          "cssHeight": 317.375,
+          "devicePixelRatio": 3,
+          "physicalWidth": 952.125
+        },
+        "reloadGeometry": {
+          "source": "/gym/scarlett-shared.webp",
+          "naturalWidth": 640,
+          "cssWidth": 317.375,
+          "cssHeight": 317.375,
+          "devicePixelRatio": 3,
+          "physicalWidth": 952.125
+        },
+        "entryAnimationBytes": 6097124,
+        "coldJourneyAnimationBytes": 6097124,
+        "coldJourneyScarlettBytes": 6097124,
+        "revisitAnimationBytes": 6097124,
+        "revisitScarlettBytes": 6519813,
+        "totalScarlettBytes": 12616937,
+        "transfers": [
+          {
+            "phase": "family-cold",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "family-return",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 200,
+            "bodyBytes": 6097124,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-lift-still.png",
+            "status": 200,
+            "bodyBytes": 422689,
+            "cacheControl": "public, max-age=0",
+            "conditional": false,
+            "completed": true
+          },
+          {
+            "phase": "gym-reload",
+            "path": "/gym/scarlett-shared.webp",
+            "status": 304,
+            "bodyBytes": 0,
+            "cacheControl": "public, max-age=0",
+            "conditional": true,
+            "completed": true
+          }
+        ],
+        "timings": {
+          "entry": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "coldJourney": [
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 0,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 0
+            }
+          ],
+          "reload": [
+            {
+              "path": "/gym/scarlett-lift-still.png",
+              "transferSize": 422989,
+              "encodedBodySize": 422689,
+              "decodedBodySize": 422689,
+              "durationMs": 8
+            },
+            {
+              "path": "/gym/scarlett-shared.webp",
+              "transferSize": 300,
+              "encodedBodySize": 0,
+              "decodedBodySize": 0,
+              "durationMs": 12
+            }
+          ]
+        },
+        "images": [
+          {
+            "name": "shared-iphone-landscape-3x-family-cold-a.png",
+            "sha256": "2e5be1ae7263e715590bf7131006d391382747f81dada2de3f968fa6d574eb3c"
+          },
+          {
+            "name": "shared-iphone-landscape-3x-family-cold-b.png",
+            "sha256": "1ba07528a9102f9ab4a7331f2528497ae37911fdfc06bf57f17597a012b39641"
+          },
+          {
+            "name": "shared-iphone-landscape-3x-gym-first-a.png",
+            "sha256": "9c14cb55f2bc8977adb6c1fe20aa7ee4abbed23bfad236f38289e4699a01e27a"
+          },
+          {
+            "name": "shared-iphone-landscape-3x-gym-first-b.png",
+            "sha256": "f3ac22fd8f4e857ab17d4c11f0682c6ff2173a57873804b087e82369e69acd79"
+          },
+          {
+            "name": "shared-iphone-landscape-3x-gym-reload-a.png",
+            "sha256": "a669cba50bde8bf452c1eec604a49cde4e76d7ac5f7ddf3f0e46553844147d8f"
+          },
+          {
+            "name": "shared-iphone-landscape-3x-gym-reload-b.png",
+            "sha256": "980dfd13b41c3879a9bcdb98a5f343ff7160dc90fa9248e4d6d02f0ee2384955"
+          }
+        ]
+      }
+    }
+  ],
+  "visualEvidence": [
+    {
+      "path": "docs/benchmarks/scarlett-shared-detail.png",
+      "width": 2050,
+      "height": 1510,
+      "bytes": 2321954,
+      "sha256": "9c310969758129c322ca1386ff007c2f111bd12a2e325ffdd10b62485a533570"
+    },
+    {
+      "path": "docs/benchmarks/scarlett-shared-desktop-2x.png",
+      "width": 2100,
+      "height": 1603,
+      "bytes": 1826315,
+      "sha256": "bd20e6eb62de362c4b4c5f78d990998b1b0729f076b5b4edde16beebf02903ca"
+    },
+    {
+      "path": "docs/benchmarks/scarlett-shared-landscape-3x.png",
+      "width": 2100,
+      "height": 1895,
+      "bytes": 2446746,
+      "sha256": "b8d5af0807da7391d0b4cedfe177a3b19fff96644b24973f542233634baaefc1"
+    }
+  ]
+}

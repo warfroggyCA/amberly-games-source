@@ -7,6 +7,7 @@ const mock = vi.hoisted(() => ({
   },
   read: vi.fn(),
   refresh: vi.fn(),
+  gameRefresh: vi.fn(),
   mutate: vi.fn(),
   archive: vi.fn(),
   admit: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock("../src/server/database", () => ({
   getCrokinoleRepository: () => ({
     readState: mock.read,
     readHistoryRefresh: mock.refresh,
+    readGameRefresh: mock.gameRefresh,
     mutate: mock.mutate,
   }),
   getGameSummaryRepository: () => ({
@@ -311,4 +313,33 @@ it("bounds loaded-game refreshes and rejects mixed scopes before querying", asyn
     false,
     ["a", "b"],
   ]);
+});
+
+it("authenticates and bounds selected Crokinole refreshes while retaining full reads", async () => {
+  mock.gameRefresh.mockResolvedValue({
+    kind: "crokinole-game-refresh-v1",
+    gameId: "game",
+    version: "a".repeat(32),
+    state: null,
+  });
+  const request = (version: string, user = mock.actor.id) =>
+    new Request(origin + "/api/family/crokinole?gameId=game", {
+      headers: { "x-scrabble-user": user, "x-scrabble-refresh": version },
+    });
+  expect((await crokinoleGet(request("", "wrong"))).status).toBe(401);
+  expect((await crokinoleGet(request("bad"))).status).toBe(400);
+  expect(mock.gameRefresh).not.toHaveBeenCalled();
+  const response = await crokinoleGet(request("a".repeat(32)));
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(mock.gameRefresh.mock.calls[0].slice(-2)).toEqual([
+    "game",
+    "a".repeat(32),
+  ]);
+  await crokinoleGet(
+    new Request(origin + "/api/family/crokinole?gameId=game", {
+      headers: { "x-scrabble-user": mock.actor.id },
+    }),
+  );
+  expect(mock.read).toHaveBeenCalledOnce();
 });

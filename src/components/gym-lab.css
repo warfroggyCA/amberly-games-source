@@ -394,8 +394,6 @@
 
 /* Keep the board and rack together; feedback can grow independently. */
 .gym-active {
-  /* Two status lines at 0.6875rem, plus the row's decoration space. */
-  --gym-status-row-height: calc(1.7875rem + 24px);
   padding-top: 12px;
   padding-bottom: 16px;
 }
@@ -420,13 +418,10 @@
   font-size: 0.75rem;
 }
 .gym-active .gym-workspace {
-  /* The narrower board can wrap controls: allow another 44px button + 8px gap. */
-  grid-template-columns:
-    minmax(
-      330px,
-      min(650px, calc(100dvh - 398px - 52px - var(--gym-status-row-height)))
-    )
-    minmax(240px, 1fr);
+  grid-template-columns: minmax(330px, min(650px, calc(100dvh - 398px))) minmax(
+      240px,
+      1fr
+    );
   gap: 24px;
 }
 .gym-active .gym-board {
@@ -733,14 +728,13 @@
     0 5px 5px #0005;
   transform-style: preserve-3d;
 }
-/* Reserve two text lines plus decoration space, including while no move exists.
-   Keep feedback in flow and clip score sparkles to this row, never board cells. */
+/* A compact status slot keeps entry controls stationary without changing board
+   sizing. It grows with text when needed; decorations stay outside board cells. */
 .gym-move-status {
   display: flex;
   align-items: center;
   min-width: 0;
-  min-block-size: var(--gym-status-row-height);
-  padding-block: 8px;
+  min-block-size: max(28px, calc(1.3em + 8px));
   font-size: 0.6875rem;
   line-height: 1.3;
   overflow: clip;

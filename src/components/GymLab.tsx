@@ -1171,7 +1171,7 @@ export function GymLab({
               src={
                 reducedMotion || petPaused
                   ? "/gym/scarlett-lift-still.png"
-                  : "/gym/scarlett-lift.webp"
+                  : "/gym/scarlett-shared.webp"
               }
               unoptimized
               alt="A cheerful dog lifting weights made from Scrabble letter tiles"
@@ -1713,7 +1713,7 @@ export function GymLab({
                         src={
                           reducedMotion || petPaused
                             ? "/gym/scarlett-lift-still.png"
-                            : "/gym/scarlett-lift.webp"
+                            : "/gym/scarlett-shared.webp"
                         }
                         unoptimized
                         alt="Scarlett watching your practice"

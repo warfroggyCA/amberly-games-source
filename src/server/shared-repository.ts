@@ -2307,8 +2307,10 @@ export function createSharedRepository(
         await activeMember(tx, actor, familyId, true),
         "scoreGames",
       );
-      const [head] =
-        await tx`select * from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${input.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id)`;
+      // Authorize every publication, including renewal, under the family lock.
+      const [head] = await tx`select revision,scorer_user_id,scorer_generation,
+          state->>'status' status,state->'pendingEnd' pending_end
+          from scrabble.game_heads h where family_id=${familyId}::uuid and game_id=${input.gameId} and not exists(select 1 from scrabble.game_removals r where r.family_id=h.family_id and r.game_id=h.game_id)`;
       if (!head) reject("GAME_NOT_FOUND", "This game is unavailable.", 404);
       if (head.scorer_user_id !== actor.userId)
         reject(
@@ -2316,18 +2318,52 @@ export function createSharedRepository(
           "Only the designated scorer can share an entry.",
           403,
         );
-      const game = head.state as GameState;
       if (
         head.revision !== input.revision ||
         head.scorer_generation !== input.generation ||
-        game.status !== "active" ||
-        game.pendingEnd
+        head.status !== "active" ||
+        head.pending_end
       )
         reject(
           "STALE_DRAFT",
           "The game has moved on. Refresh before sharing this entry.",
           409,
         );
+      const expiresAt = new Date(Date.now() + LIVE_DRAFT_TTL_MS).toISOString();
+      if (input.kind === "heartbeat") {
+        // Canonical position changes increment revision under this same lock.
+        // Renew only a live, identical, previously scored entry from this stream.
+        // Expired, edited or superseded entries still take the scoring path.
+        const renewed =
+          await tx`update scrabble.live_drafts set sequence=${input.sequence},
+          expires_at=${expiresAt}::timestamptz,
+          payload=jsonb_set(payload,'{expiresAt}',to_jsonb(${expiresAt}::text))
+          where family_id=${familyId}::uuid and game_id=${input.gameId}
+            and scorer_user_id=${actor.userId}::uuid and revision=${input.revision}
+            and generation=${input.generation} and stream_id=${input.streamId}::uuid
+            and sequence<${input.sequence} and expires_at>now()
+            and payload->'placements'=${json(tx, input.placements)}
+          returning sequence`;
+        if (renewed.length) return { accepted: true };
+      }
+      // Scoring needs only the authoritative position, not its growing journal.
+      const [position] = await tx`select jsonb_build_object(
+        'id',state->'id','revision',state->'revision','board',state->'board',
+        'lexicon',state->'lexicon','verifiedWords',state->'verifiedWords',
+        'tileSupply',state->'tileSupply','currentPlayerId',state->'currentPlayerId',
+        'expectedRackCounts',state->'expectedRackCounts') state
+        from scrabble.game_heads where family_id=${familyId}::uuid and game_id=${input.gameId}`;
+      const game = position.state as Pick<
+        GameState,
+        | "id"
+        | "revision"
+        | "board"
+        | "lexicon"
+        | "verifiedWords"
+        | "tileSupply"
+        | "currentPlayerId"
+        | "expectedRackCounts"
+      >;
       if (input.placements.some((p) => game.board[p.row][p.col] !== null))
         reject("INVALID_DRAFT", "The entry overlaps recorded tiles.");
       const lexicon = extendLexicon(
@@ -2341,7 +2377,6 @@ export function createSharedRepository(
         game.expectedRackCounts[game.currentPlayerId],
         getTileSupply(game),
       );
-      const expiresAt = new Date(Date.now() + LIVE_DRAFT_TTL_MS).toISOString();
       const draft: LiveDraft = {
         gameId: game.id,
         revision: game.revision,

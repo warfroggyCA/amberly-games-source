@@ -135,17 +135,19 @@ async function outsideBoard(page: Page) {
   expect(
     await page.locator(".gym-move-badge").evaluate((badge) => {
       const b = badge.getBoundingClientRect();
-      return [...document.querySelectorAll("[data-gym-square]")].every(
-        (cell) => {
-          const c = cell.getBoundingClientRect();
-          return (
-            b.right <= c.left ||
-            b.left >= c.right ||
-            b.bottom <= c.top ||
-            b.top >= c.bottom
-          );
-        },
-      );
+      return [
+        ...document.querySelectorAll(
+          "[data-gym-square], .gym-direction, .gym-rack, .gym-controls",
+        ),
+      ].every((cell) => {
+        const c = cell.getBoundingClientRect();
+        return (
+          b.right <= c.left ||
+          b.left >= c.right ||
+          b.bottom <= c.top ||
+          b.top >= c.bottom
+        );
+      });
     }),
   ).toBe(true);
   await expect(page.locator(".gym-board .gym-move-badge")).toHaveCount(0);
@@ -186,6 +188,9 @@ test("desktop controls fit with empty, invalid and cleared status", async ({
     expect(bottom).toBeLessThanOrEqual(800);
   };
   await assertControlsFit();
+  // Production sizing at 1280x800: 402px workspace track, 3px scroll padding
+  // on each side. The badge must never reduce the board or its tiles.
+  expect((await geometry(page)).board.width).toBeCloseTo(396, 0);
   await square(page, 0, 6).click();
   const before = await geometry(page);
   await rack(page).first().click();
