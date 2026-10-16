@@ -85,7 +85,7 @@ test("motion follows OS live until a saved explicit choice, with a reset to OS",
   const image = page.locator(".gym-welcome img");
   await expect(image).toHaveAttribute("src", "/gym/scarlett-lift-still.png");
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await expect(image).toHaveAttribute("src", "/gym/scarlett-lift.webp");
+  await expect(image).toHaveAttribute("src", "/gym/scarlett-shared.webp");
   const checkbox = await settings(page);
   await checkbox.check();
   await page.keyboard.press("Escape");
@@ -97,7 +97,7 @@ test("motion follows OS live until a saved explicit choice, with a reset to OS",
   await expect(checkbox).not.toBeChecked();
   await page.keyboard.press("Escape");
   await page.reload();
-  await expect(image).toHaveAttribute("src", "/gym/scarlett-lift.webp");
+  await expect(image).toHaveAttribute("src", "/gym/scarlett-shared.webp");
   await settings(page);
   await page
     .getByRole("button", { name: "Use device motion setting", exact: true })
@@ -233,7 +233,7 @@ for (const sample of [
       "src",
       sample.expected
         ? "/gym/scarlett-lift-still.png"
-        : "/gym/scarlett-lift.webp",
+        : "/gym/scarlett-shared.webp",
     );
   });
 }

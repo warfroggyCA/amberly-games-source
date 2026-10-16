@@ -1,0 +1,227 @@
+{
+  "scope": "Entry card only, before Open Gym; does not measure whole-journey bytes or cache reuse.",
+  "motionContext": "Historical run inherited the suite reduced-motion setting; Gym would select its still. Superseded for normal-motion journey acceptance by scarlett-journey-2026-10-14.json.",
+  "method": "Fresh browser context visits to /family with identical fixtures, browser profile and viewport; the asset request is not intercepted. Body bytes are actual response content. Resource timing is diagnostic, not a controlled latency or decode benchmark. No production service used.",
+  "rows": [
+    {
+      "project": "desktop-chromium",
+      "before": {
+        "variant": "before",
+        "project": "desktop-chromium",
+        "buildId": "hrUsYjLo2jiJAMc8PdKkY",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "devicePixelRatio": 1,
+        "asset": "/gym/scarlett-lift.webp",
+        "bodyBytes": 7270588,
+        "box": {
+          "x": 109,
+          "y": 456,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 7270588,
+          "decodedBodySize": 7270588,
+          "transferSize": 7270888,
+          "durationMs": 490.5999999998603
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-lift.webp"]
+      },
+      "after": {
+        "variant": "after",
+        "project": "desktop-chromium",
+        "buildId": "9Kg7oxxvXeXsKvnRRm_dc",
+        "viewport": {
+          "width": 1280,
+          "height": 720
+        },
+        "devicePixelRatio": 1,
+        "asset": "/gym/scarlett-entry.webp",
+        "bodyBytes": 2844668,
+        "box": {
+          "x": 109,
+          "y": 456,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 2844668,
+          "decodedBodySize": 2844668,
+          "transferSize": 2844968,
+          "durationMs": 27.5999999998603
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-entry.webp"]
+      }
+    },
+    {
+      "project": "iphone-webkit",
+      "before": {
+        "variant": "before",
+        "project": "iphone-webkit",
+        "buildId": "hrUsYjLo2jiJAMc8PdKkY",
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "devicePixelRatio": 3,
+        "asset": "/gym/scarlett-lift.webp",
+        "bodyBytes": 7270588,
+        "box": {
+          "x": 11,
+          "y": 418.21875,
+          "width": 144,
+          "height": 144
+        },
+        "timings": {
+          "encodedBodySize": 7270588,
+          "decodedBodySize": 7270588,
+          "transferSize": 7270888,
+          "durationMs": 37
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-lift.webp"]
+      },
+      "after": {
+        "variant": "after",
+        "project": "iphone-webkit",
+        "buildId": "9Kg7oxxvXeXsKvnRRm_dc",
+        "viewport": {
+          "width": 390,
+          "height": 664
+        },
+        "devicePixelRatio": 3,
+        "asset": "/gym/scarlett-entry.webp",
+        "bodyBytes": 2844668,
+        "box": {
+          "x": 11,
+          "y": 418.21875,
+          "width": 144,
+          "height": 144
+        },
+        "timings": {
+          "encodedBodySize": 2844668,
+          "decodedBodySize": 2844668,
+          "transferSize": 2844968,
+          "durationMs": 15
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-entry.webp"]
+      }
+    },
+    {
+      "project": "ipad-webkit",
+      "before": {
+        "variant": "before",
+        "project": "ipad-webkit",
+        "buildId": "hrUsYjLo2jiJAMc8PdKkY",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        },
+        "devicePixelRatio": 2,
+        "asset": "/gym/scarlett-lift.webp",
+        "bodyBytes": 7270588,
+        "box": {
+          "x": 19,
+          "y": 660,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 7270588,
+          "decodedBodySize": 7270588,
+          "transferSize": 7270888,
+          "durationMs": 23
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-lift.webp"]
+      },
+      "after": {
+        "variant": "after",
+        "project": "ipad-webkit",
+        "buildId": "9Kg7oxxvXeXsKvnRRm_dc",
+        "viewport": {
+          "width": 834,
+          "height": 1194
+        },
+        "devicePixelRatio": 2,
+        "asset": "/gym/scarlett-entry.webp",
+        "bodyBytes": 2844668,
+        "box": {
+          "x": 19,
+          "y": 660,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 2844668,
+          "decodedBodySize": 2844668,
+          "transferSize": 2844968,
+          "durationMs": 6
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-entry.webp"]
+      }
+    },
+    {
+      "project": "iphone-landscape",
+      "before": {
+        "variant": "before",
+        "project": "iphone-landscape",
+        "buildId": "hrUsYjLo2jiJAMc8PdKkY",
+        "viewport": {
+          "width": 750,
+          "height": 342
+        },
+        "devicePixelRatio": 3,
+        "asset": "/gym/scarlett-lift.webp",
+        "bodyBytes": 7270588,
+        "box": {
+          "x": 19,
+          "y": 81,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 7270588,
+          "decodedBodySize": 7270588,
+          "transferSize": 7270888,
+          "durationMs": 27
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-lift.webp"]
+      },
+      "after": {
+        "variant": "after",
+        "project": "iphone-landscape",
+        "buildId": "9Kg7oxxvXeXsKvnRRm_dc",
+        "viewport": {
+          "width": 750,
+          "height": 342
+        },
+        "devicePixelRatio": 3,
+        "asset": "/gym/scarlett-entry.webp",
+        "bodyBytes": 2844668,
+        "box": {
+          "x": 19,
+          "y": 81,
+          "width": 180,
+          "height": 180
+        },
+        "timings": {
+          "encodedBodySize": 2844668,
+          "decodedBodySize": 2844668,
+          "transferSize": 2844968,
+          "durationMs": 6
+        },
+        "animated": true,
+        "requests": ["/gym/scarlett-entry.webp"]
+      }
+    }
+  ]
+}

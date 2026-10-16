@@ -386,7 +386,7 @@ test("desktop board and rack controls fit the viewport", async ({
   );
   await expect(page.locator(".gym-companion-image")).toHaveAttribute(
     "src",
-    "/gym/scarlett-lift.webp",
+    "/gym/scarlett-shared.webp",
   );
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page

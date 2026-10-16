@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type PointerEvent,
 } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
@@ -343,6 +344,7 @@ export function GymLab({
     setUndoCount(history.current.length);
     setUndoSnapshots(history.current.slice(-100));
     saveDraft(previous);
+    if (previous.cursor) setFocusedSquare(previous.cursor);
   }
   function returnAll() {
     if (busy || !introduced || blank) return;
@@ -782,6 +784,65 @@ export function GymLab({
       ),
     );
   }
+  function focusEntrySquare() {
+    const square = currentDraft.current.cursor ?? focusedSquare;
+    boardRef.current
+      ?.querySelector<HTMLButtonElement>(
+        `[data-row="${square.row}"][data-col="${square.col}"]`,
+      )
+      ?.focus({ preventScroll: true });
+  }
+  function typeRackLetter(event: KeyboardEvent<HTMLElement>) {
+    const target = event.target;
+    if (
+      !ready ||
+      busy ||
+      !introduced ||
+      reveal ||
+      blank ||
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229 ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      !(target instanceof HTMLElement) ||
+      target.isContentEditable ||
+      !target.matches(
+        "[data-gym-square], [data-gym-rack] button, .gym-direction button",
+      )
+    )
+      return;
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      undoAction();
+      focusEntrySquare();
+      return;
+    }
+    if (!/^[a-z]$/i.test(event.key) && event.key !== "?") return;
+    event.preventDefault();
+    const letter = event.key.toUpperCase();
+    const draft = currentDraft.current;
+    const id = draft.order.find(
+      (id) =>
+        ready.puzzle.position.rack[id] === letter &&
+        !draft.tiles.some((tile) => tile.id === id),
+    );
+    if (id === undefined) {
+      setMessage(
+        letter === "?"
+          ? "No blank is available in your rack."
+          : `${letter} is not available in your rack. Choose a blank with ? if needed.`,
+      );
+      return;
+    }
+    // Keep a stable board focus target when a rack button becomes disabled,
+    // and when the blank dialog restores its opener after an explicit choice.
+    focusEntrySquare();
+    put(id);
+    if (letter !== "?") focusEntrySquare();
+  }
   function dragTarget(x: number, y: number) {
     return document
       .elementFromPoint(x, y)
@@ -997,27 +1058,6 @@ export function GymLab({
     strategy && ready
       ? comparisonCells(ready.puzzle.position.board, overlay)
       : new Set<string>();
-  // Keep the nearby badge beyond the horizontal word, not on top of its letters.
-  const lastPlaced = placed.at(-1);
-  let scoreLocation = lastPlaced
-    ? { row: lastPlaced.row, col: lastPlaced.col }
-    : null;
-  let scoreOnLeft = false;
-  if (scoreLocation && ready) {
-    const row = scoreLocation.row;
-    const occupied = (col: number) =>
-      ready.puzzle.position.board[row]?.[col] ||
-      placed.some((p) => p.row === row && p.col === col);
-    let right = scoreLocation.col;
-    while (right < 14 && occupied(right + 1)) right++;
-    if (right <= 10) scoreLocation = { row, col: right };
-    else {
-      let left = scoreLocation.col;
-      while (left > 0 && occupied(left - 1)) left--;
-      scoreOnLeft = left >= 3;
-      scoreLocation = { row, col: scoreOnLeft ? left : right };
-    }
-  }
 
   const dragTile =
     dragPreview && ready
@@ -1192,7 +1232,7 @@ export function GymLab({
               src={
                 reducedMotion || petPaused
                   ? "/gym/scarlett-lift-still.png"
-                  : "/gym/scarlett-lift.webp"
+                  : "/gym/scarlett-shared.webp"
               }
               unoptimized
               alt="A cheerful dog lifting weights made from Scrabble letter tiles"
@@ -1218,6 +1258,7 @@ export function GymLab({
               <section
                 className="gym-playing"
                 aria-label="Practice board and rack"
+                onKeyDown={typeRackLetter}
               >
                 <div className="gym-seat">
                   {strategy ? (
@@ -1236,7 +1277,9 @@ export function GymLab({
                 <p id="gym-board-keyboard-help" className="gym-keyboard-help">
                   Use arrow keys to explore the board. Press Enter or Space to
                   select a square or return a placed tile. Tab leaves the board
-                  for direction and rack controls.
+                  for direction and rack controls. After selecting a starting
+                  square, type rack letters to place them. Press ? to choose a
+                  blank’s letter. Backspace undoes the last draft action.
                 </p>
                 <div className="gym-board-scroll">
                   <div
@@ -1268,11 +1311,6 @@ export function GymLab({
                         );
                         const draggingSource =
                           draftTile?.id === dragPreview?.id && !!dragPreview;
-                        const scoreAnchor =
-                          !reveal &&
-                          !dragPreview &&
-                          scoreLocation?.row === r &&
-                          scoreLocation?.col === c;
                         const setup = ready.puzzle.setup.findIndex(
                           (t) =>
                             t.action.type === "play" &&
@@ -1397,48 +1435,6 @@ export function GymLab({
                             >
                               {premium ?? (r === 7 && c === 7 ? "★" : "")}
                             </span>
-                            {scoreAnchor && (
-                              <span
-                                className={`gym-move-badge ${live.key !== liveKey || !live.result ? "is-pending" : live.result.ok ? "is-valid" : "is-invalid"} ${scoreOnLeft ? "align-left" : ""}`}
-                                aria-hidden="true"
-                              >
-                                {live.key !== liveKey
-                                  ? "…"
-                                  : !live.result
-                                    ? "?"
-                                    : live.result.ok
-                                      ? `✓ ${live.result.score}`
-                                      : placementInvalid
-                                        ? "× Invalid placement"
-                                        : live.tentativeScore !== undefined
-                                          ? `× ${live.tentativeScore} invalid`
-                                          : "× invalid"}
-                                {strengthBars}
-                                {strength?.medal && (
-                                  <span
-                                    className="gym-medal-badge"
-                                    title={`${strength.medal} score tier`}
-                                  >
-                                    {
-                                      {
-                                        gold: "🥇",
-                                        silver: "🥈",
-                                        bronze: "🥉",
-                                      }[strength.medal]
-                                    }
-                                  </span>
-                                )}
-                                {strength?.best && (
-                                  <span
-                                    key={liveKey}
-                                    className="gym-best-star"
-                                    aria-label="Maximum score"
-                                  >
-                                    ★<span className="gym-best-sparkle">✦</span>
-                                  </span>
-                                )}
-                              </span>
-                            )}
                             {moving && medal && !draggingSource && (
                               <span
                                 key={`${liveKey}:${medal}:${reveal}`}
@@ -1482,6 +1478,50 @@ export function GymLab({
                     Skip animation
                   </button>
                 )}
+                <div className="gym-move-status" aria-hidden="true">
+                  {!!placed.length && !reveal && !dragPreview && (
+                    <span
+                      className={`gym-move-badge ${live.key !== liveKey || !live.result ? "is-pending" : live.result.ok ? "is-valid" : "is-invalid"}`}
+                      aria-hidden="true"
+                    >
+                      {live.key !== liveKey
+                        ? "…"
+                        : !live.result
+                          ? "?"
+                          : live.result.ok
+                            ? `✓ ${live.result.score}`
+                            : placementInvalid
+                              ? "× Invalid placement"
+                              : live.tentativeScore !== undefined
+                                ? `× ${live.tentativeScore} invalid`
+                                : "× invalid"}
+                      {strengthBars}
+                      {strength?.medal && (
+                        <span
+                          className="gym-medal-badge"
+                          title={`${strength.medal} score tier`}
+                        >
+                          {
+                            {
+                              gold: "🥇",
+                              silver: "🥈",
+                              bronze: "🥉",
+                            }[strength.medal]
+                          }
+                        </span>
+                      )}
+                      {strength?.best && (
+                        <span
+                          key={liveKey}
+                          className="gym-best-star"
+                          aria-label="Maximum score"
+                        >
+                          ★<span className="gym-best-sparkle">✦</span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
                 <div className="gym-direction">
                   <span>
                     {draft.cursor
@@ -1492,14 +1532,15 @@ export function GymLab({
                     <button
                       className="text-button"
                       disabled={controlsDisabled}
-                      onClick={() =>
+                      onClick={() => {
                         edit((d) => ({
                           ...d,
                           manualDirection: true,
                           direction:
                             d.direction === "across" ? "down" : "across",
-                        }))
-                      }
+                        }));
+                        focusEntrySquare();
+                      }}
                     >
                       {draft.direction === "across" ? "→ Across" : "↓ Down"}
                     </button>
@@ -1522,12 +1563,17 @@ export function GymLab({
                         className={`gym-rack-tile${used ? " is-used" : ""}${dragPreview?.id === id ? " is-drag-source" : ""}`}
                         disabled={controlsDisabled || used}
                         aria-label={`Rack tile ${id + 1}: ${tile === "?" ? "blank" : tile}${used ? ", placed" : ""}`}
-                        onClick={() => {
+                        onClick={(event) => {
                           if (suppressClick.current === id) {
                             suppressClick.current = null;
                             return;
                           }
+                          // Keep native Enter/Space navigation on the selected square.
+                          const pointerActivation = event.detail > 0;
+                          if (pointerActivation) focusEntrySquare();
                           put(id);
+                          if (pointerActivation && tile !== "?")
+                            focusEntrySquare();
                         }}
                         onPointerDown={(e) => gestureStart(e, id)}
                         onPointerMove={gestureMove}
@@ -1737,7 +1783,7 @@ export function GymLab({
                         src={
                           reducedMotion || petPaused
                             ? "/gym/scarlett-lift-still.png"
-                            : "/gym/scarlett-lift.webp"
+                            : "/gym/scarlett-shared.webp"
                         }
                         unoptimized
                         alt="Scarlett watching your practice"
@@ -1765,9 +1811,9 @@ export function GymLab({
                     )}
                     {!grade && !reveal && (
                       <p>
-                        Tap a start square, then tap or flick your rack tiles.
-                        You can also drag tiles onto the board. Tap the start
-                        again to switch direction.
+                        Tap a start square, then type letters or tap your rack
+                        tiles. You can also drag tiles onto the board. Tap the
+                        start again to switch direction.
                       </p>
                     )}
                     {grade && !reveal && (

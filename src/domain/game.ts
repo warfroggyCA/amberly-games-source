@@ -192,7 +192,7 @@ export type CommandContext = {
   ) => boolean;
 };
 
-export function getTileSupply(game: GameState): TileSupply {
+export function getTileSupply(game: Pick<GameState, "tileSupply">): TileSupply {
   return game.tileSupply ?? LETTER_COUNTS;
 }
 export function getTileTotal(game: GameState): number {

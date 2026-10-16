@@ -11,7 +11,7 @@ export function GymEntryCard({
     <section className="hub-game">
       <div className="hub-board-art hub-gym-art">
         <Image
-          src="/gym/scarlett-lift.webp"
+          src="/gym/scarlett-shared.webp"
           alt="Scarlett lifting Scrabble weights"
           width={180}
           height={180}

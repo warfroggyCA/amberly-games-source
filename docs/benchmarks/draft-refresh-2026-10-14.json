@@ -1,0 +1,596 @@
+{
+  "baseline": "ef8a0d6cfaad42985e0df047b9d8f64340dc3dba",
+  "node": "v24.21.0",
+  "postgres": "postgres (PostgreSQL) 17.6",
+  "sourceFiles": {
+    "src/server/shared-repository.ts": "293f1214ec3dbd191d87943501b5b506122f5541a8fdef6e873f9345b9e48c23",
+    "src/server/crokinole-repository.ts": "b9ef0f3e26cbd7b660b8d7055c24b43b837818be29f0b50fbc05cdd2c718f97a"
+  },
+  "rows": [
+    {
+      "label": "draft-publication",
+      "size": 0,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 4100,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 8.786638999999923
+      },
+      "after": {
+        "dbBytes": 3273,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 7.638089000000036
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 0,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 4100,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.725957000000108
+      },
+      "after": {
+        "dbBytes": 1575,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.253306000000066
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 0,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 4100,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 6.888328999999885
+      },
+      "after": {
+        "dbBytes": 1575,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 8.80065999999988
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 0,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 4100,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.409577000000127
+      },
+      "after": {
+        "dbBytes": 1575,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.518093000000135
+      }
+    },
+    {
+      "label": "viewer-draft",
+      "size": 0,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1415,
+        "jsonBytes": 250,
+        "gzipBytes": 182,
+        "elapsedMs": 3.587003999999979
+      },
+      "after": {
+        "dbBytes": 1415,
+        "jsonBytes": 250,
+        "gzipBytes": 182,
+        "elapsedMs": 4.341441999999915
+      }
+    },
+    {
+      "label": "conditional-family-idle",
+      "size": 0,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1749,
+        "jsonBytes": 413,
+        "gzipBytes": 299,
+        "elapsedMs": 6.793064999999842
+      },
+      "after": {
+        "dbBytes": 1749,
+        "jsonBytes": 413,
+        "gzipBytes": 299,
+        "elapsedMs": 6.722299000000021
+      }
+    },
+    {
+      "label": "draft-publication",
+      "size": 40,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 36299,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.596295000000282
+      },
+      "after": {
+        "dbBytes": 3276,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.853804000000309
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 40,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 36299,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.079674000000068
+      },
+      "after": {
+        "dbBytes": 1576,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.001994000000195
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 40,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 36299,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.4369620000002215
+      },
+      "after": {
+        "dbBytes": 1576,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.3043149999998604
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 40,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 36299,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.118031999999857
+      },
+      "after": {
+        "dbBytes": 1576,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 3.776278999999704
+      }
+    },
+    {
+      "label": "viewer-draft",
+      "size": 40,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1417,
+        "jsonBytes": 252,
+        "gzipBytes": 183,
+        "elapsedMs": 2.55113399999982
+      },
+      "after": {
+        "dbBytes": 1417,
+        "jsonBytes": 252,
+        "gzipBytes": 183,
+        "elapsedMs": 2.290907000000061
+      }
+    },
+    {
+      "label": "conditional-family-idle",
+      "size": 40,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1860,
+        "jsonBytes": 473,
+        "gzipBytes": 329,
+        "elapsedMs": 6.642237000000023
+      },
+      "after": {
+        "dbBytes": 1860,
+        "jsonBytes": 473,
+        "gzipBytes": 329,
+        "elapsedMs": 5.731815999999981
+      }
+    },
+    {
+      "label": "draft-publication",
+      "size": 100,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 84726,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 9.877332000000024
+      },
+      "after": {
+        "dbBytes": 3279,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 7.884694999998828
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 100,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 84726,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 50.40589499999987
+      },
+      "after": {
+        "dbBytes": 1577,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.397375000000466
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 100,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 84726,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 6.262085000000297
+      },
+      "after": {
+        "dbBytes": 1577,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.038890000001629
+      }
+    },
+    {
+      "label": "draft-heartbeat",
+      "size": 100,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 84726,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 5.888576999999714
+      },
+      "after": {
+        "dbBytes": 1577,
+        "jsonBytes": 17,
+        "gzipBytes": 37,
+        "elapsedMs": 4.6352440000009665
+      }
+    },
+    {
+      "label": "viewer-draft",
+      "size": 100,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1419,
+        "jsonBytes": 254,
+        "gzipBytes": 186,
+        "elapsedMs": 2.505254000001514
+      },
+      "after": {
+        "dbBytes": 1419,
+        "jsonBytes": 254,
+        "gzipBytes": 186,
+        "elapsedMs": 2.9222030000000814
+      }
+    },
+    {
+      "label": "conditional-family-idle",
+      "size": 100,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1973,
+        "jsonBytes": 535,
+        "gzipBytes": 358,
+        "elapsedMs": 6.904812999999194
+      },
+      "after": {
+        "dbBytes": 1973,
+        "jsonBytes": 535,
+        "gzipBytes": 358,
+        "elapsedMs": 6.765673999998398
+      }
+    },
+    {
+      "label": "crokinole-selected-cold",
+      "size": 0,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 3576,
+        "jsonBytes": 1987,
+        "gzipBytes": 734,
+        "elapsedMs": 6.360403000000588
+      },
+      "after": {
+        "dbBytes": 3881,
+        "jsonBytes": 2095,
+        "gzipBytes": 787,
+        "elapsedMs": 4.959482000000207
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 0,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 3576,
+        "jsonBytes": 1987,
+        "gzipBytes": 734,
+        "elapsedMs": 3.6601750000008906
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 112,
+        "gzipBytes": 117,
+        "elapsedMs": 2.3594999999986612
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 0,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 3576,
+        "jsonBytes": 1987,
+        "gzipBytes": 734,
+        "elapsedMs": 2.8391780000001745
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 112,
+        "gzipBytes": 117,
+        "elapsedMs": 2.0139540000000125
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 0,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 3576,
+        "jsonBytes": 1987,
+        "gzipBytes": 734,
+        "elapsedMs": 3.1819140000006882
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 112,
+        "gzipBytes": 117,
+        "elapsedMs": 2.022487000000183
+      }
+    },
+    {
+      "label": "conditional-crokinole-history-idle",
+      "size": 0,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 107,
+        "elapsedMs": 2.7622519999986253
+      },
+      "after": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 107,
+        "elapsedMs": 3.3418650000003254
+      }
+    },
+    {
+      "label": "crokinole-selected-cold",
+      "size": 20,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 22366,
+        "jsonBytes": 12533,
+        "gzipBytes": 1921,
+        "elapsedMs": 6.032348000000638
+      },
+      "after": {
+        "dbBytes": 22671,
+        "jsonBytes": 12642,
+        "gzipBytes": 1979,
+        "elapsedMs": 8.903104000000894
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 20,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 22366,
+        "jsonBytes": 12533,
+        "gzipBytes": 1921,
+        "elapsedMs": 6.244377999999415
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 113,
+        "gzipBytes": 117,
+        "elapsedMs": 4.740332000001217
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 20,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 22366,
+        "jsonBytes": 12533,
+        "gzipBytes": 1921,
+        "elapsedMs": 7.067888999999923
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 113,
+        "gzipBytes": 117,
+        "elapsedMs": 5.033102999999755
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 20,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 22366,
+        "jsonBytes": 12533,
+        "gzipBytes": 1921,
+        "elapsedMs": 5.9578160000000935
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 113,
+        "gzipBytes": 117,
+        "elapsedMs": 4.813963000000513
+      }
+    },
+    {
+      "label": "conditional-crokinole-history-idle",
+      "size": 20,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 105,
+        "elapsedMs": 3.1957340000008116
+      },
+      "after": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 105,
+        "elapsedMs": 3.4037589999988995
+      }
+    },
+    {
+      "label": "crokinole-selected-cold",
+      "size": 100,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 97776,
+        "jsonBytes": 54867,
+        "gzipBytes": 6124,
+        "elapsedMs": 50.206640000000334
+      },
+      "after": {
+        "dbBytes": 98081,
+        "jsonBytes": 54977,
+        "gzipBytes": 6186,
+        "elapsedMs": 61.220398999998
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 100,
+      "repeat": 1,
+      "before": {
+        "dbBytes": 97776,
+        "jsonBytes": 54867,
+        "gzipBytes": 6124,
+        "elapsedMs": 47.969779999999446
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 114,
+        "gzipBytes": 118,
+        "elapsedMs": 8.40483900000254
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 100,
+      "repeat": 2,
+      "before": {
+        "dbBytes": 97776,
+        "jsonBytes": 54867,
+        "gzipBytes": 6124,
+        "elapsedMs": 52.07078999999794
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 114,
+        "gzipBytes": 118,
+        "elapsedMs": 8.525173999998515
+      }
+    },
+    {
+      "label": "crokinole-selected-idle",
+      "size": 100,
+      "repeat": 3,
+      "before": {
+        "dbBytes": 97776,
+        "jsonBytes": 54867,
+        "gzipBytes": 6124,
+        "elapsedMs": 48.82831000000078
+      },
+      "after": {
+        "dbBytes": 1359,
+        "jsonBytes": 114,
+        "gzipBytes": 118,
+        "elapsedMs": 7.97190000000046
+      }
+    },
+    {
+      "label": "conditional-crokinole-history-idle",
+      "size": 100,
+      "repeat": 0,
+      "before": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 108,
+        "elapsedMs": 5.65360900000087
+      },
+      "after": {
+        "dbBytes": 1343,
+        "jsonBytes": 97,
+        "gzipBytes": 108,
+        "elapsedMs": 6.737871000001178
+      }
+    }
+  ],
+  "plans": [
+    {
+      "rounds": 0,
+      "planningMs": 0.395,
+      "executionMs": 0.241,
+      "sharedHitBlocks": 10,
+      "sharedReadBlocks": 0
+    },
+    {
+      "rounds": 20,
+      "planningMs": 0.443,
+      "executionMs": 1.803,
+      "sharedHitBlocks": 101,
+      "sharedReadBlocks": 0
+    },
+    {
+      "rounds": 100,
+      "planningMs": 0.371,
+      "executionMs": 6.066,
+      "sharedHitBlocks": 427,
+      "sharedReadBlocks": 0
+    }
+  ],
+  "method": "Paired actual released and candidate repository calls on the same isolated PostgreSQL 17 cluster, synthetic players and canonical migrations. One warmed connection, max:1 and prepare:false. DB server-to-application bytes counted through loopback TCP; JSON and gzip are response body bytes. Timings include application/repository work. Excludes TLS/pooler framing, Supabase Auth HTTP and HTTP headers. Journal size fixtures follow the F4 audit handoff; not household usage or billing projections."
+}
