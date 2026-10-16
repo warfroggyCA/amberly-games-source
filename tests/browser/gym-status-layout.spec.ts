@@ -169,6 +169,40 @@ async function outsideBoard(page: Page) {
   ).toBe(true);
 }
 
+test("desktop controls fit with empty, invalid and cleared status", async ({
+  page,
+}, info) => {
+  test.skip(
+    info.project.name !== "desktop-chromium",
+    "Desktop height contract",
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await start(page);
+  const assertControlsFit = async () => {
+    // Document coordinates catch overflow even if clicking a tile scrolls the page.
+    const bottom = await page
+      .getByRole("button", { name: "Check move", exact: true })
+      .evaluate((button) => button.getBoundingClientRect().bottom + scrollY);
+    expect(bottom).toBeLessThanOrEqual(800);
+  };
+  await assertControlsFit();
+  await square(page, 0, 6).click();
+  const before = await geometry(page);
+  await rack(page).first().click();
+  await expect(page.locator(".gym-move-badge")).toContainText("× 4 invalid");
+  await outsideBoard(page);
+  expect(await geometry(page)).toEqual(before);
+  await assertControlsFit();
+  await page.screenshot({
+    path: info.outputPath("desktop-invalid.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Return all", exact: true }).click();
+  await expect(page.locator(".gym-move-badge")).toHaveCount(0);
+  expect(await geometry(page)).toEqual(before);
+  await assertControlsFit();
+});
+
 for (const enlarged of [false, true]) {
   test(`status stays outside cells without shifting controls${enlarged ? " at 200% text" : ""}`, async ({
     page,

@@ -394,6 +394,8 @@
 
 /* Keep the board and rack together; feedback can grow independently. */
 .gym-active {
+  /* Two status lines at 0.6875rem, plus the row's decoration space. */
+  --gym-status-row-height: calc(1.7875rem + 24px);
   padding-top: 12px;
   padding-bottom: 16px;
 }
@@ -418,10 +420,13 @@
   font-size: 0.75rem;
 }
 .gym-active .gym-workspace {
-  grid-template-columns: minmax(330px, min(650px, calc(100dvh - 398px))) minmax(
-      240px,
-      1fr
-    );
+  /* The narrower board can wrap controls: allow another 44px button + 8px gap. */
+  grid-template-columns:
+    minmax(
+      330px,
+      min(650px, calc(100dvh - 398px - 52px - var(--gym-status-row-height)))
+    )
+    minmax(240px, 1fr);
   gap: 24px;
 }
 .gym-active .gym-board {
@@ -734,7 +739,7 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  min-block-size: calc(2.6em + 24px);
+  min-block-size: var(--gym-status-row-height);
   padding-block: 8px;
   font-size: 0.6875rem;
   line-height: 1.3;
