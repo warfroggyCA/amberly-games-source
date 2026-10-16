@@ -440,7 +440,8 @@
   font-size: 0.6rem;
 }
 .gym-active .gym-direction {
-  min-height: 36px;
+  /* The empty-square prompt can wrap at enlarged text sizes. */
+  min-height: max(36px, 2.6em);
   font-size: 0.8rem;
 }
 .gym-active .gym-direction .text-button {
@@ -727,27 +728,29 @@
     0 5px 5px #0005;
   transform-style: preserve-3d;
 }
+/* Reserve two text lines plus decoration space, including while no move exists.
+   Keep feedback in flow and clip score sparkles to this row, never board cells. */
+.gym-move-status {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-block-size: calc(2.6em + 24px);
+  padding-block: 8px;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  overflow: clip;
+}
 .gym-move-badge {
-  position: absolute;
-  left: calc(100% + 2px);
-  top: 0;
-  z-index: 8;
+  max-width: 100%;
   padding: 3px 5px;
   border-radius: 4px;
   border: 1px solid white;
-  white-space: nowrap;
-  font-size: 11px;
+  overflow-wrap: anywhere;
+  font-size: inherit;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: inherit;
   pointer-events: none;
   box-shadow: 0 1px 4px #0004;
-}
-.gym-square:has(.gym-move-badge) {
-  z-index: 5;
-}
-.gym-move-badge.align-left {
-  left: auto;
-  right: calc(100% + 2px);
 }
 .gym-move-badge.is-valid {
   color: white;
@@ -1383,6 +1386,7 @@
   }
 }
 
+.gym-comparing .gym-move-status,
 .gym-comparing .gym-direction,
 .gym-comparing .gym-rack,
 .gym-comparing .gym-controls {

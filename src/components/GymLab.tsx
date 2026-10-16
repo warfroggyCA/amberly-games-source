@@ -997,27 +997,6 @@ export function GymLab({
     strategy && ready
       ? comparisonCells(ready.puzzle.position.board, overlay)
       : new Set<string>();
-  // Keep the nearby badge beyond the horizontal word, not on top of its letters.
-  const lastPlaced = placed.at(-1);
-  let scoreLocation = lastPlaced
-    ? { row: lastPlaced.row, col: lastPlaced.col }
-    : null;
-  let scoreOnLeft = false;
-  if (scoreLocation && ready) {
-    const row = scoreLocation.row;
-    const occupied = (col: number) =>
-      ready.puzzle.position.board[row]?.[col] ||
-      placed.some((p) => p.row === row && p.col === col);
-    let right = scoreLocation.col;
-    while (right < 14 && occupied(right + 1)) right++;
-    if (right <= 10) scoreLocation = { row, col: right };
-    else {
-      let left = scoreLocation.col;
-      while (left > 0 && occupied(left - 1)) left--;
-      scoreOnLeft = left >= 3;
-      scoreLocation = { row, col: scoreOnLeft ? left : right };
-    }
-  }
 
   const dragTile =
     dragPreview && ready
@@ -1268,11 +1247,6 @@ export function GymLab({
                         );
                         const draggingSource =
                           draftTile?.id === dragPreview?.id && !!dragPreview;
-                        const scoreAnchor =
-                          !reveal &&
-                          !dragPreview &&
-                          scoreLocation?.row === r &&
-                          scoreLocation?.col === c;
                         const setup = ready.puzzle.setup.findIndex(
                           (t) =>
                             t.action.type === "play" &&
@@ -1397,48 +1371,6 @@ export function GymLab({
                             >
                               {premium ?? (r === 7 && c === 7 ? "★" : "")}
                             </span>
-                            {scoreAnchor && (
-                              <span
-                                className={`gym-move-badge ${live.key !== liveKey || !live.result ? "is-pending" : live.result.ok ? "is-valid" : "is-invalid"} ${scoreOnLeft ? "align-left" : ""}`}
-                                aria-hidden="true"
-                              >
-                                {live.key !== liveKey
-                                  ? "…"
-                                  : !live.result
-                                    ? "?"
-                                    : live.result.ok
-                                      ? `✓ ${live.result.score}`
-                                      : placementInvalid
-                                        ? "× Invalid placement"
-                                        : live.tentativeScore !== undefined
-                                          ? `× ${live.tentativeScore} invalid`
-                                          : "× invalid"}
-                                {strengthBars}
-                                {strength?.medal && (
-                                  <span
-                                    className="gym-medal-badge"
-                                    title={`${strength.medal} score tier`}
-                                  >
-                                    {
-                                      {
-                                        gold: "🥇",
-                                        silver: "🥈",
-                                        bronze: "🥉",
-                                      }[strength.medal]
-                                    }
-                                  </span>
-                                )}
-                                {strength?.best && (
-                                  <span
-                                    key={liveKey}
-                                    className="gym-best-star"
-                                    aria-label="Maximum score"
-                                  >
-                                    ★<span className="gym-best-sparkle">✦</span>
-                                  </span>
-                                )}
-                              </span>
-                            )}
                             {moving && medal && !draggingSource && (
                               <span
                                 key={`${liveKey}:${medal}:${reveal}`}
@@ -1482,6 +1414,50 @@ export function GymLab({
                     Skip animation
                   </button>
                 )}
+                <div className="gym-move-status" aria-hidden="true">
+                  {!!placed.length && !reveal && !dragPreview && (
+                    <span
+                      className={`gym-move-badge ${live.key !== liveKey || !live.result ? "is-pending" : live.result.ok ? "is-valid" : "is-invalid"}`}
+                      aria-hidden="true"
+                    >
+                      {live.key !== liveKey
+                        ? "…"
+                        : !live.result
+                          ? "?"
+                          : live.result.ok
+                            ? `✓ ${live.result.score}`
+                            : placementInvalid
+                              ? "× Invalid placement"
+                              : live.tentativeScore !== undefined
+                                ? `× ${live.tentativeScore} invalid`
+                                : "× invalid"}
+                      {strengthBars}
+                      {strength?.medal && (
+                        <span
+                          className="gym-medal-badge"
+                          title={`${strength.medal} score tier`}
+                        >
+                          {
+                            {
+                              gold: "🥇",
+                              silver: "🥈",
+                              bronze: "🥉",
+                            }[strength.medal]
+                          }
+                        </span>
+                      )}
+                      {strength?.best && (
+                        <span
+                          key={liveKey}
+                          className="gym-best-star"
+                          aria-label="Maximum score"
+                        >
+                          ★<span className="gym-best-sparkle">✦</span>
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
                 <div className="gym-direction">
                   <span>
                     {draft.cursor
