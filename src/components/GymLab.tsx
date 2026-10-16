@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type PointerEvent,
 } from "react";
 import { LETTER_VALUES, premiumAt } from "../domain/board";
@@ -343,6 +344,7 @@ export function GymLab({
     setUndoCount(history.current.length);
     setUndoSnapshots(history.current.slice(-100));
     saveDraft(previous);
+    if (previous.cursor) setFocusedSquare(previous.cursor);
   }
   function returnAll() {
     if (busy || !introduced || blank) return;
@@ -782,6 +784,65 @@ export function GymLab({
       ),
     );
   }
+  function focusEntrySquare() {
+    const square = currentDraft.current.cursor ?? focusedSquare;
+    boardRef.current
+      ?.querySelector<HTMLButtonElement>(
+        `[data-row="${square.row}"][data-col="${square.col}"]`,
+      )
+      ?.focus({ preventScroll: true });
+  }
+  function typeRackLetter(event: KeyboardEvent<HTMLElement>) {
+    const target = event.target;
+    if (
+      !ready ||
+      busy ||
+      !introduced ||
+      reveal ||
+      blank ||
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      event.nativeEvent.keyCode === 229 ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      !(target instanceof HTMLElement) ||
+      target.isContentEditable ||
+      !target.matches(
+        "[data-gym-square], [data-gym-rack] button, .gym-direction button",
+      )
+    )
+      return;
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      undoAction();
+      focusEntrySquare();
+      return;
+    }
+    if (!/^[a-z]$/i.test(event.key) && event.key !== "?") return;
+    event.preventDefault();
+    const letter = event.key.toUpperCase();
+    const draft = currentDraft.current;
+    const id = draft.order.find(
+      (id) =>
+        ready.puzzle.position.rack[id] === letter &&
+        !draft.tiles.some((tile) => tile.id === id),
+    );
+    if (id === undefined) {
+      setMessage(
+        letter === "?"
+          ? "No blank is available in your rack."
+          : `${letter} is not available in your rack. Choose a blank with ? if needed.`,
+      );
+      return;
+    }
+    // Keep a stable board focus target when a rack button becomes disabled,
+    // and when the blank dialog restores its opener after an explicit choice.
+    focusEntrySquare();
+    put(id);
+    if (letter !== "?") focusEntrySquare();
+  }
   function dragTarget(x: number, y: number) {
     return document
       .elementFromPoint(x, y)
@@ -1197,6 +1258,7 @@ export function GymLab({
               <section
                 className="gym-playing"
                 aria-label="Practice board and rack"
+                onKeyDown={typeRackLetter}
               >
                 <div className="gym-seat">
                   {strategy ? (
@@ -1215,7 +1277,9 @@ export function GymLab({
                 <p id="gym-board-keyboard-help" className="gym-keyboard-help">
                   Use arrow keys to explore the board. Press Enter or Space to
                   select a square or return a placed tile. Tab leaves the board
-                  for direction and rack controls.
+                  for direction and rack controls. After selecting a starting
+                  square, type rack letters to place them. Press ? to choose a
+                  blank’s letter. Backspace undoes the last draft action.
                 </p>
                 <div className="gym-board-scroll">
                   <div
@@ -1468,14 +1532,15 @@ export function GymLab({
                     <button
                       className="text-button"
                       disabled={controlsDisabled}
-                      onClick={() =>
+                      onClick={() => {
                         edit((d) => ({
                           ...d,
                           manualDirection: true,
                           direction:
                             d.direction === "across" ? "down" : "across",
-                        }))
-                      }
+                        }));
+                        focusEntrySquare();
+                      }}
                     >
                       {draft.direction === "across" ? "→ Across" : "↓ Down"}
                     </button>
@@ -1498,12 +1563,17 @@ export function GymLab({
                         className={`gym-rack-tile${used ? " is-used" : ""}${dragPreview?.id === id ? " is-drag-source" : ""}`}
                         disabled={controlsDisabled || used}
                         aria-label={`Rack tile ${id + 1}: ${tile === "?" ? "blank" : tile}${used ? ", placed" : ""}`}
-                        onClick={() => {
+                        onClick={(event) => {
                           if (suppressClick.current === id) {
                             suppressClick.current = null;
                             return;
                           }
+                          // Keep native Enter/Space navigation on the selected square.
+                          const pointerActivation = event.detail > 0;
+                          if (pointerActivation) focusEntrySquare();
                           put(id);
+                          if (pointerActivation && tile !== "?")
+                            focusEntrySquare();
                         }}
                         onPointerDown={(e) => gestureStart(e, id)}
                         onPointerMove={gestureMove}
@@ -1741,9 +1811,9 @@ export function GymLab({
                     )}
                     {!grade && !reveal && (
                       <p>
-                        Tap a start square, then tap or flick your rack tiles.
-                        You can also drag tiles onto the board. Tap the start
-                        again to switch direction.
+                        Tap a start square, then type letters or tap your rack
+                        tiles. You can also drag tiles onto the board. Tap the
+                        start again to switch direction.
                       </p>
                     )}
                     {grade && !reveal && (
