@@ -155,18 +155,18 @@ small {
   height: 7px;
   width: 7px;
   border-radius: 50%;
-  background: #a78040;
+  background: var(--theme-warm-ink, #a78040);
 }
 .preview-notice {
   display: flex;
   align-items: center;
   gap: 15px;
-  background: #f0e8d6;
-  border-bottom: 1px solid #dfd2b8;
+  background: var(--theme-warm-surface, #f0e8d6);
+  border-bottom: 1px solid var(--theme-line, #dfd2b8);
   padding: 12px 44px;
   font-size: 12px;
   line-height: 1.6;
-  color: #635138;
+  color: var(--theme-warm-ink, #635138);
 }
 .preview-notice strong {
   white-space: nowrap;
@@ -177,7 +177,7 @@ small {
   padding: 0;
   background: none;
   border: 0;
-  border-bottom: 1px solid #ad9061;
+  border-bottom: 1px solid var(--theme-line, #ad9061);
   font-size: 12px;
 }
 .app-shell > main {
@@ -199,7 +199,7 @@ small {
   line-height: 1.3;
 }
 .button.primary {
-  background: var(--forest);
+  background: var(--action-bg, var(--forest));
   color: #fff;
 }
 .button.primary:not(:disabled):hover {
@@ -211,12 +211,12 @@ small {
   color: var(--forest);
 }
 .button.danger-outline {
-  border-color: #cdb7aa;
+  border-color: var(--theme-danger-border, #cdb7aa);
   background: transparent;
-  color: #914634;
+  color: var(--theme-danger-ink, #914634);
 }
 .button.light:not(:disabled):hover {
-  background: #f0eee6;
+  background: var(--theme-surface, #f0eee6);
 }
 .text-button {
   border: 0;
@@ -344,7 +344,7 @@ small {
   font:
     italic 18px Georgia,
     serif;
-  color: #7d796a;
+  color: var(--theme-ink, #7d796a);
 }
 .section-heading {
   display: flex;
@@ -387,6 +387,7 @@ small {
 }
 .colour-0 {
   background: #d2e1d4;
+  color: #1b4e38;
 }
 .colour-1 {
   background: #f1dbb2;
@@ -446,7 +447,7 @@ input,
 select {
   padding: 11px 12px;
   background: var(--surface);
-  border: 1px solid #c4c8bc;
+  border: 1px solid var(--theme-line, #c4c8bc);
   border-radius: 4px;
   min-height: 44px;
   color: var(--ink);
@@ -491,7 +492,7 @@ select:disabled {
   text-align: left;
 }
 .game-list .game-list-item > button:hover {
-  background: #eeeede;
+  background: var(--theme-surface, #eeeede);
 }
 .game-date {
   color: var(--muted);
@@ -523,7 +524,7 @@ select:disabled {
 }
 .record-symbol {
   font-size: 42px;
-  color: #ae8e47;
+  color: var(--theme-warm-ink, #ae8e47);
   display: block;
   margin-bottom: 25px;
 }
@@ -543,9 +544,9 @@ select:disabled {
   gap: 20px;
   align-items: center;
   padding: 15px 20px;
-  background: #f9e8df;
-  border: 1px solid #dbb6a6;
-  color: #7c3526;
+  background: var(--theme-danger-surface, #f9e8df);
+  border: 1px solid var(--theme-danger-border, #dbb6a6);
+  color: var(--theme-danger-ink, #7c3526);
   font-size: 14px;
   line-height: 1.5;
   margin-bottom: 18px;
@@ -841,8 +842,8 @@ select:disabled {
 .segmented {
   display: flex;
   padding: 3px;
-  background: #eaece5;
-  border: 1px solid #dce0d4;
+  background: var(--theme-surface, #eaece5);
+  border: 1px solid var(--theme-line, #dce0d4);
   border-radius: 5px;
 }
 .segmented button {
@@ -867,8 +868,8 @@ select:disabled {
 }
 .keycap {
   font-size: 10px;
-  background: #edece5;
-  border: 1px solid #d8d9cf;
+  background: var(--theme-surface, #edece5);
+  border: 1px solid var(--theme-line, #d8d9cf);
   border-radius: 3px;
   padding: 2px 5px;
   font-weight: 400;
@@ -981,7 +982,7 @@ td button {
   width: 100%;
 }
 td button:hover {
-  background: #e9eee6;
+  background: var(--theme-surface, #e9eee6);
 }
 .turn-kind {
   display: block;
@@ -990,7 +991,7 @@ td button:hover {
   margin-top: 2px;
 }
 tfoot {
-  background: #e9efe7;
+  background: var(--theme-surface, #e9efe7);
   color: var(--forest);
   font-weight: 700;
 }
@@ -1065,25 +1066,25 @@ tfoot td {
   gap: 18px;
   padding: 15px 18px;
   margin: 0 0 25px;
-  background: #e9e5f0;
-  border: 1px solid #cfc6de;
+  background: var(--theme-warm-surface, #e9e5f0);
+  border: 1px solid var(--theme-line, #cfc6de);
   border-radius: 4px;
   font-size: 13px;
-  color: #59426f;
+  color: var(--theme-warm-ink, #59426f);
 }
 .assistance-banner p {
   font-size: 12px;
   margin: 7px 0 0;
-  color: #665979;
+  color: var(--theme-warm-ink, #665979);
 }
 .assistance-banner strong {
   font-size: 13px;
 }
 .inline-message {
   padding: 13px 16px;
-  background: #f1ecdf;
-  color: #6c5636;
-  border-left: 3px solid #b69858;
+  background: var(--theme-surface, #f1ecdf);
+  color: var(--theme-warm-ink, #6c5636);
+  border-left: 3px solid var(--theme-line, #b69858);
   font-size: 13px;
   line-height: 1.6;
   margin: 16px 0;
@@ -1209,7 +1210,7 @@ tfoot td {
   border: 1px solid var(--line);
   padding: 18px;
   border-radius: 5px;
-  background: #efeee3;
+  background: var(--theme-surface, #efeee3);
 }
 .setup-seat {
   font-size: 11px;
@@ -1232,8 +1233,8 @@ tfoot td {
   align-items: center;
   justify-content: center;
   height: 115px;
-  background: #dce3d1;
-  border: 5px solid #b69d73;
+  background: var(--theme-surface-raised, #dce3d1);
+  border: 5px solid var(--theme-line, #b69d73);
   color: var(--forest);
 }
 .seat-picker-board > span {
@@ -1279,7 +1280,7 @@ tfoot td {
 .inventory-summary {
   display: flex;
   justify-content: space-between;
-  background: #e9eee4;
+  background: var(--theme-surface, #e9eee4);
   padding: 22px;
   margin: 20px 0;
   gap: 15px;
@@ -2058,8 +2059,8 @@ footer {
 }
 .count-total {
   padding: 16px;
-  background: #f0e8d6;
-  border: 1px solid #dfd2b8;
+  background: var(--theme-warm-surface, #f0e8d6);
+  border: 1px solid var(--theme-line, #dfd2b8);
   border-radius: 4px;
   font-size: 14px;
 }
@@ -2067,8 +2068,8 @@ footer {
   margin: 8px 0 0;
 }
 .counts-match {
-  background: #e6eee6;
-  border-color: #bdcdbd;
+  background: var(--theme-success-surface, #e6eee6);
+  border-color: var(--theme-line, #bdcdbd);
 }
 .count-correction {
   margin-top: 20px;
@@ -2110,5 +2111,36 @@ footer {
   }
   .count-total {
     font-size: 12px;
+  }
+}
+
+/* Native controls and keyboard feedback use the same root palette, including
+   dialogs rendered outside the application shell. */
+textarea {
+  font: inherit;
+  color: inherit;
+}
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+@media (prefers-color-scheme: dark) {
+  .button.secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+  ::selection {
+    background: #d5b975;
+    color: #18251c;
+  }
+  .amberly-portrait img {
+    mix-blend-mode: normal;
   }
 }

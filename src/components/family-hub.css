@@ -204,7 +204,7 @@
   font-size: 14px;
 }
 .hub-recent-game:hover {
-  background: #edf0e7;
+  background: var(--theme-surface, #edf0e7);
 }
 .hub-settings {
   display: flex;
@@ -348,7 +348,7 @@
   align-items: center;
   gap: 12px;
   padding: 6px 0;
-  color: #214a3c;
+  color: var(--theme-accent-ink, #214a3c);
 }
 .history-winner svg {
   width: 46px;
@@ -368,7 +368,7 @@
   font-size: 1.25rem;
 }
 .family-standings {
-  border-block: 1px solid #cfc6b5;
+  border-block: 1px solid var(--theme-line, #cfc6b5);
   margin-block: 20px;
   padding-block: 16px;
 }
@@ -388,7 +388,7 @@
 .family-standings th,
 .family-standings td {
   padding: 8px;
-  border-bottom: 1px solid #ddd4c4;
+  border-bottom: 1px solid var(--theme-line, #ddd4c4);
 }
 .family-standings button {
   color: inherit;

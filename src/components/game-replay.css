@@ -113,10 +113,10 @@
   grid-column: 1 / -1;
   text-align: left;
   margin-block: 8px;
-  border: 1px solid #c8b99b;
+  border: 1px solid var(--theme-line, #c8b99b);
   border-radius: 10px;
-  background: #faf7ef;
-  color: #30281e;
+  background: var(--theme-surface, #faf7ef);
+  color: var(--theme-ink, #30281e);
 }
 .lead-counts summary {
   cursor: pointer;
@@ -125,7 +125,7 @@
   font-weight: 700;
 }
 .lead-counts summary:focus-visible {
-  outline: 3px solid #426f64;
+  outline: 3px solid var(--theme-focus, #426f64);
   outline-offset: 2px;
 }
 .lead-counts-content {
@@ -142,7 +142,7 @@
   margin-block: 8px;
 }
 .lead-counts article {
-  border-top: 1px solid #c8b99b;
+  border-top: 1px solid var(--theme-line, #c8b99b);
   padding-block: 8px;
 }
 .lead-counts dl {
@@ -254,7 +254,7 @@
     flex: none;
   }
   .replay-controls {
-    background: #faf7ef;
+    background: var(--theme-surface, #faf7ef);
     padding-block: 6px;
   }
   .replay-caption {

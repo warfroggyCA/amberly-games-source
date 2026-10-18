@@ -12,7 +12,7 @@
   max-width: 100%;
 }
 .turn-coaching details {
-  border: 1px solid #c9c3b6;
+  border: 1px solid var(--theme-line, #c9c3b6);
   border-radius: 12px;
   padding: 12px;
 }
@@ -26,7 +26,7 @@
   gap: 8px;
 }
 .coaching-options [aria-pressed="true"] {
-  outline: 3px solid #587b62;
+  outline: 3px solid var(--theme-focus, #587b62);
 }
 .coaching-board {
   display: grid;
@@ -59,7 +59,7 @@
   font-size: 7px;
 }
 .coaching-board .fresh {
-  outline: 2px solid #356a4a;
+  outline: 2px solid var(--theme-focus, #356a4a);
   outline-offset: -2px;
 }
 .coaching-launch {

@@ -48,7 +48,7 @@
   width: 100%;
   min-height: 48px;
   padding: 10px 12px;
-  border: 1px solid #a5aa9e;
+  border: 1px solid var(--theme-line, #a5aa9e);
   border-radius: 5px;
   background: var(--surface);
   color: var(--ink);
@@ -127,7 +127,7 @@
   bottom: -3px;
   width: 21px;
   height: 21px;
-  background: var(--forest);
+  background: var(--action-bg, var(--forest));
   color: white;
   border-radius: 50%;
   font-size: 14px;
@@ -156,15 +156,15 @@
 }
 .crokinole-notice {
   padding: 12px 16px;
-  background: #f1ead9;
+  background: var(--theme-warm-surface, #f1ead9);
   border-left: 3px solid var(--focus);
   line-height: 1.5;
 }
 .crokinole-error {
   padding: 12px 16px;
-  background: #fae9e2;
-  border-left: 3px solid #934632;
-  color: #713321;
+  background: var(--theme-danger-surface, #fae9e2);
+  border-left: 3px solid var(--theme-danger-border, #934632);
+  color: var(--theme-danger-ink, #713321);
 }
 .crokinole-standings {
   display: grid;
@@ -188,7 +188,7 @@
   line-height: 1;
 }
 .crokinole-leader {
-  color: #886019;
+  color: var(--theme-warm-ink, #886019);
   font-size: 14px;
   display: block;
   margin-top: 5px;
@@ -270,7 +270,7 @@
   z-index: 2;
   min-width: 85px;
   border-left: 1px solid var(--line);
-  background: #edf0e7;
+  background: var(--theme-surface, #edf0e7);
   font-size: 24px;
 }
 .crokinole-matrix thead th {
@@ -315,14 +315,14 @@
   font-weight: 700;
   padding: 8px 2px;
   min-height: 60px;
-  border: 1px solid #a5aa9e;
+  border: 1px solid var(--theme-line, #a5aa9e);
   border-radius: 5px;
   background: var(--surface);
   color: var(--ink);
 }
 .crokinole-preview {
   padding: 16px;
-  background: #edf0e7;
+  background: var(--theme-surface, #edf0e7);
   margin-top: 16px;
 }
 .crokinole-preview p {

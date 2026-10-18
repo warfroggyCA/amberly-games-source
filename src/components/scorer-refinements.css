@@ -68,8 +68,8 @@
 }
 .panel-resizer:hover,
 .panel-resizer:focus-visible {
-  border-left-color: #94ac99;
-  background: #dce8dd88;
+  border-left-color: var(--theme-line, #94ac99);
+  background: var(--theme-surface-raised, #dce8dd88);
 }
 .score-mode {
   display: flex;
@@ -112,10 +112,10 @@
 }
 .nonstandard-banner {
   font-size: 12px;
-  background: #f0e3c6;
+  background: var(--theme-surface-raised, #f0e3c6);
   padding: 12px 16px;
-  border-left: 3px solid #ab8036;
-  color: #685029;
+  border-left: 3px solid var(--theme-line, #ab8036);
+  color: var(--theme-warm-ink, #685029);
 }
 .winner-banner {
   display: flex;
@@ -123,13 +123,13 @@
   gap: 25px;
   padding: 28px 32px;
   margin-bottom: 24px;
-  border: 1px solid #d2b779;
-  background: #f1e9d4;
+  border: 1px solid var(--theme-line, #d2b779);
+  background: var(--theme-surface-raised, #f1e9d4);
   color: var(--forest);
   animation: winner-arrives 400ms ease-out;
 }
 .winner-crown {
-  color: #b78a30;
+  color: var(--theme-warm-ink, #b78a30);
   width: 86px;
   height: 70px;
   flex-shrink: 0;

@@ -40,8 +40,8 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: #e7dfc8;
-  color: #29493e;
+  background: var(--theme-surface-raised, #e7dfc8);
+  color: var(--theme-accent-ink, #29493e);
   font-family: Georgia, serif;
   font-weight: bold;
 }

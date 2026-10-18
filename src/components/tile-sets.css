@@ -16,7 +16,7 @@
 }
 .tile-set-total strong {
   font-size: 2rem;
-  color: var(--green, #174f3f);
+  color: var(--forest);
 }
 .tile-set-total span {
   margin-left: auto;
@@ -32,10 +32,10 @@
   justify-items: center;
   gap: 0.35rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #d5d1bf;
+  border-bottom: 1px solid var(--line);
 }
 .tile-set-letter > small {
-  color: #596251;
+  color: var(--muted);
   font-size: 0.75rem;
 }
 .equipment-tile.letter-tile {
@@ -77,9 +77,9 @@
 .tile-quantity-controls button {
   flex: 0 0 36px;
   height: 44px;
-  border: 1px solid #c9c5b4;
-  background: #fffdf4;
-  color: #174f3f;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--forest);
   font-size: 1.35rem;
   border-radius: 5px;
 }
@@ -128,7 +128,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem 0;
-  border-bottom: 1px solid #d5d1bf;
+  border-bottom: 1px solid var(--line);
 }
 .tile-set-list li > div {
   min-width: 0;
@@ -138,14 +138,14 @@
 }
 .tile-set-list li span {
   font-size: 0.85rem;
-  color: #596251;
+  color: var(--muted);
 }
 .tile-set-list li > button {
   flex-shrink: 0;
 }
 .setup-equipment {
   margin: 0.75rem 0;
-  color: #405348;
+  color: var(--theme-accent-ink, #405348);
 }
 .setup-equipment summary {
   cursor: pointer;

@@ -1,10 +1,45 @@
+/* Application colours live at the root so dialogs and body portals share them.
+   Theme roles are only overridden in dark mode: component fallbacks preserve
+   the approved light palette. No stored preference or hydration script is needed. */
 :root {
-  --paper: #faf9f3;
-  --surface: #fffefb;
-  --ink: #243d34;
-  --forest: #184d3c;
-  --muted: #757c6e;
-  --line: #dddfd3;
+  color-scheme: light dark;
+  --paper: #f0eadf;
+  --surface: #fffcf4;
+  --ink: #233f33;
+  --forest: #1b4e38;
+  --muted: #69705f;
+  --line: #c7c5ad;
   --tile: #f0dfb9;
   --focus: #b88937;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #141d19;
+    --surface: #202d26;
+    --ink: #f0eadc;
+    --forest: #a8d5b5;
+    --muted: #bec6b8;
+    --line: #758373;
+    --focus: #f3cd79;
+    --action-bg: #245b40;
+    --action-ink: #fff9e8;
+    --theme-surface: #202d26;
+    --theme-surface-raised: #2d3d32;
+    --theme-ink: #f0eadc;
+    --theme-accent-ink: #a8d5b5;
+    --theme-line: #758373;
+    --theme-focus: #f3cd79;
+    --theme-danger-ink: #ffb8aa;
+    --theme-danger-surface: #492b2b;
+    --theme-danger-border: #e79a8e;
+    --theme-warm-ink: #f3cd79;
+    --theme-warm-surface: #443923;
+    --theme-success-surface: #263e30;
+    --theme-info-ink: #b5d9ff;
+    --theme-info-surface: #283d50;
+    --theme-comparison-ink: #dfc1ff;
+    /* Darken only the table photograph, never tiles, portraits or game marks. */
+    --table-background:
+      linear-gradient(#101a16d9, #101a16d9), var(--table-scene);
+  }
 }

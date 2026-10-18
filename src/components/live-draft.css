@@ -9,10 +9,10 @@
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  color: #843923;
+  color: var(--theme-danger-ink, #843923);
 }
 .spectator-live-score.is-valid {
-  color: #164c3a;
+  color: var(--theme-accent-ink, #164c3a);
 }
 .spectator-live-score > span {
   min-width: 0;
@@ -42,10 +42,10 @@
   bottom: calc(65px + env(safe-area-inset-bottom, 0px));
   max-width: calc(100% - 20px);
   z-index: 110;
-  background: #fff2d6;
-  border: 1px solid #b3843d;
+  background: var(--theme-surface-raised, #fff2d6);
+  border: 1px solid var(--theme-line, #b3843d);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 12px;
-  color: #6b4420;
+  color: var(--theme-warm-ink, #6b4420);
 }

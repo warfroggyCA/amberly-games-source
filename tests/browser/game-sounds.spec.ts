@@ -329,6 +329,9 @@ test("a resumed scorer unlocks On audio with an ordinary board tap", async ({
   await instrumentAudio(page);
   await freshScorer(page);
   await page.getByRole("button", { name: "Begin play", exact: true }).click();
+  // Reload only after the start-clock command has reached local storage.
+  await expect(page.getByLabel("Current turn elapsed time")).toBeVisible();
+  await expect(page.locator(".save-state")).toHaveText("Saved on this device");
   await page.reload();
   await page
     .getByRole("button", { name: "Return to game", exact: true })

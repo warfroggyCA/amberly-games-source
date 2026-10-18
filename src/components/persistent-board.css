@@ -58,7 +58,7 @@ body .game-screen .persistent-entry-bar {
   flex: 0 0 52px;
   gap: 8px;
   padding: 4px 8px 0;
-  border-top: 1px solid #c7c5ad80;
+  border-top: 1px solid var(--theme-line, #c7c5ad80);
 }
 body .game-screen .persistent-entry-bar .entry-board-status {
   margin-right: auto;
@@ -66,7 +66,7 @@ body .game-screen .persistent-entry-bar .entry-board-status {
   align-items: baseline;
   gap: 7px;
   flex-shrink: 0;
-  color: #174f3c;
+  color: var(--theme-accent-ink, #174f3c);
   font-size: 16px;
   font-weight: 700;
   white-space: nowrap;
@@ -121,10 +121,10 @@ body .game-screen .persistent-entry-bar .tabletop-tool {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border: 1px solid #aa7043;
+  border: 1px solid var(--theme-line, #aa7043);
   border-radius: 8px;
-  color: #713d1f;
-  background: #fff4db;
+  color: var(--theme-warm-ink, #713d1f);
+  background: var(--theme-warm-surface, #fff4db);
   box-shadow: 0 3px 15px #38251030;
   font-size: 13px;
 }
@@ -460,7 +460,7 @@ body .game-screen .entry-review-button {
     bottom: calc(100% + 8px);
     left: 0;
     padding: 3px 7px;
-    background: #f5efdfee;
+    background: var(--theme-surface, #f5efdfee);
     border-radius: 4px;
   }
   body .game-screen .persistent-entry-bar .entry-review-button {

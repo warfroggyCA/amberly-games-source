@@ -22,7 +22,7 @@
   border-radius: 3px;
 }
 .edge-valid {
-  color: #9ff0af;
+  color: var(--theme-accent-ink, #9ff0af);
 }
 .edge-invalid {
   color: #ffb3b3;

@@ -17,7 +17,7 @@
 .score-sheet-modal .modal-heading {
   position: sticky;
   top: calc(-1 * max(16px, env(safe-area-inset-top)));
-  background: #fffcf4;
+  background: var(--theme-surface, #fffcf4);
   z-index: 2;
   padding: 12px 0;
 }

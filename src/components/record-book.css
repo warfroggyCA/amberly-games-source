@@ -1,9 +1,9 @@
 .record-book {
-  color: #173e30;
+  color: var(--theme-accent-ink, #173e30);
   max-width: 1280px;
   margin: 0 auto;
   padding: 24px clamp(16px, 3vw, 42px) 48px;
-  background: #faf5e9;
+  background: var(--theme-surface, #faf5e9);
 }
 .book-heading {
   display: flex;
@@ -23,10 +23,10 @@
 .book-heading p {
   margin: 0;
   font-size: 1.1rem;
-  color: #586453;
+  color: var(--theme-ink, #586453);
 }
 .book-sprig {
-  color: #77895b;
+  color: var(--theme-ink, #77895b);
   width: 90px;
   height: 135px;
   flex: none;
@@ -47,9 +47,9 @@
 }
 .book-tabs button,
 .book-filters button {
-  border: 1px solid #d9d1be;
-  background: #eee9db;
-  color: #173e30;
+  border: 1px solid var(--theme-line, #d9d1be);
+  background: var(--theme-surface-raised, #eee9db);
+  color: var(--theme-accent-ink, #173e30);
   border-radius: 24px;
   min-height: 44px;
   padding: 10px 20px;
@@ -60,7 +60,7 @@
 .book-filters button[aria-pressed="true"] {
   color: #fff6db;
   background: #1b4b39;
-  border-color: #1b4b39;
+  border-color: var(--theme-line, #1b4b39);
 }
 .book-context {
   display: flex;
@@ -69,15 +69,15 @@
   gap: 10px;
   font-size: 0.8rem;
   margin-bottom: 20px;
-  color: #586453;
+  color: var(--theme-ink, #586453);
 }
 .book-context select {
   max-width: 100%;
   min-height: 44px;
   padding: 8px;
-  background: #fffaf0;
-  border: 1px solid #d9d1be;
-  color: #173e30;
+  background: var(--theme-surface, #fffaf0);
+  border: 1px solid var(--theme-line, #d9d1be);
+  color: var(--theme-accent-ink, #173e30);
   border-radius: 8px;
 }
 .book-hero {
@@ -194,9 +194,9 @@
   isolation: isolate;
   min-width: 0;
   padding: 24px;
-  border: 1px solid #e3dac7;
+  border: 1px solid var(--theme-line, #e3dac7);
   border-radius: 16px;
-  background: #fffaf1;
+  background: var(--theme-surface, #fffaf1);
   box-shadow: 0 3px 10px #44311c05;
   display: flex;
   flex-direction: column;
@@ -213,7 +213,7 @@
   margin: 0;
 }
 .book-card small {
-  color: #67715f;
+  color: var(--theme-ink, #67715f);
 }
 .book-card > strong {
   font:
@@ -251,7 +251,7 @@
   justify-content: space-between;
   gap: 16px;
   border: 0;
-  border-bottom: 1px solid #e8e0cd;
+  border-bottom: 1px solid var(--theme-line, #e8e0cd);
   background: transparent;
   padding: 12px 0;
   width: 100%;
@@ -271,16 +271,16 @@
 }
 .book-footnote {
   font-size: 0.8rem;
-  color: #62705c;
+  color: var(--theme-ink, #62705c);
   line-height: 1.5;
   margin-top: 28px;
 }
 .book-empty {
   padding: 40px 24px;
   text-align: center;
-  border: 1px solid #e0d8c5;
+  border: 1px solid var(--theme-line, #e0d8c5);
   border-radius: 16px;
-  background: #f2efdf;
+  background: var(--theme-surface, #f2efdf);
 }
 .book-empty h2 {
   font:
@@ -309,9 +309,9 @@
 }
 .book-pair-select select {
   min-height: 44px;
-  background: #fffaf0;
-  color: #173e30;
-  border: 1px solid #d9d1be;
+  background: var(--theme-surface, #fffaf0);
+  color: var(--theme-accent-ink, #173e30);
+  border: 1px solid var(--theme-line, #d9d1be);
   border-radius: 8px;
   padding: 8px;
 }
@@ -321,7 +321,7 @@
   grid-template-columns: 1fr 1.4fr 1fr;
   gap: 20px;
   align-items: center;
-  background: #e5e8d6;
+  background: var(--theme-surface-raised, #e5e8d6);
   padding: 40px 30px 24px;
   border-radius: 18px;
 }
@@ -358,7 +358,7 @@
     serif;
 }
 .book-match > strong > span {
-  color: #9a874d;
+  color: var(--theme-ink, #9a874d);
 }
 .book-match h3 {
   font:
@@ -376,16 +376,16 @@
   background: #345e42;
 }
 .book-win-bar i {
-  background: #c6c8b4;
+  background: var(--theme-surface-raised, #c6c8b4);
 }
 .book-win-bar b {
-  background: #b89462;
+  background: var(--theme-surface-raised, #b89462);
 }
 .book-journal-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 25px;
-  background: #f0ebdb;
+  background: var(--theme-surface-raised, #f0ebdb);
   padding: 24px;
   margin: 15px 0 30px;
 }
@@ -402,7 +402,7 @@
 }
 .book-timeline {
   padding-left: 18px;
-  border-left: 1px solid #9baf93;
+  border-left: 1px solid var(--theme-line, #9baf93);
 }
 .book-journal-entry {
   position: relative;
@@ -429,10 +429,10 @@
   flex-wrap: wrap;
   gap: 20px;
   align-items: center;
-  border: 1px solid #e0d8c6;
+  border: 1px solid var(--theme-line, #e0d8c6);
   border-radius: 14px;
   padding: 22px;
-  background: #fffaf1;
+  background: var(--theme-surface, #fffaf1);
 }
 .book-journal-content > div {
   flex: 1;
@@ -445,7 +445,7 @@
   margin: 0 0 18px;
 }
 .book-journal-content small {
-  color: #65705b;
+  color: var(--theme-ink, #65705b);
 }
 .book-game-piece {
   font:
@@ -489,7 +489,7 @@
   height: 56px;
 }
 .book-journal-aside {
-  border-left: 1px solid #e0d8c6;
+  border-left: 1px solid var(--theme-line, #e0d8c6);
   padding-left: 24px;
 }
 .book-journal-aside h2 {
@@ -523,7 +523,7 @@
   .book-journal-aside {
     border: 0;
     padding: 20px;
-    background: #f0ebdb;
+    background: var(--theme-surface-raised, #f0ebdb);
   }
   .book-journal-aside > .book-sprig {
     float: right;

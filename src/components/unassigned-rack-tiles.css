@@ -1,10 +1,10 @@
 .unassigned-tiles {
-  border: 1px solid #c9d3bd;
+  border: 1px solid var(--theme-line, #c9d3bd);
   border-radius: 10px;
   padding: 14px;
-  background: #f1f3e6;
+  background: var(--theme-surface-raised, #f1f3e6);
   margin: 16px 0;
-  color: #234537;
+  color: var(--theme-ink, #234537);
 }
 .unassigned-heading {
   display: flex;
@@ -40,9 +40,9 @@
   gap: 5px;
   padding: 8px 10px;
   min-width: 44px;
-  background: #ead2a7;
-  color: #30271a;
-  border: 1px solid #c6aa79;
+  background: var(--theme-surface-raised, #ead2a7);
+  color: var(--theme-warm-ink, #30271a);
+  border: 1px solid var(--theme-line, #c6aa79);
   border-radius: 5px;
 }
 .unassigned-letter > strong {

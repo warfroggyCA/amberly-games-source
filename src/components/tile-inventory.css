@@ -35,7 +35,7 @@
   opacity: 0.35;
 }
 .inventory-item.exhausted .inventory-quantity {
-  color: #929686;
+  color: var(--theme-ink, #929686);
 }
 .inventory-tile.letter-tile {
   position: relative;
