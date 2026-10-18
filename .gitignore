@@ -29,3 +29,7 @@ public/amberly-family.jpg
 
 # Licensed sound recordings are fetched and verified at build time, not redistributed as source.
 public/sounds/
+
+# Alternate dark appearance browser suite
+/test-results-dark/
+/playwright-report-dark/

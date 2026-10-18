@@ -122,7 +122,10 @@ test("Gym queues offline help, recovers after reload, and retrieves profile hist
     "hint",
     "solve",
   ]);
-  const second = await browser.newContext({ viewport: page.viewportSize() });
+  const second = await browser.newContext({
+    viewport: page.viewportSize(),
+    colorScheme: test.info().project.use.colorScheme,
+  });
   await install(second);
   const other = await second.newPage();
   try {

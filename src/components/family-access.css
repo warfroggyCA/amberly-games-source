@@ -5,7 +5,7 @@
   padding: max(24px, env(safe-area-inset-top))
     max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
     max(24px, env(safe-area-inset-left));
-  background: #f3ebdd;
+  background: var(--theme-surface, #f3ebdd);
   color: var(--ink);
 }
 .family-access-shell {
@@ -38,7 +38,7 @@
 .family-welcome-caption {
   display: block;
   margin-bottom: 12px;
-  color: #756044;
+  color: var(--theme-warm-ink, #756044);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -65,7 +65,7 @@
   margin-top: 12px;
 }
 .family-access .family-access-watch {
-  border-top: 1px solid #d8ccb8;
+  border-top: 1px solid var(--theme-line, #d8ccb8);
   padding-top: 20px;
   margin-top: 28px;
   font-size: 14px;
@@ -101,7 +101,7 @@
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--theme-surface, #fff);
   color: var(--ink);
   font-size: 18px;
 }
@@ -127,8 +127,8 @@
 }
 .family-access .btn.primary {
   border-color: var(--forest);
-  background: var(--forest);
-  color: var(--paper);
+  background: var(--action-bg, var(--forest));
+  color: var(--action-ink, var(--paper));
 }
 .family-access .btn.quiet {
   border-color: transparent;
@@ -136,7 +136,7 @@
 }
 .family-access .btn:not(:disabled):hover {
   border-color: var(--forest);
-  background: #edf3ee;
+  background: var(--theme-surface, #edf3ee);
 }
 .family-access .btn.primary:not(:disabled):hover {
   background: #123e2f;
@@ -160,15 +160,15 @@
 }
 .family-access .family-access-error {
   padding: 12px 16px;
-  border-left: 3px solid #9e382f;
-  background: #fff1ec;
-  color: #82291f;
+  border-left: 3px solid var(--theme-danger-border, #9e382f);
+  background: var(--theme-danger-surface, #fff1ec);
+  color: var(--theme-danger-ink, #82291f);
   margin: 8px 0 0;
 }
 .family-access .family-access-notice {
   padding: 12px 16px;
   border-left: 3px solid var(--forest);
-  background: #edf3ee;
+  background: var(--theme-warm-surface, #edf3ee);
   color: var(--forest);
   margin: 8px 0 0;
 }

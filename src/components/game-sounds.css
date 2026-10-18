@@ -19,6 +19,6 @@
   border: 0;
 }
 .game-sound-toggle[aria-pressed="true"] {
-  color: var(--green, #174e3d);
+  color: var(--theme-accent-ink, #174e3d);
   background: var(--paper, #fffdf7);
 }

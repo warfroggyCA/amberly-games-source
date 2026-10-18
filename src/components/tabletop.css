@@ -1,12 +1,6 @@
 /* The approved tabletop finish is shared by the scorer, private viewer, and menus.
    Board sizing and interaction geometry remain owned by their existing styles. */
 :root {
-  --paper: #f0eadf;
-  --surface: #fffcf4;
-  --ink: #233f33;
-  --forest: #1b4e38;
-  --muted: #69705f;
-  --line: #c7c5ad;
   --installed-top-clearance: 0px;
   --game-bottom-clearance: max(12px, env(safe-area-inset-bottom, 0px));
   --table-scene: url("/tabletop/table-bottles-v4.webp");
@@ -31,7 +25,11 @@
 }
 body {
   min-height: 100dvh;
-  background: #f0eadf var(--table-scene) center / cover fixed;
+  background-color: var(--paper);
+  background-image: var(--table-background, var(--table-scene));
+  background-position: center;
+  background-size: cover;
+  background-attachment: fixed;
 }
 .app-shell > .site-header {
   min-height: 72px;
@@ -39,7 +37,10 @@ body {
   gap: 14px;
   border-bottom: 0;
   /* Quiet backing keeps navigation legible over the richer edge props. */
-  background: linear-gradient(#fffcf4f5, #fffcf4db);
+  background: linear-gradient(
+    var(--theme-surface, #fffcf4f5),
+    var(--theme-surface, #fffcf4db)
+  );
 }
 .app-shell.game-screen > .site-header {
   min-height: 64px;
@@ -63,7 +64,7 @@ body {
 }
 .app-shell:not(.game-screen):not(.spectator-shell) > main {
   padding: 24px;
-  background: #fffcf4eb;
+  background: var(--theme-surface, #fffcf4eb);
   border-radius: 16px;
 }
 .app-shell > footer {
@@ -85,14 +86,14 @@ body {
 .app-shell .button.primary {
   background: #1b4e38;
   color: #fff9e8;
-  border: 1px solid #143827;
-  border-bottom: 3px solid #123624;
+  border: 1px solid var(--theme-line, #143827);
+  border-bottom: 3px solid var(--theme-line, #123624);
   border-radius: 9px;
   box-shadow: 0 3px 5px #42543a25;
 }
 .app-shell .button.light {
-  background: #fffcf4d9;
-  border-color: #c7c5ad;
+  background: var(--theme-surface, #fffcf4d9);
+  border-color: var(--theme-line, #c7c5ad);
   border-radius: 8px;
 }
 .app-shell .button.primary:not(:disabled):active,
@@ -108,15 +109,15 @@ body {
   min-width: 46px;
   flex: 0 0 46px;
   padding: 9px;
-  border: 1px solid #b7ae9270;
-  border-bottom: 2px solid #b7ae92;
+  border: 1px solid var(--theme-line, #b7ae9270);
+  border-bottom: 2px solid var(--theme-line, #b7ae92);
   border-radius: 9px;
   color: var(--forest);
-  background: #fffcf480;
+  background: var(--theme-surface, #fffcf480);
   box-shadow: 0 2px 3px #51412714;
 }
 :is(.app-shell, .family-hub) .tabletop-tool:not(:disabled):hover {
-  background: #fffcf4;
+  background: var(--theme-surface, #fffcf4);
 }
 :is(.app-shell, .family-hub) .tabletop-menu-button {
   border-color: transparent;
@@ -124,7 +125,7 @@ body {
   box-shadow: none;
 }
 .app-shell .tabletop-end-game {
-  color: #7f4634;
+  color: var(--theme-danger-ink, #7f4634);
 }
 .app-shell .turn-actions {
   align-items: center;
@@ -139,9 +140,9 @@ body {
   font-size: 11px;
 }
 .app-shell .modal {
-  background: #fffcf4;
+  background: var(--theme-surface, #fffcf4);
   color: var(--ink);
-  border: 1px solid #bdba9e;
+  border: 1px solid var(--theme-line, #bdba9e);
   border-radius: 16px;
   box-shadow: 0 18px 65px #293c3540;
 }
@@ -162,15 +163,18 @@ body {
   justify-content: flex-start;
 }
 .tabletop-menu .game-menu-nav [aria-current="page"] {
-  border-color: #1b4e38;
-  background: #e5edda;
+  border-color: var(--theme-line, #1b4e38);
+  background: var(--theme-surface-raised, #e5edda);
 }
 .tabletop-menu p {
   font-size: 12px;
 }
 .app-shell .board-workspace.entry-focused,
 .app-shell .board-workspace:modal {
-  background: #f0eadf var(--table-scene) center / cover;
+  background-color: var(--paper);
+  background-image: var(--table-background, var(--table-scene));
+  background-position: center;
+  background-size: cover;
 }
 .app-shell .board-frame {
   background: #45261d;
@@ -279,7 +283,7 @@ body {
   box-shadow: inset 0 0 0 3px #fff6df;
 }
 .app-shell .board-workspace .square.selected .direction-caret {
-  color: var(--forest);
+  color: #1b4e38;
   background: #fff6df;
 }
 .app-shell .board-workspace .square .letter-tile b {
@@ -371,13 +375,13 @@ body {
 }
 
 .app-shell .score-panel {
-  background: #fffcf4ed;
-  border-color: #c7c5ad;
+  background: var(--theme-surface, #fffcf4ed);
+  border-color: var(--theme-line, #c7c5ad);
   box-shadow: 0 3px 12px #51412710;
 }
 .app-shell .panel-chevron {
-  border-color: #bdba9e;
-  background: #fffcf4;
+  border-color: var(--theme-line, #bdba9e);
+  background: var(--theme-surface, #fffcf4);
   border-radius: 8px;
 }
 .app-shell .tile-bag-button {
@@ -405,13 +409,13 @@ body {
 }
 .app-shell .watch-link-button {
   border-radius: 9px;
-  border-bottom: 3px solid #123624;
+  border-bottom: 3px solid var(--theme-line, #123624);
   box-shadow: 0 3px 5px #42543a25;
 }
 body > .family-toolbar {
   padding-block: 6px;
-  background: #f0eadfbf;
-  border-bottom-color: #c7c5ad;
+  background: var(--theme-surface, #f0eadfbf);
+  border-bottom-color: var(--theme-line, #c7c5ad);
   font-size: 11px;
 }
 @media (max-width: 600px) {
@@ -691,7 +695,7 @@ body > .family-toolbar {
   .app-shell:is(.game-screen, .spectator-shell)
     > .site-header
     > .tabletop-menu-button {
-    background: #fffcf4eb;
+    background: var(--theme-surface, #fffcf4eb);
     border-radius: 6px;
   }
 }
@@ -709,5 +713,21 @@ body > .family-toolbar {
 @media (min-width: 521px) and (max-height: 520px) {
   body {
     background-position: center bottom;
+  }
+}
+
+/* Premium labels retain their separate word/letter hues at night. Materials,
+   geometry and player-selected disc colours are never inverted. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --board-ivory: #626b5d;
+    --board-brass: #b3a077;
+    --board-tw: #713f50;
+    --board-dw: #80555d;
+    --board-tl: #294e70;
+    --board-dl: #4d657e;
+    --board-premium-ink: #fff8ea;
+    --board-dw-ink: #fff8ea;
+    --board-dl-ink: #fff8ea;
   }
 }

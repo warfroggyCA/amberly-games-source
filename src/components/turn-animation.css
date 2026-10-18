@@ -73,11 +73,11 @@
   align-content: center;
   flex-wrap: wrap;
   padding: 9px 12px;
-  color: #123e2e;
+  color: var(--theme-accent-ink, #123e2e);
   background: radial-gradient(
     ellipse,
-    #fff6ceef 8%,
-    #ffe7a969 43%,
+    var(--theme-surface-raised, #fff6ceef) 8%,
+    var(--theme-surface-raised, #ffe7a969) 43%,
     #ffde7900 72%
   );
   text-align: center;

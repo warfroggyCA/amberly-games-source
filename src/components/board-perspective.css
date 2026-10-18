@@ -20,8 +20,8 @@
   display: inline-block;
   padding: 3px 7px;
   border-radius: 6px;
-  background: #f5eddf;
-  color: #184d3c;
+  background: var(--theme-surface, #f5eddf);
+  color: var(--theme-accent-ink, #184d3c);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   font-size: 0.8rem;

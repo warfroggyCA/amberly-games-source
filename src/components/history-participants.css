@@ -70,7 +70,7 @@
   line-height: 1.25;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--green, #204e3d);
+  color: var(--theme-accent-ink, #204e3d);
 }
 .history-participants .history-participant-score {
   font-size: 0.8rem;

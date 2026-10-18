@@ -147,6 +147,42 @@ test("permission switches retain edits after a failed save, retry the same reque
   await expect(
     panel.getByRole("switch", { name: "Invite people" }),
   ).not.toBeChecked();
+  // Both on/off thumbs must remain distinguishable from their track, including
+  // system dark mode. Text-only contrast scans cannot inspect pseudo-elements.
+  for (const name of ["Manage equipment", "Invite people"]) {
+    const contrast = await panel
+      .getByRole("switch", { name })
+      .evaluate((node) => {
+        const luminance = (colour: string) =>
+          colour
+            .match(/[\d.]+/g)!
+            .slice(0, 3)
+            .map(Number)
+            .reduce((sum, value, i) => {
+              const channel = value / 255;
+              return (
+                sum +
+                (channel <= 0.04045
+                  ? channel / 12.92
+                  : ((channel + 0.055) / 1.055) ** 2.4) *
+                  [0.2126, 0.7152, 0.0722][i]
+              );
+            }, 0);
+        const thumb = luminance(
+          getComputedStyle(node, "::after").backgroundColor,
+        );
+        const track = luminance(
+          getComputedStyle(node, "::before").backgroundColor,
+        );
+        return (
+          (Math.max(thumb, track) + 0.05) / (Math.min(thumb, track) + 0.05)
+        );
+      });
+    if (testInfo.project.use.colorScheme === "dark")
+      expect(contrast, `${name} thumb/track contrast`).toBeGreaterThanOrEqual(
+        3,
+      );
+  }
   // The entire labelled row is a touch target, not only the small thumb.
   await panel
     .locator("label")

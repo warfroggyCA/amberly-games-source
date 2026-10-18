@@ -8,7 +8,7 @@
   padding: 9px;
   color: #fffdf7;
   background: #184d3c;
-  border: 1px solid #113b2e;
+  border: 1px solid var(--theme-line, #113b2e);
   border-radius: 5px;
   cursor: pointer;
 }
@@ -16,7 +16,7 @@
   background: #25634d;
 }
 .watch-link-button:focus-visible {
-  outline: 3px solid #ac7c2e;
+  outline: 3px solid var(--theme-focus, #ac7c2e);
   outline-offset: 3px;
 }
 
@@ -24,7 +24,7 @@
 .app-shell .watch-share-modal {
   width: min(460px, calc(100vw - 28px));
   padding: 26px;
-  border-top: 3px solid #b88937;
+  border-top: 3px solid var(--theme-line, #b88937);
 }
 .watch-share-modal .modal-heading {
   gap: 12px;
@@ -86,7 +86,7 @@
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   list-style: none;
-  color: #58634f;
+  color: var(--theme-ink, #58634f);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
@@ -129,7 +129,7 @@
   max-width: 32ch;
   margin: 12px auto 0;
   text-align: center;
-  color: #69705f;
+  color: var(--theme-ink, #69705f);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -146,7 +146,7 @@
   font-size: 13px;
 }
 .watch-share-manage .watch-share-stop {
-  color: #8b4635;
+  color: var(--theme-danger-ink, #8b4635);
 }
 @media (max-width: 480px) {
   .app-shell .watch-share-modal {

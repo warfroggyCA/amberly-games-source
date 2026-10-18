@@ -52,7 +52,7 @@
   display: block;
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
-  color: #214a3c;
+  color: var(--theme-accent-ink, #214a3c);
 }
 body
   .app-shell.game-screen
@@ -108,7 +108,7 @@ body .game-screen .table-area > .turn-actions .button {
 body .game-screen .table-area > .turn-actions {
   position: relative;
   z-index: 30;
-  background: #f4ecdeed;
+  background: var(--theme-surface, #f4ecdeed);
   border-radius: 4px;
 }
 body .spectator-table:has(.board-seat-rack) {

@@ -249,11 +249,11 @@ body:has(> .spectator-shell) > .error-banner {
   color: #f2d594;
 }
 .spectator-seat.is-selected {
-  outline: 2px solid #b88b34;
+  outline: 2px solid var(--theme-focus, #b88b34);
   outline-offset: 3px;
 }
 .spectator-seat:focus-within {
-  outline: 3px solid #a27120;
+  outline: 3px solid var(--theme-focus, #a27120);
   outline-offset: 4px;
 }
 .spectator-seat .spectator-player-initial {
@@ -330,7 +330,7 @@ body:has(> .spectator-shell) > .error-banner {
 }
 .spectator-word-outlines rect {
   fill: none;
-  stroke: #146945;
+  stroke: var(--theme-accent-ink, #146945);
   stroke-width: 2.5px;
 }
 .spectator-word-outlines .assisted {
@@ -435,6 +435,7 @@ body:has(> .spectator-shell) > .error-banner {
   height: 36px;
   border-radius: 50%;
   background: #e3eadf;
+  color: #234838;
   font:
     700 21px Georgia,
     serif;

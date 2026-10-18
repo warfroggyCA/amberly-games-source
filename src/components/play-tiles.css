@@ -15,7 +15,7 @@
   height: 12px;
   background: #563322;
   border-radius: 3px 3px 5px 5px;
-  border-bottom: 4px solid #3e2418;
+  border-bottom: 4px solid var(--theme-line, #3e2418);
   box-shadow: 0 5px 7px #38271b22;
 }
 .family-welcome-tile {

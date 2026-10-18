@@ -6,13 +6,13 @@
 }
 .family-standings .standings-views button {
   min-height: 44px;
-  border: 1px solid #b7b09c;
+  border: 1px solid var(--theme-line, #b7b09c);
   border-radius: 999px;
   padding: 8px 18px;
 }
 .family-standings .standings-views button[aria-pressed="true"] {
   background: #194c3b;
-  border-color: #194c3b;
+  border-color: var(--theme-line, #194c3b);
   color: #fffdf5;
 }
 .standings-breakdown {
@@ -27,7 +27,7 @@
 }
 .family-standings button:focus-visible,
 .family-standings .standings-scroll:focus-visible {
-  outline: 3px solid #b78c37;
+  outline: 3px solid var(--theme-focus, #b78c37);
   outline-offset: 3px;
 }
 

@@ -22,7 +22,7 @@
   width: 44px;
   border: 0;
   background: transparent;
-  color: var(--green, #194d3c);
+  color: var(--theme-accent-ink, #194d3c);
   font-size: 1.6rem;
   cursor: pointer;
 }

@@ -22,6 +22,7 @@
     "format:check": "prettier --check src tests scripts config .github *.ts *.mjs *.json",
     "test:database": "node scripts/test-shared-database.mjs",
     "test:browser": "playwright test",
+    "test:browser:dark": "playwright test --config=playwright.dark.config.ts",
     "test:browser:install": "playwright install chromium webkit",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:database && npm run build && npm run test:browser && npm run test:integrated",
     "release:check": "node scripts/release-check.mjs",

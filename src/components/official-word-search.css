@@ -6,30 +6,30 @@
 .official-result.official-verdict {
   padding: 18px 20px;
   border: 1px solid var(--line);
-  border-left: 6px solid #896b30;
-  background: #f4eddd;
+  border-left: 6px solid var(--theme-warm-ink, #896b30);
+  background: var(--theme-warm-surface, #f4eddd);
 }
 .official-verdict.is-playable {
-  border-left-color: #216345;
-  background: #e8f2e9;
+  border-left-color: var(--theme-accent-ink, #216345);
+  background: var(--theme-success-surface, #e8f2e9);
 }
 .official-verdict.is-unplayable {
-  border-left-color: #a12f2c;
-  background: #f9e9e5;
+  border-left-color: var(--theme-danger-border, #a12f2c);
+  background: var(--theme-danger-surface, #f9e9e5);
 }
 .official-verdict .official-verdict-heading {
   display: flex;
   align-items: center;
   gap: 14px;
   margin: 0 0 10px;
-  color: #745718;
+  color: var(--theme-warm-ink, #745718);
   font-family: inherit;
 }
 .official-verdict.is-playable .official-verdict-heading {
-  color: #195437;
+  color: var(--theme-accent-ink, #195437);
 }
 .official-verdict.is-unplayable .official-verdict-heading {
-  color: #922824;
+  color: var(--theme-danger-ink, #922824);
 }
 .official-verdict-icon {
   font-size: 2.8rem;
