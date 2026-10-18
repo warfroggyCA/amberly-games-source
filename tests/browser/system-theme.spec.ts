@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 import { solidTextContrast } from "./fixtures/theme-contrast";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
 
@@ -56,6 +56,19 @@ async function screenshot(
     path: info.outputPath(`${name}.png`),
     fullPage: true,
   });
+}
+// WebKit can briefly return no box while React replaces the grid after Begin
+// play. Capture the successful sample itself; a separate visible check followed
+// by an unchecked measurement can race that replacement.
+async function visibleBox(locator: Locator) {
+  let box: Awaited<ReturnType<Locator["boundingBox"]>> = null;
+  await expect
+    .poll(async () => {
+      box = await locator.boundingBox();
+      return box !== null && box.width > 0 && box.height > 0;
+    })
+    .toBe(true);
+  return box!;
 }
 async function localGame(page: Page) {
   await page.goto("/");
@@ -116,7 +129,7 @@ for (const mode of ["light", "dark"] as const) {
     await localGame(page);
     const board = page.getByRole("grid", { name: "Scrabble board, 15 by 15" });
     await expect(board).toBeVisible();
-    const dimensions = await board.boundingBox();
+    const dimensions = await visibleBox(board);
     await page.getByTestId("cell-H8").click();
     await page
       .getByRole("textbox", { name: "Type letters on the board" })
@@ -143,10 +156,7 @@ for (const mode of ["light", "dark"] as const) {
     // dialog closes, and wait for the local save before testing restoration.
     await expect(dialog).not.toBeVisible();
     await expect(board).toBeVisible();
-    expect((await board.boundingBox())!.width).toBeCloseTo(
-      dimensions!.width,
-      1,
-    );
+    expect((await visibleBox(board)).width).toBeCloseTo(dimensions.width, 1);
     await scheme(page, mode);
     await expect(page.locator(".save-state")).toHaveText(
       "Saved on this device",
@@ -349,14 +359,14 @@ for (const mode of ["light", "dark"] as const) {
     await expect(
       page.getByRole("button", { name: "Next random puzzle", exact: true }),
     ).toBeEnabled();
-    const before = await page.locator(".gym-board").boundingBox();
+    const before = await visibleBox(page.locator(".gym-board"));
     await screenshot(page, `${mode}-gym-board`, info);
     await scheme(page, mode === "dark" ? "light" : "dark");
-    const after = await page.locator(".gym-board").boundingBox();
-    expect(after!.width).toBeCloseTo(before!.width, 1);
-    expect(after!.height).toBeCloseTo(before!.height, 1);
+    const after = await visibleBox(page.locator(".gym-board"));
+    expect(after.width).toBeCloseTo(before.width, 1);
+    expect(after.height).toBeCloseTo(before.height, 1);
     if (info.project.name === "desktop-chromium") {
-      expect(before!.width).toBe(396);
+      expect(before.width).toBe(396);
       const check = await page
         .getByRole("button", { name: "Check move", exact: true })
         .boundingBox();
