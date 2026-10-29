@@ -194,10 +194,35 @@
   margin-top: 5px;
 }
 .crokinole-start {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 8px 0;
+  line-height: 1.4;
+}
+.crokinole-start > div {
+  min-width: 0;
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+.crokinole-start span {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+}
+.crokinole-start strong {
+  display: block;
+  font-size: 20px;
+}
+.crokinole-start small {
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.crokinole-next-starter {
+  background: var(--theme-warm-surface, #f1ead9);
+  border-left: 3px solid var(--focus);
+  border-radius: 4px;
 }
 .crokinole-round-list {
   display: grid;
@@ -682,7 +707,18 @@
     gap: 0 16px;
   }
   .hub-in-game .crokinole-standing {
-    padding: 8px 0;
+    padding: 6px 0;
+  }
+  .hub-in-game .crokinole-start {
+    padding: 0;
+    gap: 8px;
+  }
+  .crokinole-start > div {
+    padding: 2px 8px;
+  }
+  .crokinole-start strong {
+    font-size: 16px;
+    line-height: 1.25;
   }
   .crokinole-standing .crokinole-total {
     font-size: 32px;

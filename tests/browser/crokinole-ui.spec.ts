@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
+import { applyCrokinoleCommand } from "../../src/domain/crokinole";
 
 test("Crokinole default zero scores, round review and undo preserve the entry", async ({
   page,
@@ -9,7 +10,15 @@ test("Crokinole default zero scores, round review and undo preserve the entry", 
   await expect(
     page.getByRole("heading", { name: "New Crokinole game" }),
   ).toBeVisible();
+  await page.locator("summary").filter({ hasText: "Game options" }).click();
+  await page
+    .getByRole("combobox", { name: "Who starts?", exact: true })
+    .selectOption("doug");
   await page.getByRole("button", { name: "Start game", exact: true }).click();
+  const order = page.getByRole("region", { name: "Round shooting order" });
+  await expect(order.locator(".crokinole-next-starter")).toContainText(
+    "Erin · Round 2",
+  );
   await expect(
     page.getByRole("button", { name: "Add Round 1", exact: true }),
   ).toBeVisible();
@@ -40,6 +49,9 @@ test("Crokinole default zero scores, round review and undo preserve the entry", 
     page.getByRole("button", { name: "Add Round 2", exact: true }),
   ).toBeVisible();
   expect(fixture.game().totals).toEqual({ doug: 65, erin: 0 });
+  await expect(order.locator(".crokinole-next-starter")).toContainText(
+    "Doug · Round 3",
+  );
   await page.getByRole("button", { name: "Undo last round" }).click();
   await page
     .getByRole("dialog")
@@ -52,7 +64,13 @@ test("Crokinole default zero scores, round review and undo preserve the entry", 
   await page
     .getByRole("button", { name: "Keep draft & close", exact: true })
     .click();
+  await expect(order.locator(".crokinole-next-starter")).toContainText(
+    "Erin · Round 2",
+  );
   await page.reload();
+  await expect(order.locator(".crokinole-next-starter")).toContainText(
+    "Erin · Round 2",
+  );
   await page
     .getByRole("button", { name: "Continue entry", exact: true })
     .click();
@@ -62,6 +80,297 @@ test("Crokinole default zero scores, round review and undo preserve the entry", 
   await expect(
     page.getByLabel("Erin round total", { exact: true }),
   ).toHaveValue("0");
+});
+
+for (const [count, format] of [
+  [2, "singles"],
+  [3, "free_for_all"],
+  [4, "free_for_all"],
+  [4, "doubles"],
+] as const) {
+  test(`next-round first shooter follows seats in ${count}-player ${format}`, async ({
+    page,
+  }, info) => {
+    const fixture = await installFixture(page, {
+      playerCount: count,
+      format,
+      scoringMode: "cumulative_round_totals",
+      endCondition: { type: "fixed_rounds", rounds: 3 },
+    });
+    const names = ["Doug", "Erin", "Nate", "Cristine"].slice(0, count);
+    await page.goto("/family/crokinole/new");
+    await page.locator("summary").filter({ hasText: "Game options" }).click();
+    await page
+      .getByRole("combobox", { name: "Who starts?", exact: true })
+      .selectOption(fixture.family.players[count - 1].id);
+    await page.getByRole("button", { name: "Start game", exact: true }).click();
+    const order = page.getByRole("region", { name: "Round shooting order" });
+    await expect(order.locator("strong").first()).toHaveText(names.at(-1)!);
+    const next = order.locator(".crokinole-next-starter");
+    await expect(next).toHaveText("First to shoot next roundDoug · Round 2");
+    await fitsWidth(page);
+    await page.screenshot({
+      path: info.outputPath("crokinole-next-first-shooter.png"),
+      fullPage: false,
+    });
+    for (let round = 1; round <= 3; round++) {
+      if (round === 2) {
+        await page
+          .getByRole("button", { name: `Add Round ${round}`, exact: true })
+          .click();
+        // Opening a score entry does not advance the shooting order.
+        await expect(order.locator("strong").first()).toHaveText("Doug");
+        await page
+          .getByRole("button", { name: "Save round", exact: true })
+          .click();
+      } else {
+        await page
+          .getByRole("button", { name: "No Score", exact: true })
+          .click();
+        await page
+          .getByRole("dialog", { name: `No score for Round ${round}?` })
+          .getByRole("button", { name: "No Score", exact: true })
+          .click();
+      }
+      if (round === 1) {
+        await expect(next).toContainText("Erin · Round 3");
+        await page.reload();
+        await expect(next).toContainText("Erin · Round 3");
+      } else if (round === 2) {
+        await expect(next).toHaveCount(0);
+        await expect(order).toContainText("Round 3 · First to shootErin");
+      }
+    }
+    await page
+      .getByRole("dialog", { name: "Well played!" })
+      .getByRole("button", { name: "Close dialog" })
+      .click();
+    await expect(order).toHaveCount(0);
+    expect(fixture.game().status).toBe("completed");
+    expect(fixture.game().rounds.map((r) => r.startingPlayerId)).toEqual([
+      fixture.family.players[count - 1].id,
+      "doug",
+      "erin",
+    ]);
+  });
+}
+
+for (const scoringMode of [
+  "net_winner_only",
+  "cumulative_round_totals",
+  "traditional_differential",
+  "nca_match_points",
+] as const) {
+  test(`No Score records one zero-total round under ${scoringMode} rules`, async ({
+    page,
+  }) => {
+    const fixture = await installFixture(page, {
+      playerCount: 2,
+      format: "singles",
+      scoringMode,
+      endCondition: {
+        type: "target",
+        target: scoringMode === "nca_match_points" ? 5 : 100,
+      },
+    });
+    await page.goto("/family/crokinole/new");
+    await page.locator("summary").filter({ hasText: "Game options" }).click();
+    await page
+      .getByRole("combobox", { name: "Who starts?", exact: true })
+      .selectOption("doug");
+    await page.getByRole("button", { name: "Start game", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Add Round 1", exact: true })
+      .click();
+    await page.getByLabel("Doug round total", { exact: true }).fill("20");
+    await page.getByRole("button", { name: "Save round", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Add Round 2", exact: true }),
+    ).toBeVisible();
+    const before = { ...fixture.game().totals };
+    await page
+      .getByRole("button", { name: "Add Round 2", exact: true })
+      .click();
+    await page.getByLabel("Doug round total", { exact: true }).fill("25");
+    await page
+      .getByRole("button", { name: "Keep draft & close", exact: true })
+      .click();
+    await page.getByRole("button", { name: "No Score", exact: true }).click();
+    const confirmation = page.getByRole("dialog", {
+      name: "No score for Round 2?",
+    });
+    await expect(confirmation).toContainText("discards your unfinished entry");
+    await confirmation
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    expect(fixture.game().rounds).toHaveLength(1);
+    await page
+      .getByRole("button", { name: "Continue entry", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("Doug round total", { exact: true }),
+    ).toHaveValue("25");
+    await page
+      .getByRole("button", { name: "Keep draft & close", exact: true })
+      .click();
+
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    await page.route("**/api/family/crokinole*", async (route) => {
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().operation.type === "command"
+      ) {
+        writes++;
+        await held;
+      }
+      await route.fallback();
+    });
+    await page.getByRole("button", { name: "No Score", exact: true }).click();
+    if (scoringMode === "nca_match_points")
+      await expect(confirmation).toContainText("one match point to each side");
+    const submit = confirmation.getByRole("button", {
+      name: "No Score",
+      exact: true,
+    });
+    // Dispatch both taps in the same frame, before React can disable the button.
+    await submit.evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+    await expect.poll(() => writes).toBe(1);
+    await expect(
+      confirmation.getByRole("button", { name: "Saving…", exact: true }),
+    ).toBeDisabled();
+    release();
+    await expect(confirmation).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Add Round 3", exact: true }),
+    ).toBeVisible();
+    expect(writes).toBe(1);
+    expect(fixture.game().events).toHaveLength(2);
+    expect(fixture.game().rounds[1].entries).toEqual([
+      { participantId: "doug", rawScore: 0 },
+      { participantId: "erin", rawScore: 0 },
+    ]);
+    expect(fixture.game().totals).toEqual(
+      scoringMode === "nca_match_points"
+        ? { doug: before.doug + 1, erin: before.erin + 1 }
+        : before,
+    );
+    expect(fixture.game().rounds[1].startingPlayerId).toBe("erin");
+    await page.reload();
+    await expect(
+      page
+        .getByRole("region", { name: "Round shooting order" })
+        .locator("strong")
+        .first(),
+    ).toHaveText("Doug");
+    await page.getByRole("button", { name: "Undo last round" }).click();
+    await page
+      .getByRole("dialog", { name: "Undo round 2?" })
+      .getByRole("button", { name: "Undo round", exact: true })
+      .click();
+    await expect(
+      page.getByLabel("Doug round total", { exact: true }),
+    ).toHaveValue("0");
+    expect(fixture.game().totals).toEqual(before);
+    expect(fixture.game().rounds).toHaveLength(1);
+  });
+}
+
+test("target first-shooter hints follow corrections and a viewer's shared refresh", async ({
+  page,
+}) => {
+  const fixture = await installFixture(page, {
+    playerCount: 2,
+    format: "singles",
+    scoringMode: "cumulative_round_totals",
+    endCondition: { type: "target", target: 100 },
+  });
+  await page.goto("/family/crokinole/new");
+  await page.locator("summary").filter({ hasText: "Game options" }).click();
+  await page
+    .getByRole("combobox", { name: "Who starts?", exact: true })
+    .selectOption("erin");
+  await page.getByRole("button", { name: "Start game", exact: true }).click();
+  const order = page.getByRole("region", { name: "Round shooting order" });
+  const next = order.locator(".crokinole-next-starter");
+  await expect(next).toHaveText(
+    "First to shoot next round (if needed)Doug · Round 2",
+  );
+  await page.getByRole("button", { name: "No Score", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "No score for Round 1?" })
+    .getByRole("button", { name: "No Score", exact: true })
+    .click();
+  await expect(next).toContainText("Erin · Round 3");
+
+  async function editFirstRound() {
+    const review = page.getByRole("button", {
+      name: "Review round 1",
+      exact: true,
+    });
+    if (await review.isVisible()) await review.click();
+    else
+      await page
+        .locator(".crokinole-round")
+        .filter({ hasText: "Round 1" })
+        .click();
+    await page.getByRole("button", { name: "Edit round", exact: true }).click();
+  }
+  await editFirstRound();
+  await page.getByLabel("Doug round total", { exact: true }).fill("100");
+  await page
+    .getByRole("button", { name: "Save correction", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Well played!" })
+    .getByRole("button", { name: "Close dialog" })
+    .click();
+  await expect(order).toHaveCount(0);
+  await editFirstRound();
+  await page.getByLabel("Doug round total", { exact: true }).fill("20");
+  await page
+    .getByRole("button", { name: "Save correction", exact: true })
+    .click();
+  const confirmation = page.getByRole("dialog", { name: "Amend this result?" });
+  await confirmation
+    .getByLabel("Reason", { exact: true })
+    .fill("Missed score correction");
+  await confirmation
+    .getByRole("button", { name: "Save correction", exact: true })
+    .click();
+  await expect(next).toContainText("Erin · Round 3");
+
+  fixture.shared.access[fixture.game().definition.id].canScore = false;
+  await page.reload();
+  await expect(next).toContainText("Erin · Round 3");
+  await expect(
+    page.getByRole("button", { name: "Add Round 2", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "No Score", exact: true }),
+  ).toHaveCount(0);
+  fixture.shared.games[0] = applyCrokinoleCommand(fixture.game(), {
+    id: "another-scorer-round",
+    type: "record_round",
+    expectedRevision: fixture.game().revision,
+    roundId: "shared-round-2",
+    entries: [
+      { participantId: "doug", rawScore: 0 },
+      { participantId: "erin", rawScore: 0 },
+    ],
+  });
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(next).toContainText("Doug · Round 4");
+  await expect(order.locator("strong").first()).toHaveText("Erin");
+  expect(fixture.game().events).toHaveLength(4);
 });
 
 test("Crokinole doubles and individual setup keep teams and colours valid", async ({

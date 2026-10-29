@@ -206,6 +206,11 @@ test("short landscape keeps four long-name scores, starter and next-round contro
   const actionBox = await page
     .locator(".crokinole-sticky-actions")
     .boundingBox();
+  for (const shooter of await page.locator(".crokinole-start strong").all()) {
+    await expect(shooter).toBeInViewport({ ratio: 1 });
+    const box = await shooter.boundingBox();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(actionBox!.y);
+  }
   for (const total of await page.locator(".crokinole-total").all()) {
     await expect(total).toBeInViewport({ ratio: 1 });
     const box = await total.boundingBox();
