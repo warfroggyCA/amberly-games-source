@@ -167,6 +167,39 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
     }
     setEntryOpen(true);
   }
+  function recordNoScore() {
+    if (!match || match.status !== "active" || pending) return;
+    const command: CrokinoleCommand = {
+      id: crypto.randomUUID(),
+      expectedRevision: match.revision,
+      type: "record_round",
+      roundId: crypto.randomUUID(),
+      entries: participants.map((p) => ({ participantId: p.id, rawScore: 0 })),
+    };
+    confirm({
+      title: `No score for Round ${match.rounds.length + 1}?`,
+      message: [
+        "Save a completed round with zero totals for every side. It stays in history and the first shooter advances if the match continues.",
+        match.definition.scoringMode === "nca_match_points"
+          ? "NCA scoring awards one match point to each side for this tied round."
+          : "Match scores stay unchanged.",
+        draft?.editingRoundId ||
+        Object.values(draft?.values ?? {}).some((v) => v !== "")
+          ? "This discards your unfinished entry or correction."
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      action: "No Score",
+      run: async () => {
+        await onCommand(command);
+        setEntryOpen(false);
+        requestAnimationFrame(() =>
+          window.scrollTo({ top: 0, behavior: "instant" }),
+        );
+      },
+    });
+  }
   function edit(round: CrokinoleRound) {
     const begin = () => {
       onDraftChange({
@@ -337,6 +370,12 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
   const starter = match
     ? getStartingPlayer(match.definition, match.rounds.length)
     : null;
+  const nextStarter =
+    match?.status === "active" &&
+    (match.definition.endCondition.type === "target" ||
+      match.rounds.length + 1 < match.definition.endCondition.rounds)
+      ? getStartingPlayer(match.definition, match.rounds.length + 1)
+      : null;
   return (
     <main className="crokinole">
       {!props.onMenu && (
@@ -499,10 +538,31 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
             ))}
           </div>
           {match.status === "active" && (
-            <div className="crokinole-start">
-              <strong>Round {match.rounds.length + 1}</strong>
-              <span>· {starter?.name} starts</span>
-            </div>
+            <section
+              className="crokinole-start"
+              aria-label="Round shooting order"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              <div>
+                <span>Round {match.rounds.length + 1} · First to shoot</span>
+                <strong>{starter?.name}</strong>
+              </div>
+              {nextStarter && (
+                <div className="crokinole-next-starter">
+                  <span>
+                    First to shoot next round
+                    {match.definition.endCondition.type === "target"
+                      ? " (if needed)"
+                      : ""}
+                  </span>
+                  <strong>
+                    {nextStarter.name}{" "}
+                    <small>· Round {match.rounds.length + 2}</small>
+                  </strong>
+                </div>
+              )}
+            </section>
           )}
           {!canScore && (
             <p className="crokinole-notice">
@@ -622,17 +682,26 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
           {canScore && (
             <div className="crokinole-actions crokinole-sticky-actions">
               {match.status === "active" && (
-                <button
-                  className="button primary"
-                  disabled={pending}
-                  onClick={openNew}
-                >
-                  {draft?.editingRoundId
-                    ? "Continue correction"
-                    : Object.values(draft?.values ?? {}).some((v) => v !== "")
-                      ? "Continue entry"
-                      : `Add Round ${match.rounds.length + 1}`}
-                </button>
+                <>
+                  <button
+                    className="button primary"
+                    disabled={pending}
+                    onClick={openNew}
+                  >
+                    {draft?.editingRoundId
+                      ? "Continue correction"
+                      : Object.values(draft?.values ?? {}).some((v) => v !== "")
+                        ? "Continue entry"
+                        : `Add Round ${match.rounds.length + 1}`}
+                  </button>
+                  <button
+                    className="button light"
+                    disabled={pending}
+                    onClick={recordNoScore}
+                  >
+                    No Score
+                  </button>
+                </>
               )}
               {match.status === "ended_early" && (
                 <button
