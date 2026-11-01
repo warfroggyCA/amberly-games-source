@@ -205,7 +205,7 @@
   padding: 8px 12px;
   overflow-wrap: anywhere;
 }
-.crokinole-start span {
+.crokinole-start-label {
   display: block;
   color: var(--muted);
   font-size: 14px;
@@ -219,9 +219,28 @@
   font-weight: 400;
   white-space: nowrap;
 }
-.crokinole-next-starter {
+.crokinole-shooter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.crokinole-shooter .crokinole-disc {
+  width: 32px;
+  height: 32px;
+}
+.crokinole-current-starter {
   background: var(--theme-warm-surface, #f1ead9);
-  border-left: 3px solid var(--focus);
+  border: 2px solid var(--focus);
+  border-left-width: 5px;
+  border-radius: 6px;
+}
+.crokinole-current-starter strong {
+  color: var(--forest);
+  font-size: 24px;
+}
+.crokinole-next-starter {
+  border-left: 1px solid var(--line);
   border-radius: 4px;
 }
 .crokinole-round-list {
@@ -435,6 +454,20 @@
   }
   .crokinole-standing .crokinole-identity strong {
     font-size: 16px;
+  }
+  .crokinole-start {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .crokinole-start > div {
+    padding: 8px 12px;
+  }
+  .crokinole-next-starter .crokinole-shooter {
+    margin-top: 4px;
+  }
+  .crokinole-next-starter .crokinole-disc {
+    width: 24px;
+    height: 24px;
   }
   .crokinole-phone-history {
     display: block;
@@ -719,6 +752,14 @@
   .crokinole-start strong {
     font-size: 16px;
     line-height: 1.25;
+  }
+  .crokinole-shooter {
+    margin-top: 2px;
+    gap: 8px;
+  }
+  .crokinole-shooter .crokinole-disc {
+    width: 24px;
+    height: 24px;
   }
   .crokinole-standing .crokinole-total {
     font-size: 32px;

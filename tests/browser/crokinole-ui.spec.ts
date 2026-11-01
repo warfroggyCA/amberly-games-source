@@ -1,6 +1,28 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { installFixture, fitsWidth } from "./fixtures/crokinole";
-import { applyCrokinoleCommand } from "../../src/domain/crokinole";
+import {
+  applyCrokinoleCommand,
+  type CrokinoleGame,
+} from "../../src/domain/crokinole";
+
+async function expectShooter(
+  card: Locator,
+  game: CrokinoleGame,
+  playerId: string,
+) {
+  const player = game.definition.players.find((p) => p.id === playerId)!;
+  const colour = game.definition.participants.find((p) =>
+    p.playerIds.includes(playerId),
+  )!.colour;
+  await expect(card.locator("strong")).toContainText(player.name);
+  const rgb = colour.value
+    .slice(1)
+    .match(/../g)!
+    .map((channel) => parseInt(channel, 16));
+  await expect(
+    card.getByLabel(`${colour.name} disc`, { exact: true }),
+  ).toHaveCSS("background-color", `rgb(${rgb.join(", ")})`);
+}
 
 test("Crokinole default zero scores, round review and undo preserve the entry", async ({
   page,
@@ -95,7 +117,16 @@ for (const [count, format] of [
       playerCount: count,
       format,
       scoringMode: "cumulative_round_totals",
-      endCondition: { type: "fixed_rounds", rounds: 3 },
+      endCondition: { type: "fixed_rounds", rounds: 5 },
+    });
+    // Custom equipment proves the indicator uses the saved playing assignment.
+    Object.assign(fixture.shared.palette.colours[0], {
+      name: "Midnight lake",
+      value: "#263a83",
+    });
+    Object.assign(fixture.shared.palette.colours[1], {
+      name: "Ivory",
+      value: "#f6f2dd",
     });
     const names = ["Doug", "Erin", "Nate", "Cristine"].slice(0, count);
     await page.goto("/family/crokinole/new");
@@ -105,15 +136,20 @@ for (const [count, format] of [
       .selectOption(fixture.family.players[count - 1].id);
     await page.getByRole("button", { name: "Start game", exact: true }).click();
     const order = page.getByRole("region", { name: "Round shooting order" });
+    const current = order.locator(".crokinole-current-starter");
     await expect(order.locator("strong").first()).toHaveText(names.at(-1)!);
+    await expectShooter(current, fixture.game(), names.at(-1)!.toLowerCase());
     const next = order.locator(".crokinole-next-starter");
     await expect(next).toHaveText("First to shoot next roundDoug · Round 2");
+    await expectShooter(next, fixture.game(), "doug");
     await fitsWidth(page);
     await page.screenshot({
       path: info.outputPath("crokinole-next-first-shooter.png"),
       fullPage: false,
     });
-    for (let round = 1; round <= 3; round++) {
+    // Palette changes must not recolour a match's saved discs after a refresh.
+    fixture.shared.palette.colours[0].value = "#78573b";
+    for (let round = 1; round <= 5; round++) {
       if (round === 2) {
         await page
           .getByRole("button", { name: `Add Round ${round}`, exact: true })
@@ -133,12 +169,44 @@ for (const [count, format] of [
           .click();
       }
       if (round === 1) {
+        await expectShooter(current, fixture.game(), "doug");
+        await expectShooter(next, fixture.game(), "erin");
+        await page.getByRole("button", { name: "Undo last round" }).click();
+        await page
+          .getByRole("dialog", { name: "Undo round 1?" })
+          .getByRole("button", { name: "Undo round", exact: true })
+          .click();
+        await page.getByRole("button", { name: "Keep draft & close" }).click();
+        await expectShooter(
+          current,
+          fixture.game(),
+          names.at(-1)!.toLowerCase(),
+        );
+        await expectShooter(next, fixture.game(), "doug");
+        await page
+          .getByRole("button", { name: "No Score", exact: true })
+          .click();
+        await page
+          .getByRole("dialog", { name: "No score for Round 1?" })
+          .getByRole("button", { name: "No Score", exact: true })
+          .click();
         await expect(next).toContainText("Erin · Round 3");
         await page.reload();
         await expect(next).toContainText("Erin · Round 3");
-      } else if (round === 2) {
-        await expect(next).toHaveCount(0);
-        await expect(order).toContainText("Round 3 · First to shootErin");
+      }
+      if (round < 5) {
+        await expectShooter(
+          current,
+          fixture.game(),
+          names[(round - 1) % count].toLowerCase(),
+        );
+        if (round < 4)
+          await expectShooter(
+            next,
+            fixture.game(),
+            names[round % count].toLowerCase(),
+          );
+        else await expect(next).toHaveCount(0);
       }
     }
     await page
@@ -147,11 +215,16 @@ for (const [count, format] of [
       .click();
     await expect(order).toHaveCount(0);
     expect(fixture.game().status).toBe("completed");
-    expect(fixture.game().rounds.map((r) => r.startingPlayerId)).toEqual([
-      fixture.family.players[count - 1].id,
-      "doug",
-      "erin",
-    ]);
+    expect(fixture.game().rounds.map((r) => r.startingPlayerId)).toEqual(
+      Array.from({ length: 5 }, (_, index) =>
+        names[(count - 1 + index) % count].toLowerCase(),
+      ),
+    );
+    await page.getByRole("button", { name: "Rematch", exact: true }).click();
+    await expect(current.locator("strong")).toHaveText("Doug");
+    await expectShooter(current, fixture.game(), "doug");
+    await expectShooter(next, fixture.game(), "erin");
+    expect(fixture.game().rounds).toHaveLength(0);
   });
 }
 
@@ -302,6 +375,9 @@ test("target first-shooter hints follow corrections and a viewer's shared refres
   await expect(next).toHaveText(
     "First to shoot next round (if needed)Doug · Round 2",
   );
+  const current = order.locator(".crokinole-current-starter");
+  await expectShooter(current, fixture.game(), "erin");
+  await expectShooter(next, fixture.game(), "doug");
   await page.getByRole("button", { name: "No Score", exact: true }).click();
   await page
     .getByRole("dialog", { name: "No score for Round 1?" })
@@ -349,6 +425,8 @@ test("target first-shooter hints follow corrections and a viewer's shared refres
   fixture.shared.access[fixture.game().definition.id].canScore = false;
   await page.reload();
   await expect(next).toContainText("Erin · Round 3");
+  await expectShooter(current, fixture.game(), "doug");
+  await expectShooter(next, fixture.game(), "erin");
   await expect(
     page.getByRole("button", { name: "Add Round 2", exact: true }),
   ).toHaveCount(0);
@@ -370,6 +448,8 @@ test("target first-shooter hints follow corrections and a viewer's shared refres
   );
   await expect(next).toContainText("Doug · Round 4");
   await expect(order.locator("strong").first()).toHaveText("Erin");
+  await expectShooter(current, fixture.game(), "erin");
+  await expectShooter(next, fixture.game(), "doug");
   expect(fixture.game().events).toHaveLength(4);
 });
 
