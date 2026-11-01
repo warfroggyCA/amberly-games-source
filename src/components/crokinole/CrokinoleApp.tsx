@@ -367,15 +367,35 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
       </span>
     );
   }
-  const starter = match
-    ? getStartingPlayer(match.definition, match.rounds.length)
-    : null;
+  const starter =
+    match?.status === "active"
+      ? getStartingPlayer(match.definition, match.rounds.length)
+      : null;
   const nextStarter =
     match?.status === "active" &&
     (match.definition.endCondition.type === "target" ||
       match.rounds.length + 1 < match.definition.endCondition.rounds)
       ? getStartingPlayer(match.definition, match.rounds.length + 1)
       : null;
+  function shooterIdentity(
+    player: CrokinoleDefinition["players"][number],
+    roundNumber?: number,
+  ) {
+    // Match participants hold the playing colours, shared by teammates in doubles.
+    // Use that saved assignment even if the equipment palette changes later.
+    const colour = participants.find((p) =>
+      p.playerIds.includes(player.id),
+    )!.colour;
+    return (
+      <div className="crokinole-shooter">
+        <Disc value={colour.value} label={colour.name} />
+        <strong>
+          {player.name}
+          {roundNumber && <small> · Round {roundNumber}</small>}
+        </strong>
+      </div>
+    );
+  }
   return (
     <main className="crokinole">
       {!props.onMenu && (
@@ -537,29 +557,28 @@ export function CrokinoleApp(props: CrokinoleAppProps) {
               </section>
             ))}
           </div>
-          {match.status === "active" && (
+          {starter && (
             <section
               className="crokinole-start"
               aria-label="Round shooting order"
               aria-live="polite"
               aria-atomic="true"
             >
-              <div>
-                <span>Round {match.rounds.length + 1} · First to shoot</span>
-                <strong>{starter?.name}</strong>
+              <div className="crokinole-current-starter">
+                <span className="crokinole-start-label">
+                  Round {match.rounds.length + 1} · First to shoot
+                </span>
+                {shooterIdentity(starter)}
               </div>
               {nextStarter && (
                 <div className="crokinole-next-starter">
-                  <span>
+                  <span className="crokinole-start-label">
                     First to shoot next round
                     {match.definition.endCondition.type === "target"
                       ? " (if needed)"
                       : ""}
                   </span>
-                  <strong>
-                    {nextStarter.name}{" "}
-                    <small>· Round {match.rounds.length + 2}</small>
-                  </strong>
+                  {shooterIdentity(nextStarter, match.rounds.length + 2)}
                 </div>
               )}
             </section>

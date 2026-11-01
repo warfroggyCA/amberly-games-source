@@ -312,6 +312,8 @@ test("an empty ended-early match resumes only through the explicit action", asyn
   await page.goto("/family/crokinole/new");
   await page.getByRole("button", { name: "Start game", exact: true }).click();
   await endEarly(page);
+  const order = page.getByRole("region", { name: "Round shooting order" });
+  await expect(order).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Add Round 1", exact: true }),
   ).toHaveCount(0);
@@ -328,6 +330,13 @@ test("an empty ended-early match resumes only through the explicit action", asyn
     page.getByRole("button", { name: "Add Round 1", exact: true }),
   ).toBeVisible();
   expect(fixture.game().status).toBe("active");
+  await expect(order.locator(".crokinole-current-starter strong")).toHaveText(
+    fixture
+      .game()
+      .definition.players.find(
+        (p) => p.id === fixture.game().definition.initialStartingPlayerId,
+      )!.name,
+  );
   expect(fixture.game().events.at(-1)!.command.type).toBe("resume");
   await page.locator("summary").filter({ hasText: "Changes (2)" }).click();
   await expect(
@@ -356,6 +365,8 @@ test("undoing an ended-early round retains stopped status and the restored draft
   await expect(
     page.getByRole("button", { name: "Resume match", exact: true }),
   ).toBeVisible();
+  const order = page.getByRole("region", { name: "Round shooting order" });
+  await expect(order).toHaveCount(0);
   expect(fixture.game().status).toBe("ended_early");
   expect(fixture.game().events.at(-1)!.command.type).toBe("undo_round_v2");
   await page.locator("summary").filter({ hasText: "Changes (2)" }).click();
@@ -376,6 +387,13 @@ test("undoing an ended-early round retains stopped status and the restored draft
     .getByRole("button", { name: "Resume match", exact: true })
     .click();
   await expect(resume).toHaveCount(0);
+  await expect(order.locator(".crokinole-current-starter strong")).toHaveText(
+    fixture
+      .game()
+      .definition.players.find(
+        (p) => p.id === fixture.game().definition.initialStartingPlayerId,
+      )!.name,
+  );
   await page
     .getByRole("button", { name: "Continue entry", exact: true })
     .click();
