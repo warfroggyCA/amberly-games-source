@@ -65,3 +65,20 @@ it("rejects cross-origin and oversized writes before repository work", async () 
   }
   expect(mock.append).not.toHaveBeenCalled();
 });
+
+it("passes optional expected owner identity on reads without accepting a different signed-in user", async () => {
+  const result = await GET(
+    new Request(
+      origin +
+        "/api/family/gym?ownerFamilyId=expected-family&ownerPlayerId=expected-player",
+      { headers: { "x-scrabble-user": user.id } },
+    ),
+  );
+  expect(result.status).toBe(200);
+  expect(mock.read.mock.calls[0][2]).toEqual({
+    sessionId: undefined,
+    cursor: undefined,
+    ownerFamilyId: "expected-family",
+    ownerPlayerId: "expected-player",
+  });
+});

@@ -1,11 +1,21 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  sameGymOwner,
+  retainedHistory,
+  historyAccessDenied,
+  historyServiceFailure,
+  validGymAuth,
+  validHistory,
+  validHistoryDetail,
+  type GymReadState,
+  type HistoryTarget,
+} from "../lib/gym-history-read-state";
 import type { Puzzle } from "../domain/gym/model";
 import type {
   GymEventPayload,
   GymIdentity,
   GymHistory,
-  GymSessionDetail,
   GymWrite,
 } from "../lib/gym-history-contract";
 import {
@@ -17,6 +27,7 @@ async function response<T>(
   url: string,
   userId?: string,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const r = await fetch(url, {
     method: body ? "POST" : "GET",
@@ -27,37 +38,45 @@ async function response<T>(
       ...(body ? { "content-type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(20000),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
+      : AbortSignal.timeout(20000),
   });
-  const data = await r.json();
+  const data = await r.json().catch(() => null);
   if (!r.ok)
     throw Object.assign(
       new Error(
-        typeof data.error === "string"
+        typeof data?.error === "string"
           ? data.error
-          : (data.error?.message ??
+          : (data?.error?.message ??
               "Practice could not sync. Your pending saves are kept on this device."),
       ),
-      { code: data.code },
+      { code: data?.code ?? data?.error?.code, status: r.status },
     );
   return data;
 }
 export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
   const [identity, setIdentity] = useState<GymIdentity | null>(null),
     [status, setStatus] = useState(enabled ? "Connecting profile…" : ""),
-    [page, setPage] = useState<GymHistory | null>(null),
-    [detail, setDetail] = useState<GymSessionDetail | null>(null),
-    [loading, setLoading] = useState(false),
+    [readState, setReadState] = useState<GymReadState>({ kind: "closed" }),
+    [practiceOwner, setPracticeOwner] = useState<GymIdentity | null>(null),
+    [denied, setDenied] = useState(false),
     [connectionState, setConnectionState] = useState<
       "connecting" | "failed" | "complete"
     >(enabled ? "connecting" : "complete");
   const current = useRef<GymIdentity | null>(null),
     alive = useRef(true),
     writing = useRef(Promise.resolve()),
-    syncing = useRef(false),
+    syncing = useRef<Promise<void> | null>(null),
+    accessGeneration = useRef(0),
+    readGeneration = useRef(0),
+    readAbort = useRef<AbortController | null>(null),
+    readSnapshot = useRef<GymReadState>({ kind: "closed" }),
+    accessDenied = useRef(false),
     generation = useRef(0);
   const session = useRef<{
     id: string;
+    owner: GymIdentity;
     puzzle: Puzzle;
     sequence: number;
     live: boolean;
@@ -70,44 +89,91 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
   const storageFailure = useRef<string | null>(null);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     delay = useRef(2000);
-  async function flush() {
+  const getOwner = useCallback(
+    () => (enabled && !accessDenied.current ? current.current : null),
+    [enabled],
+  );
+  function invalidateAccess() {
+    accessGeneration.current++;
+  }
+  const updateRead = useCallback((state: GymReadState) => {
+    readSnapshot.current = state;
+    setReadState(state);
+  }, []);
+  const invalidateRead = useCallback(() => {
+    readGeneration.current++;
+    readAbort.current?.abort();
+    readAbort.current = null;
+  }, []);
+  const denialMessage =
+    "Profile history access is unavailable or your account/profile changed. Your pending practice is kept for its original profile. Reload to reconnect; check your profile through Games.";
+  const deny = useCallback(
+    (owner: GymIdentity | null) => {
+      if (!alive.current || (owner && !sameGymOwner(current.current, owner)))
+        return;
+      accessGeneration.current++;
+      accessDenied.current = true;
+      current.current = null;
+      invalidateRead();
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+      setIdentity(null);
+      setDenied(true);
+      setStatus(denialMessage);
+      updateRead({ kind: "denied", message: denialMessage });
+    },
+    [invalidateRead, updateRead],
+  );
+  function flush(): Promise<void> {
     const owner = current.current;
-    if (!owner || syncing.current || !alive.current) return;
-    syncing.current = true;
-    try {
-      const auth = await response<{ user: { id: string } | null }>(
-        "/api/auth/session",
-      );
-      if (auth.user?.id !== owner.userId) {
-        current.current = null;
-        setIdentity(null);
-        setPage(null);
-        setDetail(null);
-        throw new Error(
-          "Your account changed. Pending practice is kept for the original profile; reload to reconnect.",
+    if (!owner || !enabled || !alive.current || accessDenied.current)
+      return Promise.resolve();
+    if (syncing.current) return syncing.current;
+    const version = accessGeneration.current;
+    const isCurrent = () =>
+      alive.current &&
+      version === accessGeneration.current &&
+      sameGymOwner(current.current, owner) &&
+      !accessDenied.current;
+    const work = (async () => {
+      try {
+        const auth = await response<{ user: { id: string } | null }>(
+          "/api/auth/session",
         );
-      }
-      const pending = await pendingGymEvents(owner);
-      if (pending.length && alive.current) setStatus("Saving practice…");
-      for (const item of pending) {
-        if (!alive.current || current.current !== owner) return;
-        const receipt = await response<{
-          eventId: string;
-          sessionId: string;
-          sequence: number;
-        }>("/api/family/gym", owner.userId, item.data);
-        if (
-          receipt.eventId !== item.data.event.id ||
-          receipt.sessionId !== item.data.sessionId ||
-          receipt.sequence !== item.data.event.sequence
-        )
+        if (!isCurrent()) return;
+        if (!validGymAuth(auth))
           throw new Error(
-            "Save receipt did not match. Pending practice has been kept.",
+            "Profile connection returned an invalid response. Please retry.",
           );
-        await acknowledgeGymEvent(item.key);
-      }
-      const remaining = await pendingGymEvents(owner);
-      if (alive.current && current.current === owner)
+        if (auth.user?.id !== owner.userId) {
+          deny(owner);
+          return;
+        }
+        const pending = await pendingGymEvents(owner);
+        if (!isCurrent()) return;
+        if (pending.length) setStatus("Saving practice…");
+        for (const item of pending) {
+          if (!isCurrent()) return;
+          const receipt = await response<{
+            eventId: string;
+            sessionId: string;
+            sequence: number;
+          }>("/api/family/gym", owner.userId, item.data);
+          if (
+            !receipt ||
+            receipt.eventId !== item.data.event.id ||
+            receipt.sessionId !== item.data.sessionId ||
+            receipt.sequence !== item.data.event.sequence
+          )
+            throw new Error(
+              "Save receipt did not match. Pending practice has been kept.",
+            );
+          // A matching in-flight receipt belongs to this exact original-owner row,
+          // even if access was revoked while the write was on the wire.
+          await acknowledgeGymEvent(item.key);
+        }
+        const remaining = await pendingGymEvents(owner);
+        if (!isCurrent()) return;
         setStatus(
           storageFailure.current ??
             (remaining.length
@@ -116,41 +182,38 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
                 ? "Saved to profile"
                 : "Profile connected"),
         );
-      delay.current = 2000;
-    } catch (e) {
-      if (
-        e &&
-        typeof e === "object" &&
-        "code" in e &&
-        e.code === "PROFILE_CHANGED"
-      ) {
-        current.current = null;
-        setIdentity(null);
-        setPage(null);
-        setDetail(null);
-      }
-      if (alive.current) {
+        delay.current = 2000;
+      } catch (e) {
+        if (!isCurrent()) return;
+        if (historyAccessDenied(e)) {
+          deny(owner);
+          return;
+        }
         setStatus(e instanceof Error ? e.message : "Waiting to sync");
         if (retryTimer.current) clearTimeout(retryTimer.current);
         retryTimer.current = setTimeout(() => {
           retryTimer.current = null;
-          void flushRef.current();
+          if (isCurrent()) void flushRef.current();
         }, delay.current);
         delay.current = Math.min(delay.current * 2, 60000);
+      } finally {
+        if (isCurrent() && !retryTimer.current) {
+          retryTimer.current = setTimeout(() => {
+            retryTimer.current = null;
+            void pendingGymEvents(owner)
+              .then((rows) => {
+                if (isCurrent() && rows.length) void flushRef.current();
+              })
+              .catch(() => {});
+          }, 2000);
+        }
       }
-    } finally {
-      syncing.current = false;
-      if (alive.current && current.current === owner && !retryTimer.current) {
-        retryTimer.current = setTimeout(() => {
-          retryTimer.current = null;
-          void pendingGymEvents(owner)
-            .then((rows) => {
-              if (rows.length) void flushRef.current();
-            })
-            .catch(() => {});
-        }, 2000);
-      }
-    }
+    })();
+    syncing.current = work;
+    void work.finally(() => {
+      if (syncing.current === work) syncing.current = null;
+    });
+    return work;
   }
   async function connect() {
     // Only initial connection failures can reconnect in place. Once practice
@@ -159,6 +222,7 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
       !enabled ||
       !alive.current ||
       connected.current ||
+      accessDenied.current ||
       connecting.current !== null
     )
       return;
@@ -172,6 +236,10 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
         "/api/auth/session",
       );
       if (!isCurrent()) return;
+      if (!validGymAuth(auth))
+        throw new Error(
+          "Profile connection returned an invalid response. Please retry.",
+        );
       if (!auth.user)
         throw new Error(
           "Sign in through Games to save practice to your profile.",
@@ -181,12 +249,17 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
         auth.user.id,
       );
       if (!isCurrent()) return;
+      if (!validHistory(result)) throw historyServiceFailure();
       // A delayed history response must not expose the previous account's
       // history or flush its pending saves after the browser session changes.
       const latest = await response<{ user: { id: string } | null }>(
         "/api/auth/session",
       );
       if (!isCurrent()) return;
+      if (!validGymAuth(latest))
+        throw new Error(
+          "Profile connection returned an invalid response. Please retry.",
+        );
       if (
         latest.user?.id !== auth.user.id ||
         result.identity.userId !== auth.user.id
@@ -197,12 +270,16 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
       connected.current = true;
       current.current = result.identity;
       setIdentity(result.identity);
-      setPage(result);
+      setPracticeOwner(result.identity);
       setConnectionState("complete");
       setStatus("Profile connected");
       await flushRef.current();
     } catch (e) {
       if (isCurrent()) {
+        if (historyAccessDenied(e)) {
+          deny(null);
+          return;
+        }
         setConnectionState("failed");
         setStatus(
           e instanceof Error
@@ -215,6 +292,7 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     }
   }
   async function retry() {
+    if (!enabled || accessDenied.current) return;
     if (current.current) await flushRef.current();
     else await connect();
   }
@@ -224,7 +302,14 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
   });
   useEffect(() => {
     alive.current = true;
-    if (!enabled) return;
+    if (!enabled) {
+      if (connected.current) deny(null);
+      current.current = null;
+      invalidateRead();
+      return () => {
+        alive.current = false;
+      };
+    }
     void retryRef.current();
     const retry = () => void retryRef.current();
     window.addEventListener("online", retry);
@@ -232,14 +317,16 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     return () => {
       alive.current = false;
       generation.current += 1;
+      invalidateAccess();
+      invalidateRead();
       connecting.current = null;
-      connected.current = false;
+      // Preserve the explicit reload policy once an owner was established.
       current.current = null;
       if (retryTimer.current) clearTimeout(retryTimer.current);
       window.removeEventListener("online", retry);
       window.removeEventListener("focus", retry);
     };
-  }, [enabled]);
+  }, [enabled, deny, invalidateRead]);
   function start(puzzle: Puzzle) {
     if (!enabled || !current.current) {
       session.current = null;
@@ -248,6 +335,7 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
     storageFailure.current = null;
     session.current = {
       id: crypto.randomUUID(),
+      owner: current.current,
       puzzle,
       sequence: 0,
       live: false,
@@ -257,7 +345,15 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
   function record(payload: GymEventPayload): string | null {
     const owner = current.current,
       s = session.current;
-    if (!owner || !s || s.failed) return null;
+    if (
+      !enabled ||
+      accessDenied.current ||
+      !owner ||
+      !s ||
+      !sameGymOwner(owner, s.owner) ||
+      s.failed
+    )
+      return null;
     if (payload.type === "live-coaching") {
       if (s.live) return null;
       s.live = true;
@@ -288,12 +384,21 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
       if (s.failed) return;
       try {
         await queueGymEvent(owner, data);
-        if (alive.current) setStatus("Waiting to sync");
+        if (
+          alive.current &&
+          !accessDenied.current &&
+          sameGymOwner(current.current, owner)
+        )
+          setStatus("Waiting to sync");
       } catch {
         s.failed = true;
         storageFailure.current =
           "Practice could not be saved on this device. This session is not recoverable after refresh.";
-        if (alive.current)
+        if (
+          alive.current &&
+          !accessDenied.current &&
+          sameGymOwner(current.current, owner)
+        )
           setStatus(
             "Practice could not be saved on this device. Keep this page open; this session is not recoverable after refresh.",
           );
@@ -312,63 +417,106 @@ export function useGymHistory(enabled: boolean, referenceWords: string[] = []) {
       .catch(() => {});
     return data.event.id;
   }
-  async function history(cursor?: string) {
+  async function navigate(target: HistoryTarget) {
+    // Allocate the intent before any durable-write prerequisites can suspend.
+    invalidateRead();
+    const version = readGeneration.current;
+    const access = accessGeneration.current;
     const owner = current.current;
-    if (!owner) return;
-    setLoading(true);
+    if (!enabled || !owner || accessDenied.current) return;
+    const controller = new AbortController();
+    readAbort.current = controller;
+    const isCurrent = () =>
+      alive.current &&
+      readGeneration.current === version &&
+      accessGeneration.current === access &&
+      sameGymOwner(current.current, owner) &&
+      !accessDenied.current;
+    const retained = retainedHistory(readSnapshot.current);
+    updateRead({
+      kind: "loading",
+      target,
+      retained:
+        retained && sameGymOwner(retained.owner, owner) ? retained : null,
+    });
     try {
-      await writing.current;
-      await flushRef.current();
-      const result = await response<GymHistory>(
-        `/api/family/gym${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      if (target.kind === "list") {
+        await writing.current;
+        if (!isCurrent()) return;
+        await flushRef.current();
+        if (!isCurrent()) return;
+      }
+      const params = new URLSearchParams({
+        ownerFamilyId: owner.familyId,
+        ownerPlayerId: owner.playerId,
+      });
+      if (target.kind === "list" && target.cursor)
+        params.set("cursor", target.cursor);
+      if (target.kind === "detail") params.set("sessionId", target.id);
+      if (!isCurrent()) return;
+      const result = await response<unknown>(
+        `/api/family/gym?${params}`,
         owner.userId,
+        undefined,
+        controller.signal,
       );
-      if (alive.current && current.current === owner) {
-        if (result.identity.playerId !== owner.playerId) {
-          current.current = null;
-          setIdentity(null);
-          setPage(null);
-          setDetail(null);
-          throw new Error("Your profile changed. Reload to reconnect.");
+      if (!isCurrent()) return;
+      if (target.kind === "list") {
+        if (!validHistory(result)) throw historyServiceFailure();
+        if (!sameGymOwner(result.identity, owner)) {
+          deny(owner);
+          return;
         }
-        setPage(result);
-        setDetail(null);
+        updateRead({ kind: "list", owner, page: result });
+      } else {
+        if (!validHistoryDetail(result, target.id))
+          throw historyServiceFailure();
+        updateRead({ kind: "detail", owner, detail: result });
       }
     } catch (e) {
-      if (alive.current)
-        setStatus(e instanceof Error ? e.message : "History unavailable.");
+      if (!isCurrent()) return;
+      if (historyAccessDenied(e)) {
+        deny(owner);
+        return;
+      }
+      updateRead({
+        kind: "failed",
+        target,
+        retained: retainedHistory(readSnapshot.current),
+        message:
+          e instanceof Error ? e.message : "History unavailable. Please retry.",
+      });
     } finally {
-      if (alive.current) setLoading(false);
+      // Loading belongs to the tagged intent. An older completion cannot clear it.
+      if (isCurrent()) readAbort.current = null;
     }
   }
-  async function review(id: string) {
-    const owner = current.current;
-    if (!owner) return;
-    setLoading(true);
-    try {
-      const result = await response<GymSessionDetail>(
-        `/api/family/gym?sessionId=${encodeURIComponent(id)}`,
-        owner.userId,
-      );
-      if (alive.current && current.current === owner) setDetail(result);
-    } catch (e) {
-      if (alive.current)
-        setStatus(e instanceof Error ? e.message : "Practice unavailable.");
-    } finally {
-      if (alive.current) setLoading(false);
-    }
+  function close() {
+    invalidateRead();
+    updateRead(
+      accessDenied.current
+        ? { kind: "denied", message: denialMessage }
+        : { kind: "closed" },
+    );
   }
   return {
-    identity,
+    identity: enabled && !denied ? identity : null,
+    practiceOwner,
+    getOwner,
+    denied,
+    readState: enabled ? readState : ({ kind: "closed" } as GymReadState),
+    close,
+    retryHistory: () => {
+      const state = readSnapshot.current;
+      if (state.kind === "failed") void navigate(state.target);
+    },
     status,
-    page,
-    detail,
-    loading,
     start,
     record,
-    history,
-    review,
-    canRetry: connectionState === "failed" || !!identity,
+    history: (cursor?: string) => navigate({ kind: "list", cursor }),
+    review: (id: string) => navigate({ kind: "detail", id }),
+    canRetry:
+      enabled && !denied && (connectionState === "failed" || !!identity),
     retry: () => void retryRef.current(),
   };
 }

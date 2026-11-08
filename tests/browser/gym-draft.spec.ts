@@ -157,6 +157,10 @@ test("a stalled draft save preserves the board and lets Back to Games finish", a
   await page
     .getByRole("button", { name: "Back to Games", exact: true })
     .click();
+  await expect(
+    page.getByText("Practice saved on this device.", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toContainText("when saving succeeds");
   await page
     .getByRole("button", { name: "Leave practice", exact: true })
     .click();

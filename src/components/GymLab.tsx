@@ -84,18 +84,27 @@ export function GymLab({
     profileHistory,
     words.map((entry) => entry.word),
   );
+  const getHistoryOwner = historySync.getOwner;
   const catalogUserId = historySync.identity?.userId;
+  const catalogOwner = historySync.identity
+    ? gymDraftKey(historySync.identity)
+    : null;
   useUsageTracking(profileHistory ? catalogUserId : undefined, "gym");
-  const lookupOwner = useRef(catalogUserId);
+  const lookupOwner = useRef(catalogOwner);
   useEffect(() => {
-    lookupOwner.current = catalogUserId;
-  }, [catalogUserId]);
+    lookupOwner.current = catalogOwner;
+  }, [catalogOwner]);
   useEffect(() => {
     if (profileHistory && !catalogUserId) return;
     let cancelled = false;
     void gymWordCatalog(profileHistory ? catalogUserId : undefined).then(
       (entries) => {
-        if (cancelled) return;
+        if (
+          cancelled ||
+          (profileHistory &&
+            gymDraftKey(getHistoryOwner() ?? undefined) !== catalogOwner)
+        )
+          return;
         setWords(entries);
         setCatalog(entries);
         setCatalogLoaded(true);
@@ -113,7 +122,13 @@ export function GymLab({
     return () => {
       cancelled = true;
     };
-  }, [profileHistory, catalogUserId, catalogRetry]);
+  }, [
+    profileHistory,
+    catalogUserId,
+    catalogOwner,
+    catalogRetry,
+    getHistoryOwner,
+  ]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const savedAttempt = useRef<string | null>(null);
   const [ready, setReady] = useState<Ready | null>(null);
@@ -273,12 +288,15 @@ export function GymLab({
       dragViewport.current?.stop();
     };
   }, [gestureCancel]);
-  const recoveryKey = profileHistory
-    ? historySync.identity
-      ? gymDraftKey(historySync.identity)
-      : null
-    : gymDraftKey();
   const [draftOwner, setDraftOwner] = useState<string | null>(null);
+  const recoveryKey =
+    ready && draftOwner
+      ? draftOwner
+      : historySync.practiceOwner
+        ? gymDraftKey(historySync.practiceOwner)
+        : profileHistory
+          ? null
+          : gymDraftKey();
   const recovery = useGymDraft(
     recoveryKey,
     ready && draftOwner === recoveryKey
@@ -730,14 +748,19 @@ export function GymLab({
     request({ type: "generate", seed, words: catalog });
   }
   async function saveLookup(entries: VerifiedWord[]) {
-    const owner = lookupOwner.current;
+    const owner = getHistoryOwner();
+    const ownerKey = owner ? gymDraftKey(owner) : null;
     if (profileHistory && !owner)
       throw new Error("Reconnect your profile before saving words.");
     const saved = await gymWordCatalog(
-      profileHistory ? owner : undefined,
+      profileHistory ? owner?.userId : undefined,
       entries,
     );
-    if (profileHistory && lookupOwner.current !== owner)
+    if (
+      profileHistory &&
+      (lookupOwner.current !== ownerKey ||
+        gymDraftKey(getHistoryOwner() ?? undefined) !== ownerKey)
+    )
       throw new Error("Your account changed. Reload before continuing.");
     setCatalog(saved);
     if (
@@ -1130,7 +1153,7 @@ export function GymLab({
                 setHistoryOpen(true);
                 void historySync.history();
               }}
-              disabled={!historySync.identity}
+              disabled={!historySync.identity && !historySync.denied}
             >
               My practice history
             </button>
@@ -2034,12 +2057,14 @@ export function GymLab({
         {historyOpen && (
           <Modal
             title="My practice history"
-            onClose={() => setHistoryOpen(false)}
+            onClose={() => {
+              historySync.close();
+              setHistoryOpen(false);
+            }}
           >
             <GymHistory
-              page={historySync.page}
-              detail={historySync.detail}
-              loading={historySync.loading}
+              state={historySync.readState}
+              onRetry={historySync.retryHistory}
               onReview={(id) => void historySync.review(id)}
               onPage={(cursor) => void historySync.history(cursor)}
             />
@@ -2182,14 +2207,15 @@ export function GymLab({
             </div>
           </Modal>
         )}
-        {officialQuery !== null && (
-          <OfficialWordSearch
-            initialQuery={officialQuery}
-            storageScope={profileHistory ? "family" : "device"}
-            onSave={saveLookup}
-            onClose={() => setOfficialQuery(null)}
-          />
-        )}
+        {officialQuery !== null &&
+          (!profileHistory || historySync.identity) && (
+            <OfficialWordSearch
+              initialQuery={officialQuery}
+              storageScope={profileHistory ? "family" : "device"}
+              onSave={saveLookup}
+              onClose={() => setOfficialQuery(null)}
+            />
+          )}
         {help && (
           <Modal title="How to play" onClose={() => setHelp(false)}>
             <ol>
@@ -2213,10 +2239,13 @@ export function GymLab({
             </ol>
             <p>
               {profileHistory
-                ? "Practice attempts and help are saved to your linked profile. Check the sync status before leaving; unfinished tile layouts are not restored after refresh."
-                : "This standalone preview does not save practice history. Refresh clears the puzzle."}{" "}
-              Shared word lookup and full-game strategy coaching are still
-              planned; current strategy feedback uses short-horizon estimates.
+                ? "Practice attempts and help sync to your linked profile. Check the sync status before leaving; pending attempts stay on this device until synced."
+                : "This standalone preview keeps unfinished practice on this device and does not sync profile history."}{" "}
+              Unfinished puzzles, tile layouts and rack order can be resumed
+              after refresh only after “Practice saved on this device” appears.
+              Word lookup is available now; verified additions are saved to your
+              word list. Current strategy feedback uses short-horizon estimates;
+              full-game strategy coaching is planned.
             </p>
           </Modal>
         )}
