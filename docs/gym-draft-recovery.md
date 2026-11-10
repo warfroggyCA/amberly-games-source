@@ -11,3 +11,5 @@ Local preview and signed-in family/user/player identities use separate keys. Rec
 Profile history remains immutable. Restoring begins a separately identified history segment with an explicit `resume` event; subsequent attempts are assisted, even if an earlier segment never synced. Existing segments/outbox records are untouched. This avoids reusing an interrupted event sequence or claiming fresh independent success. History labels the resumed segment. This is not cross-device draft handoff or an independent-success metrics feature.
 
 Validation covers assigned blanks, duplicate tile/coordinate rejection, profile key separation, reload of placements/hints/Solve/undo, blocked or unresponsive storage, late-opening cleanup and concurrent tabs. Publisher lookup tests also cover generating fresh practice after a saved draft exists. Database tests verify resumed attempts cannot gain unassisted credit. Physical-device acceptance remains separate from browser WebKit coverage.
+
+See [history navigation and access recovery](gym-history-recovery.md) for denied profile reads, explicit reconnection, stale request handling and original-owner outbox receipts.
