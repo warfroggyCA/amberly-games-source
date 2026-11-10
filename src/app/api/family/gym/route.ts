@@ -28,6 +28,13 @@ async function handle(request: Request, write: boolean) {
     const repo = getGymRepository(),
       familyId = configuredFamilyId();
     const params = new URL(request.url).searchParams;
+    const ownerFamilyId = params.get("ownerFamilyId") ?? undefined,
+      ownerPlayerId = params.get("ownerPlayerId") ?? undefined;
+    if (
+      !write &&
+      ((ownerFamilyId?.length ?? 0) > 120 || (ownerPlayerId?.length ?? 0) > 120)
+    )
+      throw new HttpError(400, "Invalid practice owner.");
     const sessionId = params.get("sessionId") ?? undefined,
       cursor = params.get("cursor") ?? undefined;
     if ((cursor?.length ?? 0) > 600 || (sessionId?.length ?? 0) > 36)
@@ -35,7 +42,12 @@ async function handle(request: Request, write: boolean) {
     return context.json(
       write
         ? await repo.append(actor, familyId, input)
-        : await repo.read(actor, familyId, { sessionId, cursor }),
+        : await repo.read(actor, familyId, {
+            sessionId,
+            cursor,
+            ownerFamilyId,
+            ownerPlayerId,
+          }),
     );
   } catch (error) {
     return repositoryFailure(error, context);

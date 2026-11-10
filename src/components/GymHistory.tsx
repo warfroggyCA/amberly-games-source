@@ -1,4 +1,8 @@
 "use client";
+import {
+  retainedHistory,
+  type GymReadState,
+} from "../lib/gym-history-read-state";
 import { premiumAt, LETTER_VALUES } from "../domain/board";
 import type {
   GymHistory as History,
@@ -117,7 +121,7 @@ function Progress({ progress }: { progress: GymProgress }) {
   );
 }
 
-export function GymHistory({
+function HistoryContent({
   page,
   detail,
   loading,
@@ -133,11 +137,7 @@ export function GymHistory({
   if (detail)
     return (
       <section aria-label="Saved practice review">
-        <button
-          className="button light"
-          onClick={() => onPage()}
-          disabled={loading}
-        >
+        <button className="button light" onClick={() => onPage()}>
           Back to practice history
         </button>
         <p>
@@ -256,7 +256,7 @@ export function GymHistory({
             <li key={s.id}>
               <button
                 className="text-button"
-                disabled={loading}
+
                 onClick={() => onReview(s.id)}
               >
                 {new Date(s.createdAt).toLocaleString()} · {s.attempts} attempt
@@ -274,17 +274,13 @@ export function GymHistory({
         </ul>
       )}
       <div className="gym-header-actions">
-        <button
-          className="button light"
-          onClick={() => onPage()}
-          disabled={loading}
-        >
+        <button className="button light" onClick={() => onPage()}>
           Refresh history
         </button>
         {page?.nextCursor && (
           <button
             className="button light"
-            disabled={loading}
+
             onClick={() => onPage(page.nextCursor!)}
           >
             Older practice
@@ -292,5 +288,66 @@ export function GymHistory({
         )}
       </div>
     </section>
+  );
+}
+
+export function GymHistory({
+  state,
+  onReview,
+  onPage,
+  onRetry,
+}: {
+  state: GymReadState;
+  onReview: (id: string) => void;
+  onPage: (cursor?: string) => void;
+  onRetry: () => void;
+}) {
+  if (state.kind === "denied")
+    return (
+      <section aria-label="Practice history access">
+        <p role="alert">{state.message}</p>
+        <button
+          className="button light"
+          onClick={() => window.location.reload()}
+        >
+          Reload to reconnect
+        </button>
+      </section>
+    );
+  const content = retainedHistory(state);
+  return (
+    <div aria-busy={state.kind === "loading"}>
+      {state.kind === "loading" && (
+        <p role="status">
+          {state.target.kind === "detail"
+            ? "Loading saved practice review…"
+            : "Loading practice history and progress…"}
+        </p>
+      )}
+      {state.kind === "failed" && (
+        <p role="alert">
+          {state.message}{" "}
+          <button className="button light" onClick={onRetry}>
+            Retry history
+          </button>
+        </p>
+      )}
+      {content && (state.kind === "loading" || state.kind === "failed") && (
+        <p>Previously loaded history · may be out of date.</p>
+      )}
+      {content ? (
+        <HistoryContent
+          page={content.kind === "list" ? content.page : null}
+          detail={content.kind === "detail" ? content.detail : null}
+          loading={state.kind === "loading"}
+          onReview={onReview}
+          onPage={onPage}
+        />
+      ) : state.kind === "loading" || state.kind === "failed" ? (
+        <button className="button light" onClick={() => onPage()}>
+          Back to practice history
+        </button>
+      ) : null}
+    </div>
   );
 }

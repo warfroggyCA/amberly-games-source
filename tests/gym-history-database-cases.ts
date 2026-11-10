@@ -62,6 +62,32 @@ export function gymHistoryDatabaseCases(
       });
       return { familyId, actor, other, repo, write, sessionId };
     }
+    it("rejects a changed family or linked profile for list and detail reads", async () => {
+      const f = await fixture();
+      await f.repo.append(
+        f.actor,
+        f.familyId,
+        f.write(1, { type: "hint", level: 1 }),
+      );
+      for (const sessionId of [undefined, f.sessionId]) {
+        for (const expected of [
+          { ownerFamilyId: randomUUID(), ownerPlayerId: "one" },
+          { ownerFamilyId: f.familyId, ownerPlayerId: "two" },
+        ])
+          await expect(
+            f.repo.read(f.actor, f.familyId, { sessionId, ...expected }),
+          ).rejects.toMatchObject({ code: "PROFILE_CHANGED", status: 403 });
+      }
+      await owner`insert into scrabble.players(family_id,id,name) values(${f.familyId}::uuid,'three','Three')`;
+      await owner`update scrabble.memberships set player_id='three' where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
+      await expect(
+        f.repo.read(f.actor, f.familyId, {
+          sessionId: f.sessionId,
+          ownerFamilyId: f.familyId,
+          ownerPlayerId: "one",
+        }),
+      ).rejects.toMatchObject({ code: "PROFILE_CHANGED", status: 403 });
+    });
     it("reports zero progress without treating an empty denominator as failure", async () => {
       const f = await fixture();
       const history = (await f.repo.read(f.actor, f.familyId)) as GymHistory;
@@ -360,7 +386,8 @@ export function gymHistoryDatabaseCases(
         code: "NO_PROFILE",
       });
       await owner`update scrabble.memberships set player_id=null where family_id=${f.familyId}::uuid and user_id=${f.other.userId}::uuid`;
-      await owner`update scrabble.memberships set player_id='two' where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
+      await owner`insert into scrabble.players(family_id,id,name) values(${f.familyId}::uuid,'three','Three')`;
+      await owner`update scrabble.memberships set player_id='three' where family_id=${f.familyId}::uuid and user_id=${f.actor.userId}::uuid`;
       await expect(
         f.repo.append(f.actor, f.familyId, f.write(1, move)),
       ).rejects.toMatchObject({ code: "PROFILE_CHANGED" });

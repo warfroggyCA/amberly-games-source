@@ -98,7 +98,12 @@ export function createGymRepository(
   async function read(
     actor: VerifiedActor,
     familyId: string,
-    query: { sessionId?: string; cursor?: string } = {},
+    query: {
+      sessionId?: string;
+      cursor?: string;
+      ownerFamilyId?: string;
+      ownerPlayerId?: string;
+    } = {},
   ): Promise<GymHistory | GymSessionDetail> {
     if (query.sessionId && !gymId(query.sessionId))
       fail("INVALID_ID", "Invalid practice reference.");
@@ -119,6 +124,17 @@ export function createGymRepository(
       }
     }
     return transaction(actor, familyId, false, async (tx, identity) => {
+      if (
+        (query.ownerFamilyId !== undefined &&
+          query.ownerFamilyId !== identity.familyId) ||
+        (query.ownerPlayerId !== undefined &&
+          query.ownerPlayerId !== identity.playerId)
+      )
+        fail(
+          "PROFILE_CHANGED",
+          "Your profile changed. Reload to reconnect.",
+          403,
+        );
       const player = identity.playerId;
       if (query.sessionId) {
         const [session] =
